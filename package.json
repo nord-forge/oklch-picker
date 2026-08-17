@@ -69,6 +69,6 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/NickBevers/oklch-picker.git"
+    "url": "git+https://github.com/nord-forge/oklch-picker.git"
   }
 }
