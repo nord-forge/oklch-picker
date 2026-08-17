@@ -5,7 +5,7 @@
 
 # oklch-picker
 
-An OKLCH colour picker for React and Preact. Zero runtime dependencies, ~3 kB gzipped.
+An OKLCH colour picker for React and Preact. Zero runtime dependencies; the component is ~4.8 kB gzipped, and the colour maths alone is ~2.5 kB.
 
 Every axis is a slider over a **gamut cross-section** — the filled silhouette is the range sRGB can actually show, so the reachable colours are visible instead of something you discover by dragging into a region that does nothing.
 

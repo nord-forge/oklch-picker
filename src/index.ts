@@ -19,4 +19,4 @@ export {
   parseOklch,
   toOklch,
 } from "./colour.js";
-export type { GamutColumn, Oklch } from "./colour.js";
+export type { Axis, GamutColumn, Oklch } from "./colour.js";

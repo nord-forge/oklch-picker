@@ -12,6 +12,8 @@ export interface Oklch {
   h: number; // 0..360 degrees
 }
 
+export type Axis = "l" | "c" | "h";
+
 /** Chroma high enough that no sRGB colour reaches it — the slider's upper end. */
 export const MAX_CHROMA = 0.37;
 
@@ -62,17 +64,23 @@ export function inGamut(colour: Oklch): boolean {
   return oklchToLinearRgb(colour).every((v) => v >= -eps && v <= 1 + eps);
 }
 
+/** Highest chroma <= hi that fits sRGB at this lightness and hue. Chroma is
+ * monotonic for gamut membership at fixed L and H, so bisect. */
+function bisectChroma(l: number, h: number, upper: number): number {
+  let lo = 0;
+  let hi = upper;
+  for (let i = 0; i < 20; i++) {
+    const mid = (lo + hi) / 2;
+    if (inGamut({ l, c: mid, h })) lo = mid;
+    else hi = mid;
+  }
+  return lo;
+}
+
 /** Reduce chroma until the colour fits sRGB, keeping lightness and hue. */
 export function clampToGamut(colour: Oklch): Oklch {
   if (inGamut(colour)) return colour;
-  let lo = 0;
-  let hi = colour.c;
-  for (let i = 0; i < 20; i++) {
-    const mid = (lo + hi) / 2;
-    if (inGamut({ ...colour, c: mid })) lo = mid;
-    else hi = mid;
-  }
-  return { ...colour, c: lo };
+  return { ...colour, c: bisectChroma(colour.l, colour.h, colour.c) };
 }
 
 /** OKLCH -> `#rrggbb`. Out-of-gamut colours are clamped first. */
@@ -90,16 +98,10 @@ export function hexToOklch(hex: string): Oklch | null {
   const m = hex.trim().match(/^#?([0-9a-f]{3}|[0-9a-f]{6})$/i);
   if (!m) return null;
   const raw = m[1] as string;
-  const full =
-    raw.length === 3
-      ? raw
-          .split("")
-          .map((ch) => ch + ch)
-          .join("")
-      : raw;
-  const r = srgbToLinear(Number.parseInt(full.slice(0, 2), 16) / 255);
-  const g = srgbToLinear(Number.parseInt(full.slice(2, 4), 16) / 255);
-  const b = srgbToLinear(Number.parseInt(full.slice(4, 6), 16) / 255);
+  const full = raw.length === 3 ? raw.replace(/./g, "$&$&") : raw;
+  const [r, g, b] = [0, 2, 4].map((i) =>
+    srgbToLinear(Number.parseInt(full.slice(i, i + 2), 16) / 255),
+  ) as [number, number, number];
 
   const l_ = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
   const m_ = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
@@ -127,15 +129,7 @@ export function maxChroma(l: number, h: number): number {
   // Near black, inGamut's tolerance accepts chroma that is not representable,
   // which drew a phantom peak on the chart. The true limit here is ~0.
   if (l <= 0.06) return 0;
-  let lo = 0;
-  let hi = MAX_CHROMA;
-  // Chroma is monotonic for gamut membership at fixed L and H, so bisect.
-  for (let i = 0; i < 20; i++) {
-    const mid = (lo + hi) / 2;
-    if (inGamut({ l, c: mid, h })) lo = mid;
-    else hi = mid;
-  }
-  return lo;
+  return bisectChroma(l, h, MAX_CHROMA);
 }
 
 /** One column of a gamut chart: where along the axis, and how far it reaches. */
@@ -149,7 +143,7 @@ export interface GamutColumn {
 }
 
 /** Cross-section of the sRGB gamut along one axis — the silhouette above each slider. */
-export function gamutCurve(base: Oklch, axis: "l" | "c" | "h", columns = 64): GamutColumn[] {
+export function gamutCurve(base: Oklch, axis: Axis, columns = 64): GamutColumn[] {
   const out: GamutColumn[] = [];
   for (let i = 0; i <= columns; i++) {
     const t = i / columns;

@@ -20,12 +20,15 @@
      by half a thumb at the extremes. */
   --okp-inset: calc(var(--okp-thumb-size) / 2);
 
-  --okp-text: #1a1a1a;
-  --okp-text-muted: #6b6b6b;
-  --okp-line: #d8d8d8;
-  --okp-surface: #ffffff;
-  --okp-warn: #9a6b00;
-  --okp-focus: #2f6fd0;
+  /* Both palettes in one place: light-dark() resolves per the colour scheme,
+     which follows the system by default. */
+  color-scheme: light dark;
+  --okp-text: light-dark(#1a1a1a, #f2f1ef);
+  --okp-text-muted: light-dark(#6b6b6b, #a0a0a0);
+  --okp-line: light-dark(#d8d8d8, #3a3a3d);
+  --okp-surface: light-dark(#ffffff, #141416);
+  --okp-warn: light-dark(#9a6b00, #e0b050);
+  --okp-focus: light-dark(#2f6fd0, #7fb0ff);
 
   display: flex;
   flex-direction: column;
@@ -34,26 +37,12 @@
   font-family: inherit;
 }
 
-/* Dark by system preference, unless a light theme is pinned explicitly. */
-@media (prefers-color-scheme: dark) {
-  .oklch-picker:not([data-theme="light"]) {
-    --okp-text: #f2f1ef;
-    --okp-text-muted: #a0a0a0;
-    --okp-line: #3a3a3d;
-    --okp-surface: #141416;
-    --okp-warn: #e0b050;
-    --okp-focus: #7fb0ff;
-  }
+/* `data-theme` pins a scheme in both directions, for apps with their own toggle. */
+.oklch-picker[data-theme="light"] {
+  color-scheme: light;
 }
-
-/* `data-theme` wins in both directions, for apps with their own toggle. */
 .oklch-picker[data-theme="dark"] {
-  --okp-text: #f2f1ef;
-  --okp-text-muted: #a0a0a0;
-  --okp-line: #3a3a3d;
-  --okp-surface: #141416;
-  --okp-warn: #e0b050;
-  --okp-focus: #7fb0ff;
+  color-scheme: dark;
 }
 
 /* ---- Presets ---- */

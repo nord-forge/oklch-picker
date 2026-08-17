@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { GamutChart } from "./GamutChart.js";
 import {
+  type Axis,
   type Oklch,
   clampToGamut,
   colourName,
@@ -13,41 +14,7 @@ import {
   oklchToHex,
   toOklch,
 } from "./colour.js";
-
-function atPosition(base: Oklch, axis: Axis, t: number, max: number): Oklch {
-  if (axis === "l") return { ...base, l: t };
-  if (axis === "c") return { ...base, c: t * max };
-  return { ...base, h: t * 360 };
-}
-
-function trackGradient(base: Oklch, axis: Axis, max: number): string {
-  const steps = axis === "h" ? 24 : 16;
-  const stops: string[] = [];
-  for (let i = 0; i <= steps; i++) {
-    stops.push(oklchToHex(clampToGamut(atPosition(base, axis, i / steps, max))));
-  }
-  return `linear-gradient(to right, ${stops.join(",")})`;
-}
-
-/** Every out-of-gamut run, as 0..1 fractions — an axis can be unreachable at both ends. */
-function outOfGamutSpans(base: Oklch, axis: Axis, max: number) {
-  const steps = 64;
-  const spans: Array<{ start: number; end: number }> = [];
-  let run: number | null = null;
-  for (let i = 0; i <= steps; i++) {
-    const t = i / steps;
-    const bad = !inGamut(atPosition(base, axis, t, max));
-    if (bad && run === null) run = t;
-    if (!bad && run !== null) {
-      spans.push({ start: run, end: t });
-      run = null;
-    }
-  }
-  if (run !== null) spans.push({ start: run, end: 1 });
-  return spans;
-}
-
-type Axis = "l" | "c" | "h";
+import { DEFAULT_LABELS, axisModels, outOfGamutSpans, trackGradient } from "./model.js";
 
 export interface ColourPickerProps {
   /** `oklch(L C H)` or hex. */
@@ -67,13 +34,6 @@ export interface ColourPickerProps {
   classPrefix?: string;
   className?: string;
 }
-
-const DEFAULT_LABELS: Record<Axis | "outOfGamut", string> = {
-  l: "Lightness",
-  c: "Chroma",
-  h: "Hue",
-  outOfGamut: "Outside what a screen can display — the nearest colour is used.",
-};
 
 export function ColourPicker(props: ColourPickerProps) {
   const prefix = props.classPrefix ?? "oklch-picker";
@@ -99,16 +59,15 @@ export function ColourPicker(props: ColourPickerProps) {
     setDraft(null);
     props.onChange(colour);
   };
+  // Handlers are bound to both onInput and onChange — React fires the latter,
+  // Preact the former. Each pair shares one function.
+  const editHex = (e: { target: EventTarget | null }) => {
+    const parsed = hexToOklch((e.target as HTMLInputElement).value);
+    if (parsed) emit(parsed);
+  };
 
-  // A fixed max is up to 87% dead travel at low lightness.
   const reachable = maxChroma(current.l, current.h);
-  const chromaMax = Math.max(0.02, Math.ceil(reachable * 100) / 100);
-
-  const axes: Array<{ key: Axis; min: number; max: number; step: number; value: number }> = [
-    { key: "l", min: 0, max: 1, step: 0.01, value: current.l },
-    { key: "c", min: 0, max: chromaMax, step: 0.005, value: Math.min(current.c, chromaMax) },
-    { key: "h", min: 0, max: 360, step: 1, value: current.h },
-  ];
+  const axes = axisModels(current, reachable);
 
   return (
     <div className={[prefix, props.className].filter(Boolean).join(" ")}>
@@ -135,6 +94,8 @@ export function ColourPicker(props: ColourPickerProps) {
         const spans = outOfGamutSpans(current, a.key, a.max);
         // The chroma chart is plotted against hue.
         const position = a.key === "l" ? current.l : current.h / 360;
+        const slide = (e: { target: EventTarget | null }) =>
+          emit({ ...current, [a.key]: Number((e.target as HTMLInputElement).value) });
         // A div, not a label — the slider has its own aria-label.
         return (
           <div key={a.key} className={`${prefix}__axis`}>
@@ -179,12 +140,8 @@ export function ColourPicker(props: ColourPickerProps) {
                 step={a.step}
                 value={a.value}
                 aria-label={labels[a.key]}
-                onInput={(e) =>
-                  emit({ ...current, [a.key]: Number((e.target as HTMLInputElement).value) })
-                }
-                onChange={(e) =>
-                  emit({ ...current, [a.key]: Number((e.target as HTMLInputElement).value) })
-                }
+                onInput={slide}
+                onChange={slide}
               />
             </span>
           </div>
@@ -204,14 +161,8 @@ export function ColourPicker(props: ColourPickerProps) {
               value={hex}
               spellCheck={false}
               aria-label="Hex colour"
-              onInput={(e) => {
-                const parsed = hexToOklch((e.target as HTMLInputElement).value);
-                if (parsed) emit(parsed);
-              }}
-              onChange={(e) => {
-                const parsed = hexToOklch((e.target as HTMLInputElement).value);
-                if (parsed) emit(parsed);
-              }}
+              onInput={editHex}
+              onChange={editHex}
             />
           )}
           {props.readout !== false && (
