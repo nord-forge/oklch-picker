@@ -68,6 +68,15 @@ export function Example() {
 <ColourPicker value={colour} onChange={setColour} layout="compact" />
 ```
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/nord-forge/oklch-picker/main/docs/media/compact-dark.png">
+  <img src="https://raw.githubusercontent.com/nord-forge/oklch-picker/main/docs/media/compact-light.png" alt="The compact layout: three thin sliders with single-letter labels" width="288">
+</picture>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/nord-forge/oklch-picker/main/docs/media/side-by-side-dark.png">
+  <img src="https://raw.githubusercontent.com/nord-forge/oklch-picker/main/docs/media/side-by-side-light.png" alt="The side-by-side layout: sliders on the left, preview and presets in a right rail" width="468">
+</picture>
+
 ### Hiding parts
 
 Everything except the sliders is optional:

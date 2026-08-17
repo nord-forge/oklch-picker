@@ -47,7 +47,10 @@ function spans(base, axis, max) {
   return out;
 }
 
-function picker(value, presets) {
+let instance = 0;
+function picker(value, presets, layout = "stacked") {
+  const id = instance++;
+  const compact = layout === "compact";
   const cur = toOklch(value);
   const hex = oklchToHex(cur);
   const canonical = formatOklch(clampToGamut(cur));
@@ -66,16 +69,16 @@ function picker(value, presets) {
     const hatch = spans(cur, a.key, a.max)
       .map(([s,e]) => `<span class="${P}__out-of-gamut" style="left:${s*100}%;width:${(e-s)*100}%"></span>`).join("");
     return `<div class="${P}__axis">
-      <span class="${P}__axis-head"><span class="${P}__axis-label">${a.label}</span>
+      <span class="${P}__axis-head"><span class="${P}__axis-label">${compact ? a.key.toUpperCase() : a.label}</span>
       <output class="${P}__axis-value">${a.key==="h"?Math.round(a.value):a.value.toFixed(2)}</output></span>
-      ${chart(cur, a.key, pos, cur.c/Math.max(reach,1e-6), a.key)}
-      <span class="${P}__track"><span class="${P}__track-fill" style="background:${track(cur,a.key,a.max)}"></span>${hatch}
-      <input type="range" class="${P}__slider" min="0" max="${a.max}" value="${a.value}" style="--p:${pct}"></span>
+      ${compact ? "" : chart(cur, a.key, pos, cur.c/Math.max(reach,1e-6), `${id}-${a.key}`)}
+      <span class="${P}__track"><span class="${P}__track-fill" style="background:${track(cur,a.key,a.max)}">${hatch}</span>
+      <input type="range" class="${P}__slider" min="0" max="${a.max}" step="any" value="${a.value}" style="--p:${pct}"></span>
     </div>`;
   }).join("");
-  return `<div class="${P}">
-    <div class="${P}__presets">${swatches}</div>
-    ${rows}
+  return `<div class="${P} ${P}--${layout}">
+    ${presets.length ? `<div class="${P}__presets">${swatches}</div>` : ""}
+    <div class="${P}__axes">${rows}</div>
     <div class="${P}__footer">
       <span class="${P}__preview" style="background:${hex};color:${isLight(cur)?"#000":"#fff"}"></span>
       <input class="${P}__hex" value="${hex}">
@@ -89,6 +92,9 @@ const PRESETS = ["oklch(0.75 0.16 145)","oklch(0.7 0.15 255)","oklch(0.76 0.15 6
 const page = (body, theme) => `<!doctype html><html><head><meta charset="utf-8"><style>
 ${css}
 html{color-scheme:${theme}}
+/* Pin the picker's scheme too — light-dark() follows the viewer preference,
+   and a headless browser prefers light. */
+.${P}{color-scheme:${theme}}
 body{margin:0;padding:24px;background:${theme==="dark"?"#0e0e10":"#f7f7f5"};font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;display:flex;gap:24px;align-items:flex-start}
 .card{width:320px;padding:16px;border-radius:12px;background:${theme==="dark"?"#141416":"#fff"};border:1px solid ${theme==="dark"?"#2a2a2d":"#e4e4e2"}}
 /* Render the native thumb at the right spot for a static shot. */
@@ -101,4 +107,10 @@ writeFileSync(new URL("dark.html", import.meta.url),
         <div class="card">${picker("oklch(0.76 0.15 60)", PRESETS)}</div>`, "dark"));
 writeFileSync(new URL("light.html", import.meta.url),
   page(`<div class="card">${picker("oklch(0.55 0.22 25)", PRESETS)}</div>`, "light"));
-console.log("wrote .demo/dark.html and .demo/light.html");
+for (const theme of ["dark", "light"]) {
+  writeFileSync(new URL(`compact-${theme}.html`, import.meta.url),
+    page(`<div class="card" style="width:240px">${picker("oklch(0.7 0.15 255)", [], "compact")}</div>`, theme));
+  writeFileSync(new URL(`side-by-side-${theme}.html`, import.meta.url),
+    page(`<div class="card" style="width:420px">${picker("oklch(0.72 0.15 320)", PRESETS, "side-by-side")}</div>`, theme));
+}
+console.log("wrote .demo/{dark,light,compact-*,side-by-side-*}.html");
