@@ -1,10 +1,15 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/nord-forge/oklch-picker/main/docs/media/mark-dark.svg">
+  <img src="https://raw.githubusercontent.com/nord-forge/oklch-picker/main/docs/media/mark-light.svg" alt="" width="72" height="72">
+</picture>
+
 # oklch-picker
 
 An OKLCH colour picker for React and Preact. Zero runtime dependencies, ~3 kB gzipped.
 
 Every axis is a slider over a **gamut cross-section** — the filled silhouette is the range sRGB can actually show, so the reachable colours are visible instead of something you discover by dragging into a region that does nothing.
 
-![The picker in dark mode, showing blue and amber](docs/media/dark.png)
+![The picker in dark mode, showing blue and amber](https://raw.githubusercontent.com/nord-forge/oklch-picker/main/docs/media/dark.png)
 
 ## Why
 
@@ -18,7 +23,7 @@ This one works in OKLCH directly, and takes the gamut seriously:
 
 At chroma 0.22 most hues cannot sustain that saturation, and the picker says so:
 
-![The picker in light mode at high chroma, with most of the hue axis hatched](docs/media/light.png)
+![The picker in light mode at high chroma, with most of the hue axis hatched](https://raw.githubusercontent.com/nord-forge/oklch-picker/main/docs/media/light.png)
 
 ## Install
 
