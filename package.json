@@ -1,0 +1,74 @@
+{
+  "name": "oklch-picker",
+  "version": "0.1.0",
+  "description": "An OKLCH colour picker for React and Preact, with gamut-aware sliders. Zero dependencies.",
+  "keywords": [
+    "oklch",
+    "color",
+    "colour",
+    "color-picker",
+    "react",
+    "preact",
+    "gamut",
+    "srgb",
+    "accessibility"
+  ],
+  "license": "MIT",
+  "author": "Nick Bevers",
+  "type": "module",
+  "sideEffects": ["**/*.css"],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "default": "./dist/index.mjs"
+    },
+    "./colour": {
+      "types": "./dist/colour.d.mts",
+      "default": "./dist/colour.mjs"
+    },
+    "./styles.css": "./dist/styles.css",
+    "./package.json": "./package.json"
+  },
+  "files": ["dist", "docs/media", "README.md", "LICENSE"],
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "prepublishOnly": "npm run typecheck && npm run test && npm run build"
+  },
+  "peerDependencies": {
+    "preact": ">=10",
+    "react": ">=16.8"
+  },
+  "peerDependenciesMeta": {
+    "preact": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "@testing-library/preact": "^3.2.4",
+    "@types/react": "^19.0.0",
+    "happy-dom": "^20.11.2",
+    "preact": "^10.24.0",
+    "tsdown": "^0.22.14",
+    "typescript": "^5.6.0",
+    "vitest": "^4.1.10"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/NickBevers/oklch-picker.git"
+  }
+}
