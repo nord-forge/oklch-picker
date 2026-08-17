@@ -58,6 +58,30 @@ export function Example() {
 />
 ```
 
+### Layouts
+
+- **`stacked`** (default) — presets, then each axis with its gamut chart, then the footer.
+- **`compact`** — no charts, tighter spacing, single-letter labels inline with each slider. For popovers and toolbars. (Screen readers still get the full labels.)
+- **`side-by-side`** — sliders on the left; preview, hex, name, and presets in a right rail. For wide settings panels.
+
+```tsx
+<ColourPicker value={colour} onChange={setColour} layout="compact" />
+```
+
+### Hiding parts
+
+Everything except the sliders is optional:
+
+```tsx
+<ColourPicker
+  value={colour}
+  onChange={setColour}
+  parts={{ charts: false, name: false, notice: false }}
+/>
+```
+
+`preview`, `hexInput`, and `name` make up the footer; turning all three off removes it entirely. `notice` is the out-of-gamut message. Presets are controlled by the `presets` prop itself.
+
 ## Props
 
 | Prop | Type | Default | |
@@ -65,9 +89,8 @@ export function Example() {
 | `value` | `string \| null` | — | `oklch(L C H)` or hex |
 | `onChange` | `(colour: string) => void` | — | Receives a canonical, clamped `oklch(L C H)` |
 | `presets` | `string[]` | — | Swatches shown above the sliders |
-| `charts` | `boolean` | `true` | Show the gamut cross-sections |
-| `hexInput` | `boolean` | `true` | Show the hex field |
-| `readout` | `boolean` | `true` | Show the colour's name |
+| `layout` | `"stacked" \| "compact" \| "side-by-side"` | `"stacked"` | See [Layouts](#layouts) |
+| `parts` | `{ charts?, preview?, hexInput?, name?, notice?: boolean }` | all `true` | Turn parts off, e.g. `{ charts: false }` |
 | `labels` | `Partial<Record<"l"\|"c"\|"h"\|"outOfGamut", string>>` | English | For translation |
 | `classPrefix` | `string` | `"oklch-picker"` | Prefix for every class name |
 | `className` | `string` | — | Added to the root element |
@@ -86,12 +109,17 @@ If you do use it, the palette is custom properties on the root:
   --okp-surface: #ffffff;
   --okp-warn: #9a6b00;
   --okp-focus: #2f6fd0;
+  --okp-thumb: #fff;
+  --okp-thumb-line: rgb(0 0 0 / 0.55);
+  --okp-gap: 10px;
   --okp-radius: 6px;
   --okp-track-height: 12px;
   --okp-chart-height: 34px;
   --okp-thumb-size: 16px;
 }
 ```
+
+The `--okp-text` … `--okp-focus` colours are `light-dark()` pairs by default, so override them with a plain colour to pin one, or your own `light-dark()` pair to keep both schemes.
 
 It follows the system colour scheme by default. Set `data-theme="light"` or `data-theme="dark"` on the root element to pin one.
 

@@ -13,6 +13,26 @@ import {
   oklchToHex,
 } from "./colour.js";
 
+/** Visual arrangements a picker can take; purely presentational. */
+export type PickerLayout = "stacked" | "compact" | "side-by-side";
+
+/** Optional parts of the picker; each renders unless turned off. */
+export interface PickerParts {
+  charts?: boolean;
+  preview?: boolean;
+  hexInput?: boolean;
+  name?: boolean;
+  notice?: boolean;
+}
+
+export const DEFAULT_PARTS: Required<PickerParts> = {
+  charts: true,
+  preview: true,
+  hexInput: true,
+  name: true,
+  notice: true,
+};
+
 export const DEFAULT_LABELS: Record<Axis | "outOfGamut", string> = {
   l: "Lightness",
   c: "Chroma",

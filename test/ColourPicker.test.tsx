@@ -71,17 +71,49 @@ describe("ColourPicker (rendered with Preact)", () => {
     expect(screen.getByLabelText("Lightness")).toBeDefined();
   });
 
-  test("charts and hex input can be turned off", () => {
+  test("parts can be turned off individually", () => {
     const { container } = render(
       <ColourPicker
         value="oklch(0.7 0.15 255)"
         onChange={() => {}}
-        charts={false}
-        hexInput={false}
+        parts={{ charts: false, hexInput: false, name: false, preview: false }}
       />,
     );
     expect(container.querySelector(".oklch-picker__chart")).toBeNull();
     expect(container.querySelector(".oklch-picker__hex")).toBeNull();
+    expect(container.querySelector(".oklch-picker__name")).toBeNull();
+    // Every footer part is off, so the footer itself is gone.
+    expect(container.querySelector(".oklch-picker__footer")).toBeNull();
+    // The sliders are never optional.
+    expect(screen.getByLabelText("Lightness")).toBeDefined();
+  });
+
+  test("the out-of-gamut notice can be turned off", () => {
+    // A colour well outside sRGB, so the notice would normally show.
+    const clipped = "oklch(0.2 0.3 145)";
+    const { container: withNotice } = render(<ColourPicker value={clipped} onChange={() => {}} />);
+    expect(withNotice.querySelector(".oklch-picker__notice")).not.toBeNull();
+    cleanup();
+    const { container } = render(
+      <ColourPicker value={clipped} onChange={() => {}} parts={{ notice: false }} />,
+    );
+    expect(container.querySelector(".oklch-picker__notice")).toBeNull();
+  });
+
+  test("layouts set a modifier class, and compact drops the charts", () => {
+    const { container } = render(
+      <ColourPicker value="oklch(0.7 0.15 255)" onChange={() => {}} layout="compact" />,
+    );
+    expect(container.querySelector(".oklch-picker--compact")).not.toBeNull();
+    expect(container.querySelector(".oklch-picker__chart")).toBeNull();
+    // Full labels survive for assistive tech even when abbreviated visually.
+    expect(screen.getByLabelText("Lightness")).toBeDefined();
+    cleanup();
+    const { container: wide } = render(
+      <ColourPicker value="oklch(0.7 0.15 255)" onChange={() => {}} layout="side-by-side" />,
+    );
+    expect(wide.querySelector(".oklch-picker--side-by-side")).not.toBeNull();
+    expect(wide.querySelector(".oklch-picker__chart")).not.toBeNull();
   });
 
   test("labels can be translated", () => {

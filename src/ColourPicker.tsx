@@ -14,7 +14,15 @@ import {
   oklchToHex,
   toOklch,
 } from "./colour.js";
-import { DEFAULT_LABELS, axisModels, outOfGamutSpans, trackGradient } from "./model.js";
+import {
+  DEFAULT_LABELS,
+  DEFAULT_PARTS,
+  type PickerLayout,
+  type PickerParts,
+  axisModels,
+  outOfGamutSpans,
+  trackGradient,
+} from "./model.js";
 
 export interface ColourPickerProps {
   /** `oklch(L C H)` or hex. */
@@ -22,12 +30,12 @@ export interface ColourPickerProps {
   /** Called with a canonical, gamut-clamped `oklch(L C H)` string. */
   onChange: (colour: string) => void;
   presets?: string[];
-  /** Show the hex input. Default true. */
-  hexInput?: boolean;
-  /** Show the gamut charts. Default true. */
-  charts?: boolean;
-  /** Show the colour's name and canonical value. Default true. */
-  readout?: boolean;
+  /** Visual arrangement. `compact` drops the charts and inlines each label
+   * with its slider; `side-by-side` puts the readout and presets in a right
+   * rail. Default `stacked`. */
+  layout?: PickerLayout;
+  /** Turn parts off, e.g. `{ charts: false, name: false }`. All on by default. */
+  parts?: PickerParts;
   /** Override for translation. */
   labels?: Partial<Record<Axis | "outOfGamut", string>>;
   /** Class prefix for every element, so styles can be overridden. */
@@ -38,6 +46,10 @@ export interface ColourPickerProps {
 export function ColourPicker(props: ColourPickerProps) {
   const prefix = props.classPrefix ?? "oklch-picker";
   const labels = { ...DEFAULT_LABELS, ...props.labels };
+  const layout = props.layout ?? "stacked";
+  const show = { ...DEFAULT_PARTS, ...props.parts };
+  // Compact has no room for charts; skip computing them, not just hiding them.
+  const withCharts = show.charts && layout !== "compact";
 
   // What was dialled, not what was emitted: dragging through an out-of-gamut
   // region must not destroy the other axes.
@@ -70,7 +82,7 @@ export function ColourPicker(props: ColourPickerProps) {
   const axes = axisModels(current, reachable);
 
   return (
-    <div className={[prefix, props.className].filter(Boolean).join(" ")}>
+    <div className={[prefix, `${prefix}--${layout}`, props.className].filter(Boolean).join(" ")}>
       {props.presets && props.presets.length > 0 && (
         <div className={`${prefix}__presets`}>
           {props.presets.map((p) => {
@@ -90,72 +102,76 @@ export function ColourPicker(props: ColourPickerProps) {
         </div>
       )}
 
-      {axes.map((a) => {
-        const spans = outOfGamutSpans(current, a.key, a.max);
-        // The chroma chart is plotted against hue.
-        const position = a.key === "l" ? current.l : current.h / 360;
-        const slide = (e: { target: EventTarget | null }) =>
-          emit({ ...current, [a.key]: Number((e.target as HTMLInputElement).value) });
-        // A div, not a label — the slider has its own aria-label.
-        return (
-          <div key={a.key} className={`${prefix}__axis`}>
-            <span className={`${prefix}__axis-head`}>
-              <span className={`${prefix}__axis-label`} aria-hidden="true">
-                {labels[a.key]}
+      <div className={`${prefix}__axes`}>
+        {axes.map((a) => {
+          const spans = outOfGamutSpans(current, a.key, a.max);
+          // The chroma chart is plotted against hue.
+          const position = a.key === "l" ? current.l : current.h / 360;
+          const slide = (e: { target: EventTarget | null }) =>
+            emit({ ...current, [a.key]: Number((e.target as HTMLInputElement).value) });
+          // A div, not a label — the slider has its own aria-label.
+          return (
+            <div key={a.key} className={`${prefix}__axis`}>
+              <span className={`${prefix}__axis-head`}>
+                <span className={`${prefix}__axis-label`} aria-hidden="true">
+                  {layout === "compact" ? a.key.toUpperCase() : labels[a.key]}
+                </span>
+                <output className={`${prefix}__axis-value`}>
+                  {a.key === "h" ? Math.round(a.value) : a.value.toFixed(2)}
+                </output>
               </span>
-              <output className={`${prefix}__axis-value`}>
-                {a.key === "h" ? Math.round(a.value) : a.value.toFixed(2)}
-              </output>
-            </span>
 
-            {props.charts !== false && (
-              <GamutChart
-                base={current}
-                axis={a.key}
-                id={a.key}
-                position={position}
-                chromaFraction={current.c / Math.max(reachable, 1e-6)}
-                classPrefix={prefix}
-              />
-            )}
+              {withCharts && (
+                <GamutChart
+                  base={current}
+                  axis={a.key}
+                  id={a.key}
+                  position={position}
+                  chromaFraction={current.c / Math.max(reachable, 1e-6)}
+                  classPrefix={prefix}
+                />
+              )}
 
-            <span className={`${prefix}__track`}>
-              <span
-                className={`${prefix}__track-fill`}
-                style={{ background: trackGradient(current, a.key, a.max) }}
-              >
-                {spans.map((s) => (
-                  <span
-                    key={`${a.key}-${s.start}`}
-                    className={`${prefix}__out-of-gamut`}
-                    style={{ left: `${s.start * 100}%`, width: `${(s.end - s.start) * 100}%` }}
-                  />
-                ))}
+              <span className={`${prefix}__track`}>
+                <span
+                  className={`${prefix}__track-fill`}
+                  style={{ background: trackGradient(current, a.key, a.max) }}
+                >
+                  {spans.map((s) => (
+                    <span
+                      key={`${a.key}-${s.start}`}
+                      className={`${prefix}__out-of-gamut`}
+                      style={{ left: `${s.start * 100}%`, width: `${(s.end - s.start) * 100}%` }}
+                    />
+                  ))}
+                </span>
+                <input
+                  type="range"
+                  className={`${prefix}__slider`}
+                  min={a.min}
+                  max={a.max}
+                  step={a.step}
+                  value={a.value}
+                  aria-label={labels[a.key]}
+                  onInput={slide}
+                  onChange={slide}
+                />
               </span>
-              <input
-                type="range"
-                className={`${prefix}__slider`}
-                min={a.min}
-                max={a.max}
-                step={a.step}
-                value={a.value}
-                aria-label={labels[a.key]}
-                onInput={slide}
-                onChange={slide}
-              />
-            </span>
-          </div>
-        );
-      })}
+            </div>
+          );
+        })}
+      </div>
 
-      {(props.hexInput !== false || props.readout !== false) && (
+      {(show.preview || show.hexInput || show.name) && (
         <div className={`${prefix}__footer`}>
-          <span
-            className={`${prefix}__preview`}
-            style={{ background: hex, color: isLight(current) ? "#000" : "#fff" }}
-            title={clipped ? labels.outOfGamut : canonical}
-          />
-          {props.hexInput !== false && (
+          {show.preview && (
+            <span
+              className={`${prefix}__preview`}
+              style={{ background: hex, color: isLight(current) ? "#000" : "#fff" }}
+              title={clipped ? labels.outOfGamut : canonical}
+            />
+          )}
+          {show.hexInput && (
             <input
               className={`${prefix}__hex`}
               value={hex}
@@ -165,13 +181,11 @@ export function ColourPicker(props: ColourPickerProps) {
               onChange={editHex}
             />
           )}
-          {props.readout !== false && (
-            <span className={`${prefix}__name`}>{colourName(canonical)}</span>
-          )}
+          {show.name && <span className={`${prefix}__name`}>{colourName(canonical)}</span>}
         </div>
       )}
 
-      {clipped && <p className={`${prefix}__notice`}>{labels.outOfGamut}</p>}
+      {show.notice && clipped && <p className={`${prefix}__notice`}>{labels.outOfGamut}</p>}
     </div>
   );
 }

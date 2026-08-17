@@ -11,9 +11,9 @@
 .oklch-picker {
   --okp-gap: 10px;
   --okp-radius: 6px;
-  --okp-track-height: 10px;
+  --okp-track-height: 12px;
   --okp-chart-height: 34px;
-  --okp-thumb-size: 13px;
+  --okp-thumb-size: 16px;
   /* A native range thumb is inset by half its width at each end, so its centre
      travels less than the full track. Everything positioned by value — the
      chart, its crosshair, the hatching — is inset to match, or they drift apart
@@ -29,6 +29,8 @@
   --okp-surface: light-dark(#ffffff, #141416);
   --okp-warn: light-dark(#9a6b00, #e0b050);
   --okp-focus: light-dark(#2f6fd0, #7fb0ff);
+  --okp-thumb: #fff;
+  --okp-thumb-line: rgb(0 0 0 / 0.55);
 
   display: flex;
   flex-direction: column;
@@ -70,6 +72,11 @@
 }
 
 /* ---- Axis block ---- */
+.oklch-picker__axes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--okp-gap);
+}
 .oklch-picker__axis {
   display: flex;
   flex-direction: column;
@@ -166,16 +173,16 @@
   width: var(--okp-thumb-size);
   height: var(--okp-thumb-size);
   border-radius: 999px;
-  background: #fff;
-  border: 2px solid rgb(0 0 0 / 0.55);
+  background: var(--okp-thumb);
+  border: 2px solid var(--okp-thumb-line);
   cursor: grab;
 }
 .oklch-picker__slider::-moz-range-thumb {
   width: var(--okp-thumb-size);
   height: var(--okp-thumb-size);
   border-radius: 999px;
-  background: #fff;
-  border: 2px solid rgb(0 0 0 / 0.55);
+  background: var(--okp-thumb);
+  border: 2px solid var(--okp-thumb-line);
   cursor: grab;
 }
 
@@ -212,4 +219,61 @@
   font-size: 11px;
   line-height: 1.35;
   color: var(--okp-warn);
+}
+
+/* ---- Layouts ---- */
+/* Compact: no charts (the component skips them), each label and value inline
+   with its slider. The head's children join the axis grid directly. */
+.oklch-picker--compact {
+  --okp-gap: 6px;
+}
+.oklch-picker--compact .oklch-picker__axis {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  column-gap: 8px;
+}
+.oklch-picker--compact .oklch-picker__axis-head {
+  display: contents;
+}
+.oklch-picker--compact .oklch-picker__axis-label {
+  min-width: 1.2em;
+}
+.oklch-picker--compact .oklch-picker__track {
+  grid-row: 1;
+  grid-column: 2;
+}
+.oklch-picker--compact .oklch-picker__axis-value {
+  grid-row: 1;
+  grid-column: 3;
+}
+
+/* Side-by-side: sliders left, readout and presets in a right rail. The grid
+   places areas regardless of DOM order, and collapses any part turned off. */
+.oklch-picker--side-by-side {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto 1fr auto;
+  grid-template-areas:
+    "axes footer"
+    "axes presets"
+    "notice notice";
+  align-items: start;
+  column-gap: calc(var(--okp-gap) * 1.6);
+}
+.oklch-picker--side-by-side .oklch-picker__axes {
+  grid-area: axes;
+}
+.oklch-picker--side-by-side .oklch-picker__footer {
+  grid-area: footer;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.oklch-picker--side-by-side .oklch-picker__presets {
+  grid-area: presets;
+  max-width: 96px;
+  align-content: start;
+}
+.oklch-picker--side-by-side .oklch-picker__notice {
+  grid-area: notice;
 }
