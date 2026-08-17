@@ -161,6 +161,10 @@ Built on native `<input type="range">`, so keyboard, touch, and screen-reader su
 
 Needs `oklch()` in CSS for preset swatches — Chrome/Edge 111+, Safari 15.4+, Firefox 113+. The charts, tracks and previews are computed to hex, so they render anywhere.
 
+## Changelog
+
+Release notes live in the [changelog](CHANGELOG.md).
+
 ## License
 
 MIT
