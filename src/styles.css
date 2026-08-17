@@ -1,0 +1,226 @@
+/**
+ * Default styles for oklch-picker.
+ *
+ * Import once: `import "oklch-picker/styles.css"`.
+ *
+ * Every value is a custom property on `.oklch-picker`, so a theme can be set by
+ * overriding those rather than rewriting rules. The palette follows the
+ * viewer's colour scheme by default.
+ */
+
+.oklch-picker {
+  --okp-gap: 10px;
+  --okp-radius: 6px;
+  --okp-track-height: 10px;
+  --okp-chart-height: 34px;
+  --okp-thumb-size: 13px;
+  /* A native range thumb is inset by half its width at each end, so its centre
+     travels less than the full track. Everything positioned by value — the
+     chart, its crosshair, the hatching — is inset to match, or they drift apart
+     by half a thumb at the extremes. */
+  --okp-inset: calc(var(--okp-thumb-size) / 2);
+
+  --okp-text: #1a1a1a;
+  --okp-text-muted: #6b6b6b;
+  --okp-line: #d8d8d8;
+  --okp-surface: #ffffff;
+  --okp-warn: #9a6b00;
+  --okp-focus: #2f6fd0;
+
+  display: flex;
+  flex-direction: column;
+  gap: var(--okp-gap);
+  color: var(--okp-text);
+  font-family: inherit;
+}
+
+/* Dark by system preference, unless a light theme is pinned explicitly. */
+@media (prefers-color-scheme: dark) {
+  .oklch-picker:not([data-theme="light"]) {
+    --okp-text: #f2f1ef;
+    --okp-text-muted: #a0a0a0;
+    --okp-line: #3a3a3d;
+    --okp-surface: #141416;
+    --okp-warn: #e0b050;
+    --okp-focus: #7fb0ff;
+  }
+}
+
+/* `data-theme` wins in both directions, for apps with their own toggle. */
+.oklch-picker[data-theme="dark"] {
+  --okp-text: #f2f1ef;
+  --okp-text-muted: #a0a0a0;
+  --okp-line: #3a3a3d;
+  --okp-surface: #141416;
+  --okp-warn: #e0b050;
+  --okp-focus: #7fb0ff;
+}
+
+/* ---- Presets ---- */
+.oklch-picker__presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.oklch-picker__preset {
+  width: 24px;
+  height: 24px;
+  border-radius: var(--okp-radius);
+  border: 2px solid transparent;
+  padding: 0;
+  cursor: pointer;
+}
+.oklch-picker__preset--selected {
+  border-color: var(--okp-text);
+}
+.oklch-picker__preset:focus-visible,
+.oklch-picker__slider:focus-visible,
+.oklch-picker__hex:focus-visible {
+  outline: 2px solid var(--okp-focus);
+  outline-offset: 2px;
+}
+
+/* ---- Axis block ---- */
+.oklch-picker__axis {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.oklch-picker__axis-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.oklch-picker__axis-label {
+  font-size: 11.5px;
+  color: var(--okp-text-muted);
+}
+.oklch-picker__axis-value {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  color: var(--okp-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Gamut chart ---- */
+/* Inset to match the thumb's travel, so a crosshair lines up with the thumb. */
+.oklch-picker__chart {
+  display: block;
+  width: calc(100% - var(--okp-thumb-size));
+  margin-inline: var(--okp-inset);
+  height: var(--okp-chart-height);
+  border-radius: 4px;
+  background: var(--okp-line);
+}
+.oklch-picker__chart-line {
+  stroke: rgb(0 0 0 / 0.55);
+  stroke-width: 0.6;
+  vector-effect: non-scaling-stroke;
+}
+.oklch-picker__crosshair {
+  stroke: rgb(255 255 255 / 0.5);
+  stroke-width: 1;
+  stroke-dasharray: 2 2;
+  vector-effect: non-scaling-stroke;
+}
+
+/* ---- Slider ---- */
+/* The visible track is inset by half a thumb at each end so that a value at
+   0% or 100% sits under the thumb rather than beyond it. */
+.oklch-picker__track {
+  position: relative;
+  display: block;
+  height: var(--okp-track-height);
+}
+/* An inset shadow rather than a border, so the fill's box stays exactly the
+   width of the chart above it — a 1px border would make it 2px wider. */
+.oklch-picker__track-fill {
+  position: absolute;
+  inset: 0 var(--okp-inset);
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1px var(--okp-line);
+  overflow: hidden;
+}
+/* Diagonal hatching over the part of the axis that leaves sRGB. Lives inside
+   the inset fill, so its percentages share the thumb's coordinate space. */
+.oklch-picker__out-of-gamut {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgb(0 0 0 / 0.5) 0 2px,
+    rgb(255 255 255 / 0.35) 2px 4px
+  );
+  pointer-events: none;
+}
+.oklch-picker__slider {
+  position: relative;
+  appearance: none;
+  -webkit-appearance: none;
+  display: block;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+.oklch-picker__slider::-webkit-slider-runnable-track,
+.oklch-picker__slider::-moz-range-track {
+  background: none;
+  height: 100%;
+}
+.oklch-picker__slider::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: var(--okp-thumb-size);
+  height: var(--okp-thumb-size);
+  border-radius: 999px;
+  background: #fff;
+  border: 2px solid rgb(0 0 0 / 0.55);
+  cursor: grab;
+}
+.oklch-picker__slider::-moz-range-thumb {
+  width: var(--okp-thumb-size);
+  height: var(--okp-thumb-size);
+  border-radius: 999px;
+  background: #fff;
+  border: 2px solid rgb(0 0 0 / 0.55);
+  cursor: grab;
+}
+
+/* ---- Footer ---- */
+.oklch-picker__footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.oklch-picker__preview {
+  width: 34px;
+  height: 26px;
+  border-radius: var(--okp-radius);
+  border: 1px solid var(--okp-line);
+  flex-shrink: 0;
+}
+.oklch-picker__hex {
+  width: 92px;
+  height: 26px;
+  padding: 0 8px;
+  border-radius: var(--okp-radius);
+  border: 1px solid var(--okp-line);
+  background: var(--okp-surface);
+  color: var(--okp-text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11.5px;
+}
+.oklch-picker__name {
+  font-size: 11.5px;
+  color: var(--okp-text-muted);
+}
+.oklch-picker__notice {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--okp-warn);
+}
