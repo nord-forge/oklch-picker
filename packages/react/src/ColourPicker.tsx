@@ -1,28 +1,17 @@
 /** An OKLCH colour picker: one slider per axis, each over a gamut cross-section. */
-import { useState } from "react";
-import { GamutChart } from "./GamutChart.js";
 import {
   type Axis,
   type Oklch,
-  clampToGamut,
-  colourName,
-  formatOklch,
-  hexToOklch,
-  inGamut,
-  isLight,
-  maxChroma,
-  oklchToHex,
-  toOklch,
-} from "./colour.js";
-import {
-  DEFAULT_LABELS,
-  DEFAULT_PARTS,
   type PickerLayout,
   type PickerParts,
-  axisModels,
-  outOfGamutSpans,
-  trackGradient,
-} from "./model.js";
+  colourName,
+  emitValue,
+  hexToOklch,
+  pickerModel,
+  resolveCurrent,
+} from "@oklch-picker/core";
+import { useState } from "react";
+import { GamutChart } from "./GamutChart.js";
 
 export interface ColourPickerProps {
   /** `oklch(L C H)` or hex. */
@@ -45,27 +34,23 @@ export interface ColourPickerProps {
 
 export function ColourPicker(props: ColourPickerProps) {
   const prefix = props.classPrefix ?? "oklch-picker";
-  const labels = { ...DEFAULT_LABELS, ...props.labels };
-  const layout = props.layout ?? "stacked";
-  const show = { ...DEFAULT_PARTS, ...props.parts };
-  // Compact has no room for charts; skip computing them, not just hiding them.
-  const withCharts = show.charts && layout !== "compact";
 
   // What was dialled, not what was emitted: dragging through an out-of-gamut
   // region must not destroy the other axes.
   const [draft, setDraft] = useState<Oklch | null>(null);
 
-  const stored: Oklch = toOklch(props.value) ?? { l: 0.7, c: 0.13, h: 260 };
-  const current: Oklch =
-    draft && formatOklch(clampToGamut(draft)) === formatOklch(stored) ? draft : stored;
-
-  const hex = oklchToHex(current);
-  const canonical = formatOklch(clampToGamut(current));
-  const clipped = !inGamut(current);
+  const current = resolveCurrent(draft, props.value);
+  const model = pickerModel(current, {
+    layout: props.layout,
+    parts: props.parts,
+    labels: props.labels,
+  });
+  const { labels, layout, hex, canonical, clipped, withCharts } = model;
+  const show = model.parts;
 
   const emit = (next: Oklch) => {
     setDraft(next);
-    props.onChange(formatOklch(clampToGamut(next)));
+    props.onChange(emitValue(next));
   };
   const pick = (colour: string) => {
     setDraft(null);
@@ -77,9 +62,6 @@ export function ColourPicker(props: ColourPickerProps) {
     const parsed = hexToOklch((e.target as HTMLInputElement).value);
     if (parsed) emit(parsed);
   };
-
-  const reachable = maxChroma(current.l, current.h);
-  const axes = axisModels(current, reachable);
 
   return (
     <div className={[prefix, `${prefix}--${layout}`, props.className].filter(Boolean).join(" ")}>
@@ -103,10 +85,9 @@ export function ColourPicker(props: ColourPickerProps) {
       )}
 
       <div className={`${prefix}__axes`}>
-        {axes.map((a) => {
-          const spans = outOfGamutSpans(current, a.key, a.max);
-          // The chroma chart is plotted against hue.
-          const position = a.key === "l" ? current.l : current.h / 360;
+        {model.axes.map((a, i) => {
+          const spans = model.spans[i] ?? [];
+          const chart = model.charts[i];
           const slide = (e: { target: EventTarget | null }) =>
             emit({ ...current, [a.key]: Number((e.target as HTMLInputElement).value) });
           // A div, not a label — the slider has its own aria-label.
@@ -121,13 +102,13 @@ export function ColourPicker(props: ColourPickerProps) {
                 </output>
               </span>
 
-              {withCharts && (
+              {chart && (
                 <GamutChart
                   base={current}
                   axis={a.key}
                   id={a.key}
-                  position={position}
-                  chromaFraction={current.c / Math.max(reachable, 1e-6)}
+                  position={chart.position}
+                  chromaFraction={chart.chromaFraction}
                   classPrefix={prefix}
                 />
               )}
@@ -135,7 +116,7 @@ export function ColourPicker(props: ColourPickerProps) {
               <span className={`${prefix}__track`}>
                 <span
                   className={`${prefix}__track-fill`}
-                  style={{ background: trackGradient(current, a.key, a.max) }}
+                  style={{ background: model.gradients[i] }}
                 >
                   {spans.map((s) => (
                     <span
@@ -162,12 +143,12 @@ export function ColourPicker(props: ColourPickerProps) {
         })}
       </div>
 
-      {(show.preview || show.hexInput || show.name) && (
+      {model.withFooter && (
         <div className={`${prefix}__footer`}>
           {show.preview && (
             <span
               className={`${prefix}__preview`}
-              style={{ background: hex, color: isLight(current) ? "#000" : "#fff" }}
+              style={{ background: hex, color: model.light ? "#000" : "#fff" }}
               title={clipped ? labels.outOfGamut : canonical}
             />
           )}
@@ -181,7 +162,7 @@ export function ColourPicker(props: ColourPickerProps) {
               onChange={editHex}
             />
           )}
-          {show.name && <span className={`${prefix}__name`}>{colourName(canonical)}</span>}
+          {show.name && <span className={`${prefix}__name`}>{model.name}</span>}
         </div>
       )}
 

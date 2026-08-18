@@ -1,7 +1,7 @@
 /** The sRGB gamut swept along one axis: under the curve is displayable, above is not. */
+import type { Axis, Oklch } from "@oklch-picker/core";
+import { CHART_H, CHART_W, chartBase, chartKey, gamutChartModel } from "@oklch-picker/core";
 import { useMemo } from "react";
-import type { Axis, Oklch } from "./colour.js";
-import { CHART_H, CHART_W, gamutChartModel } from "./model.js";
 
 export interface GamutChartProps {
   base: Oklch;
@@ -20,14 +20,11 @@ export interface GamutChartProps {
 export function GamutChart(props: GamutChartProps) {
   const { axis } = props;
   const resolution = props.resolution ?? 64;
-  // The curve never reads chroma, and only one of the other two axes: the
-  // lightness silhouette depends on hue alone, the chroma and hue silhouettes
-  // on lightness alone. Keying the memo on that single input means dragging
-  // any other slider reuses the curve and its ~65 gradient stops.
-  const curveInput = axis === "l" ? props.base.h : props.base.l;
+  // Keying the memo on the curve's single input means dragging any other
+  // slider reuses the curve and its ~65 gradient stops.
+  const curveInput = chartKey(props.base, axis);
   const { path, stops } = useMemo(() => {
-    const base = axis === "l" ? { l: 0, c: 0, h: curveInput } : { l: curveInput, c: 0, h: 0 };
-    const m = gamutChartModel(base, axis, resolution);
+    const m = gamutChartModel(chartBase(curveInput, axis), axis, resolution);
     return {
       path: m.path,
       stops: m.stops.map((s) => <stop key={s.offset} offset={`${s.offset}%`} stopColor={s.hex} />),

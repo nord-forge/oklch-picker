@@ -1,0 +1,37 @@
+{
+  "name": "@oklch-picker/react",
+  "version": "0.3.0",
+  "description": "An OKLCH colour picker for React and Preact, with gamut-aware sliders.",
+  "keywords": ["oklch", "colour", "color-picker", "react", "preact", "gamut"],
+  "license": "MIT",
+  "author": "Nick Bevers",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "default": "./dist/index.mjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": ["dist", "README.md", "LICENSE"],
+  "publishConfig": { "access": "public" },
+  "engines": { "node": ">=20" },
+  "scripts": { "build": "tsdown" },
+  "dependencies": {
+    "@oklch-picker/core": "0.3.0"
+  },
+  "peerDependencies": {
+    "preact": ">=10",
+    "react": ">=16.8"
+  },
+  "peerDependenciesMeta": {
+    "preact": { "optional": true },
+    "react": { "optional": true }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nord-forge/oklch-picker.git",
+    "directory": "packages/react"
+  }
+}
