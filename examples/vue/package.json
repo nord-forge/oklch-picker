@@ -1,0 +1,19 @@
+{
+  "name": "oklch-picker-example-vue",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@oklch-picker/core": "file:../../packages/core",
+    "@oklch-picker/vue": "file:../../packages/vue",
+    "vue": "^3.5.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.2.0",
+    "vite": "^6.0.0"
+  }
+}

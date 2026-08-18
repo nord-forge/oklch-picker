@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>oklch-picker — plain HTML</title>
+
+    <!-- No npm install, no bundler, no build step. Two files and a script tag.
+         The minified stylesheet, since nothing here will compress it for us.
+         Paths are relative to the repo's dist/; from a CDN they would be
+         https://esm.sh/@oklch-picker/core/styles.min.css and https://esm.sh/oklch-picker/register -->
+    <link rel="stylesheet" href="../../packages/core/dist/styles.min.css" />
+    <link rel="stylesheet" href="../demo.css" />
+
+    <!-- Loading the files straight off disk, a browser cannot resolve the bare
+         `@oklch-picker/core` specifier the package imports — that is npm's job.
+         One import map stands in for it. From a CDN this is unnecessary: esm.sh
+         resolves the dependency itself. -->
+    <script type="importmap">
+      {
+        "imports": {
+          "@oklch-picker/core": "../../packages/core/dist/index.mjs"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <main class="demo">
+      <header class="demo__head">
+        <h1 class="demo__title">oklch-picker — plain HTML</h1>
+        <p class="demo__subtitle">
+          No framework, no bundler, no build step — this file runs straight from disk.
+        </p>
+      </header>
+
+      <div class="demo__layouts">
+        <button type="button" class="demo__layout" data-layout="stacked" aria-pressed="true">
+          stacked
+        </button>
+        <button type="button" class="demo__layout" data-layout="compact" aria-pressed="false">
+          compact
+        </button>
+        <button type="button" class="demo__layout" data-layout="side-by-side" aria-pressed="false">
+          side-by-side
+        </button>
+      </div>
+
+      <div class="demo__panel">
+        <oklch-picker
+          id="picker"
+          value="oklch(0.7 0.15 255)"
+          presets='["oklch(0.72 0.19 35)", "oklch(0.8 0.17 85)", "oklch(0.75 0.16 145)", "oklch(0.7 0.15 255)", "oklch(0.65 0.22 305)"]'
+        ></oklch-picker>
+      </div>
+
+      <p class="demo__value">
+        <span class="demo__swatch" id="swatch" style="background: oklch(0.7 0.15 255)"></span>
+        <code class="demo__code" id="readout">oklch(0.7 0.15 255)</code>
+      </p>
+    </main>
+
+    <script type="module">
+      // Defining the tag is the whole client-side cost.
+      import "../../packages/vanilla/dist/register.mjs";
+
+      const picker = document.getElementById("picker");
+      const swatch = document.getElementById("swatch");
+      const readout = document.getElementById("readout");
+
+      picker.addEventListener("change", (event) => {
+        const { colour } = event.detail;
+        readout.textContent = colour;
+        swatch.style.background = colour;
+      });
+
+      for (const button of document.querySelectorAll("[data-layout]")) {
+        button.addEventListener("click", () => {
+          picker.setAttribute("layout", button.dataset.layout);
+          for (const other of document.querySelectorAll("[data-layout]")) {
+            other.setAttribute("aria-pressed", String(other === button));
+          }
+        });
+      }
+    </script>
+  </body>
+</html>

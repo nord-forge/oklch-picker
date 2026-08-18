@@ -1,0 +1,84 @@
+---
+// No framework integration and no hydration directive: the element is plain
+// DOM, so Astro ships the markup and one small module that upgrades it.
+import "@oklch-picker/core/styles.css";
+import "../../../demo.css";
+
+const PRESETS = [
+  "oklch(0.72 0.19 35)",
+  "oklch(0.8 0.17 85)",
+  "oklch(0.75 0.16 145)",
+  "oklch(0.7 0.15 255)",
+  "oklch(0.65 0.22 305)",
+];
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>oklch-picker — Astro</title>
+  </head>
+  <body>
+    <main class="demo">
+      <header class="demo__head">
+        <h1 class="demo__title">oklch-picker — Astro</h1>
+        <p class="demo__subtitle">
+          The <code class="demo__code">&lt;oklch-picker&gt;</code> custom element — no framework,
+          no hydration directive.
+        </p>
+      </header>
+
+      <div class="demo__layouts">
+        <button type="button" class="demo__layout" data-layout="stacked" aria-pressed="true">
+          stacked
+        </button>
+        <button type="button" class="demo__layout" data-layout="compact" aria-pressed="false">
+          compact
+        </button>
+        <button type="button" class="demo__layout" data-layout="side-by-side" aria-pressed="false">
+          side-by-side
+        </button>
+      </div>
+
+      <div class="demo__panel">
+        <oklch-picker
+          id="picker"
+          value="oklch(0.7 0.15 255)"
+          presets={JSON.stringify(PRESETS)}
+        ></oklch-picker>
+      </div>
+
+      <p class="demo__value">
+        <span class="demo__swatch" id="swatch" style="background: oklch(0.7 0.15 255)"></span>
+        <code class="demo__code" id="readout">oklch(0.7 0.15 255)</code>
+      </p>
+    </main>
+
+    <script>
+      // Registering the tag is the whole client-side cost.
+      import "oklch-picker/register";
+
+      const picker = document.querySelector("oklch-picker");
+      const swatch = document.querySelector<HTMLElement>("#swatch");
+      const readout = document.querySelector<HTMLElement>("#readout");
+
+      // `detail.colour` is typed: the package declares the change event.
+      picker?.addEventListener("change", (event) => {
+        const { colour } = event.detail;
+        if (readout) readout.textContent = colour;
+        if (swatch) swatch.style.background = colour;
+      });
+
+      for (const button of document.querySelectorAll<HTMLButtonElement>("[data-layout]")) {
+        button.addEventListener("click", () => {
+          picker?.setAttribute("layout", button.dataset.layout ?? "stacked");
+          for (const other of document.querySelectorAll("[data-layout]")) {
+            other.setAttribute("aria-pressed", String(other === button));
+          }
+        });
+      }
+    </script>
+  </body>
+</html>
