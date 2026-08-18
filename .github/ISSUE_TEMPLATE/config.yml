@@ -1,0 +1,11 @@
+# Blank issues are off so questions arrive with enough context to answer.
+# If you enable Discussions on the repo, move the question link there — the
+# `url` below just needs to become .../discussions.
+blank_issues_enabled: false
+contact_links:
+  - name: Question or usage help
+    url: https://github.com/nord-forge/oklch-picker/issues/new?labels=question
+    about: "How do I theme it, which package do I need, is X possible."
+  - name: Documentation
+    url: https://github.com/nord-forge/oklch-picker#readme
+    about: Install and usage for every framework, theming variables, and the layouts.

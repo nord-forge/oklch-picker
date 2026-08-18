@@ -1,0 +1,43 @@
+name: Feature request
+description: Suggest something the picker should be able to do.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The picker deliberately stays small and unopinionated, so the most
+        persuasive requests are the ones that describe a problem rather than a
+        solution — what you were trying to build, and where this got in the way.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: The situation that led you here, not the API you have in mind.
+    validations:
+      required: true
+
+  - type: textarea
+    id: workaround
+    attributes:
+      label: What are you doing instead today?
+      description: |
+        Often there is already a way — `parts`, `labels`, `classPrefix`, the
+        `--okp-*` variables, or the headless model in `@oklch-picker/core` for
+        building your own UI. Knowing what you tried helps rule those out.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Would this affect every framework?
+      description: |
+        Behaviour lives in the shared core, so changes usually land in all five
+        adapters at once. Things that only make sense for one are rarer.
+      options:
+        - All of them
+        - Just one adapter
+        - Not sure
+    validations:
+      required: false
