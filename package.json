@@ -33,7 +33,6 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
-    "@changesets/changelog-github": "^1.0.0",
     "@changesets/cli": "^2.27.0",
     "@solidjs/testing-library": "^0.8.10",
     "@sveltejs/vite-plugin-svelte": "^7.3.0",

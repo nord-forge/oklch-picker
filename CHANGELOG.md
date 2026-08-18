@@ -1,13 +1,18 @@
 # Changelog
 
-## [Unreleased]
+This file tracks the project as a whole. Each package also keeps its own
+changelog under `packages/*/CHANGELOG.md`, generated on release.
+
+## [1.0.0] — 2026-08-18
 
 ### Breaking
 
-- **The unscoped `oklch-picker` package is deprecated.** The library is now
-  published as scoped packages, one per framework: `@oklch-picker/react`,
-  `/vue`, `/svelte`, `/solid`, `/vanilla`, and `@oklch-picker/core` for the
-  shared maths, model, and stylesheet.
+- **The library is now six packages, one per framework**, so an app installs
+  only the adapter it uses: a React app pulls ~13 kB packed instead of ~32 kB.
+- **`oklch-picker` is now the no-framework build.** It was the React component;
+  it is now the `<oklch-picker>` custom element, so that `npm i oklch-picker`
+  gives the version that works anywhere. React users move to
+  `@oklch-picker/react`. Versions 0.2 and earlier are deprecated on npm.
 
   | Was | Now |
   | --- | --- |
@@ -15,35 +20,33 @@
   | `oklch-picker/vue` | `@oklch-picker/vue` |
   | `oklch-picker/svelte` | `@oklch-picker/svelte` |
   | `oklch-picker/solid` | `@oklch-picker/solid` |
+  | `oklch-picker/vanilla` | `oklch-picker` |
   | `oklch-picker/colour` | `@oklch-picker/core` |
   | `oklch-picker/styles.css` | `@oklch-picker/core/styles.css` |
 
-  The components, props, and emitted values are unchanged. Installing one
-  adapter no longer downloads the other four — a React app pulls ~13 kB packed
-  instead of ~32 kB.
+  The components, props, and emitted values are unchanged.
 
-- Every scoped package moves together on one version number, so a core fix
-  cannot leave an adapter behind.
+- All six packages share one version number, so a core fix cannot leave an
+  adapter behind.
 
 ### Added
 
-- Framework adapters, each on the same headless model and the same stylesheet,
-  published as subpath exports: `oklch-picker/vue` (`v-model`),
-  `oklch-picker/svelte` (`bind:value`, Svelte 5 runes), and
-  `oklch-picker/solid`. `oklch-picker/react` is a new alias of the root export,
-  which is unchanged.
-- `oklch-picker/styles.min.css` — the same stylesheet minified, 1.3 kB gzipped
-  against 2.3 kB. For the no-build path, where nothing else will compress it;
-  bundler users should keep importing `styles.css`.
-- `oklch-picker/vanilla` — the picker as a `<oklch-picker>` custom element, with
-  no framework and no build step. Covers plain HTML, HTMX, Alpine, Astro, and
-  any server-rendered page. It is form-associated, so it submits with a
-  surrounding form under its `name` and restores on reset, and its `change`
-  event is typed for `event.detail.colour`.
-- Every framework is an optional peer dependency, so a consumer's bundler only
-  resolves the subpath it imports.
-- A runnable example app per framework under `examples/`, plus `npm run dev` to
-  serve all five at once.
+- Framework adapters, each on the same headless model and the same stylesheet:
+  `@oklch-picker/vue` (`v-model`), `@oklch-picker/svelte` (`bind:value`,
+  Svelte 5 runes), and `@oklch-picker/solid`.
+- `oklch-picker` — the picker as a `<oklch-picker>` custom element, with no
+  framework and no build step. Covers plain HTML, HTMX, Alpine, Astro, and any
+  server-rendered page. It is form-associated, so it submits with a surrounding
+  form under its `name` and restores on reset, and its `change` event is typed
+  for `event.detail.colour`.
+- `@oklch-picker/core` — the colour maths and headless model, installable on its
+  own for colour work with no picker attached.
+- `@oklch-picker/core/styles.min.css` — the same stylesheet minified, 1.3 kB
+  gzipped against 2.3 kB. For the no-build path, where nothing else will
+  compress it; bundler users should keep importing `styles.css`.
+- Every framework is an optional peer dependency of its own adapter.
+- A runnable example app per adapter under `examples/`, plus `npm run dev` to
+  serve all six at once.
 
 ### Changed
 
