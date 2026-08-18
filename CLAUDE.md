@@ -24,6 +24,9 @@ because that reads better next to its five siblings.
 
 ## Commands
 
+Node 22.18+ is required to build (tsdown's floor); the published packages run
+on Node 20.
+
 ```sh
 npm run build       # all packages, in dependency order
 npm test            # 113 tests across 5 vitest projects

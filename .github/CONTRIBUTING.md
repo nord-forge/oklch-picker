@@ -13,7 +13,8 @@ npm test        # 113 tests across five vitest projects
 npm run dev     # every example at once, ports 5272-5277
 ```
 
-Node 20 or newer.
+**Node 22.18 or newer** — the build tool needs it. The published packages
+themselves run on Node 20, which is what their `engines` fields say.
 
 ## The shape of the codebase
 
