@@ -4,7 +4,11 @@
   "description": "OKLCH colour maths and the headless picker model shared by every oklch-picker adapter. Zero dependencies.",
   "keywords": ["oklch", "colour", "color", "gamut", "srgb"],
   "license": "MIT",
-  "author": "Nick Bevers",
+  "author": "Nick Bevers <hello@nickbevers.dev>",
+  "homepage": "https://github.com/nord-forge/oklch-picker#readme",
+  "bugs": {
+    "url": "https://github.com/nord-forge/oklch-picker/issues"
+  },
   "type": "module",
   "sideEffects": ["**/*.css"],
   "exports": {

@@ -4,7 +4,11 @@
   "description": "An OKLCH colour picker for Vue, with gamut-aware sliders. Works with v-model.",
   "keywords": ["oklch", "colour", "color-picker", "vue", "gamut"],
   "license": "MIT",
-  "author": "Nick Bevers",
+  "author": "Nick Bevers <hello@nickbevers.dev>",
+  "homepage": "https://github.com/nord-forge/oklch-picker#readme",
+  "bugs": {
+    "url": "https://github.com/nord-forge/oklch-picker/issues"
+  },
   "type": "module",
   "sideEffects": false,
   "exports": {

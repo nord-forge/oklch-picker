@@ -4,7 +4,7 @@
   "private": true,
   "description": "Workspace root for oklch-picker. The published packages live in packages/.",
   "license": "MIT",
-  "author": "Nick Bevers",
+  "author": "Nick Bevers <hello@nickbevers.dev>",
   "type": "module",
   "workspaces": ["packages/*"],
   "engines": {
