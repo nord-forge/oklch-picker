@@ -5,7 +5,7 @@
 
 # oklch-picker
 
-An OKLCH colour picker for React and Preact. Zero runtime dependencies; the component is ~4.8 kB gzipped, and the colour maths alone is ~2.5 kB.
+An OKLCH colour picker for React, Preact, Vue, Svelte, Solid — and for no framework at all. Zero runtime dependencies; the component is ~4.8 kB gzipped, and the colour maths alone is ~2.5 kB.
 
 Every axis is a slider over a **gamut cross-section** — the filled silhouette is the range sRGB can actually show, so the reachable colours are visible instead of something you discover by dragging into a region that does nothing.
 
@@ -27,18 +27,66 @@ At chroma 0.22 most hues cannot sustain that saturation, and the picker says so:
 
 ## Install
 
+Install the package for your framework — each pulls in only its own adapter plus the shared core.
+
+| Using | Install | Binding |
+| --- | --- | --- |
+| **No framework** — plain HTML, HTMX, Alpine, Astro, Rails, Laravel, Django, PHP, WordPress | `oklch-picker` | `<oklch-picker>` element |
+| React / Preact | `@oklch-picker/react` | `value` + `onChange` |
+| Vue | `@oklch-picker/vue` | `v-model` |
+| Svelte 5 | `@oklch-picker/svelte` | `bind:value` |
+| Solid | `@oklch-picker/solid` | `value` + `onChange` |
+
 ```sh
-npm install oklch-picker
+npm install @oklch-picker/react   # or /vue, /svelte, /solid
+npm install oklch-picker          # the no-framework custom element
 ```
 
-React is a peer dependency; Preact works through `preact/compat`, which most Preact setups already alias. Both are optional — install whichever you use.
+The stylesheet lives in the shared core, which every adapter already depends on:
+
+```js
+import "@oklch-picker/core/styles.css";
+```
+
+Your framework is an optional peer dependency; Preact works through `preact/compat`, which most Preact setups already alias.
+
+<details>
+<summary><strong>Coming from <code>oklch-picker</code> 0.2 or earlier?</strong></summary>
+
+`oklch-picker` used to be the React component; it is now the no-framework custom element, so that `npm i oklch-picker` gives the build that works anywhere. Framework users move to a scoped package:
+
+| Was | Now |
+| --- | --- |
+| `oklch-picker` | `@oklch-picker/react` |
+| `oklch-picker/vue` | `@oklch-picker/vue` |
+| `oklch-picker/svelte` | `@oklch-picker/svelte` |
+| `oklch-picker/solid` | `@oklch-picker/solid` |
+| `oklch-picker/vanilla` | `oklch-picker` |
+| `oklch-picker/colour` | `@oklch-picker/core` |
+| `oklch-picker/styles.css` | `@oklch-picker/core/styles.css` |
+
+Nothing else changes — the components, props, and emitted values are identical. The split exists so an app downloads only the adapter it uses instead of all five.
+
+</details>
+
+### The shared core
+
+`@oklch-picker/core` holds the colour maths and the headless model, with no UI. Every adapter depends on it, and it is worth installing on its own if you want the maths without a picker — validating stored colours on a server, generating palettes, or naming colours in a table:
+
+```js
+import { colourName, clampToGamut, maxChroma } from "@oklch-picker/core";
+```
+
+Whichever you import, the props are the same — `presets`, `layout`, `parts`, `labels`, `classPrefix` — and the value semantics follow each framework's idiom. A runnable app per framework lives in [`examples/`](./examples).
 
 ## Usage
 
+### React / Preact
+
 ```tsx
 import { useState } from "react";
-import { ColourPicker } from "oklch-picker";
-import "oklch-picker/styles.css";
+import { ColourPicker } from "@oklch-picker/react";
+import "@oklch-picker/core/styles.css";
 
 export function Example() {
   const [colour, setColour] = useState("oklch(0.7 0.15 255)");
@@ -46,7 +94,113 @@ export function Example() {
 }
 ```
 
-`onChange` always receives a canonical, gamut-clamped `oklch(L C H)` string. `value` accepts either that or hex.
+### Vue
+
+```vue
+<script setup>
+import { ref } from "vue";
+import { ColourPicker } from "@oklch-picker/vue";
+import "@oklch-picker/core/styles.css";
+
+const colour = ref("oklch(0.7 0.15 255)");
+</script>
+
+<template>
+  <ColourPicker v-model="colour" />
+</template>
+```
+
+### Svelte
+
+```svelte
+<script>
+  import { ColourPicker } from "@oklch-picker/svelte";
+  import "@oklch-picker/core/styles.css";
+
+  let colour = $state("oklch(0.7 0.15 255)");
+</script>
+
+<ColourPicker bind:value={colour} />
+```
+
+### Solid
+
+```tsx
+import { createSignal } from "solid-js";
+import { ColourPicker } from "@oklch-picker/solid";
+import "@oklch-picker/core/styles.css";
+
+export function Example() {
+  const [colour, setColour] = createSignal("oklch(0.7 0.15 255)");
+  return <ColourPicker value={colour()} onChange={setColour} />;
+}
+```
+
+### No framework
+
+`oklch-picker` is a custom element, so it is just a tag. That covers **plain HTML, HTMX, Alpine, Astro, and any server-rendered page** — Rails, Laravel, Django, PHP, WordPress. No framework, no bundler, and no build step:
+
+```html
+<link rel="stylesheet" href="https://esm.sh/@oklch-picker/core/styles.min.css" />
+
+<oklch-picker id="picker" value="oklch(0.7 0.15 255)"></oklch-picker>
+
+<script type="module">
+  import "https://esm.sh/oklch-picker/register";
+
+  document.getElementById("picker").addEventListener("change", (event) => {
+    console.log(event.detail.colour); // "oklch(0.7 0.15 120)"
+  });
+</script>
+```
+
+`styles.min.css` is the same stylesheet at 1.3 kB gzipped instead of 2.3 kB — worth using whenever nothing in front of it will minify. With a bundler, import plain `styles.css`: your build minifies it anyway, and the readable file is where the `--okp-*` variables are documented.
+
+With a bundler, the import is `import "oklch-picker/register"` instead. Either way that one side-effect import defines the tag — that is the whole client-side cost, and nothing else needs wiring.
+
+**It works in forms.** The element is form-associated, so it submits under its `name` like a built-in input — no hidden field, and no JavaScript to sync one. A server can render the current value and read the new one straight back from the POST body:
+
+```html
+<form method="post">
+  <oklch-picker name="brand" value="<%= @brand_colour %>"></oklch-picker>
+  <button>Save</button>
+</form>
+```
+
+Resetting the form restores the value the server rendered, again like a built-in input.
+
+In Astro this needs no `client:*` directive, because there is no framework to hydrate — the page ships the markup and the element upgrades itself:
+
+```astro
+---
+import "@oklch-picker/core/styles.css";
+---
+
+<oklch-picker value="oklch(0.7 0.15 255)"></oklch-picker>
+
+<script>
+  import "oklch-picker/register";
+</script>
+```
+
+**Configuring it.** `value`, `layout`, and `class-prefix` are plain attributes. `parts`, `labels`, and `presets` accept JSON attributes too, so no scripting is needed to configure them:
+
+```html
+<oklch-picker
+  layout="compact"
+  presets='["oklch(0.75 0.16 145)", "oklch(0.7 0.15 255)"]'
+  parts='{"charts": false}'
+  labels='{"l": "Helderheid"}'
+></oklch-picker>
+```
+
+`presets` also takes a plain comma-separated list. From script, all of them are settable as properties (`picker.presets = [...]`), and `picker.value` reads and writes the current colour.
+
+The element renders into the light DOM, so the stylesheet and `--okp-*` overrides apply exactly as they do elsewhere — which also means it is not style-isolated.
+
+---
+
+Whatever you use, the emitted value is always a canonical, gamut-clamped `oklch(L C H)` string, and the value you pass in accepts either that or hex.
 
 ### Presets
 
@@ -137,7 +291,7 @@ It follows the system colour scheme by default. Set `data-theme="light"` or `dat
 The maths is framework-free and exported separately — useful for validating stored colours on a server, generating palettes, or naming colours in a table:
 
 ```ts
-import { colourName, maxChroma, clampToGamut, toOklch } from "oklch-picker/colour";
+import { colourName, maxChroma, clampToGamut, toOklch } from "@oklch-picker/core";
 
 colourName("oklch(0.43 0.19 338)");  // "Dark pink"
 maxChroma(0.7, 255);                 // 0.160 — highest chroma sRGB can show there
