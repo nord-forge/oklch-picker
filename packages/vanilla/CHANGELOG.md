@@ -1,5 +1,24 @@
 # oklch-picker
 
+## 1.0.1
+
+### Patch Changes
+
+- Ship the README and licence that 1.0.0 was missing.
+
+  Both files were listed in each package's `files` field but did not exist, so
+  1.0.0 published with a blank npm page and no licence text in the tarball. Each
+  package now carries its own README — its install line, its usage, and a table
+  pointing at the rest of the family — alongside the MIT licence.
+
+  Package metadata is completed at the same time: `homepage`, `bugs`, and an
+  author email, none of which 1.0.0 had.
+
+  No code changes.
+
+- Updated dependencies
+  - @oklch-picker/core@1.0.1
+
 ## 1.0.0
 
 ### Major Changes

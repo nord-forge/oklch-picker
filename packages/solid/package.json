@@ -1,6 +1,6 @@
 {
   "name": "@oklch-picker/solid",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "An OKLCH colour picker for Solid, with gamut-aware sliders.",
   "keywords": ["oklch", "colour", "color-picker", "solid", "solid-js", "gamut"],
   "license": "MIT",
@@ -28,7 +28,7 @@
     "node": ">=20"
   },
   "dependencies": {
-    "@oklch-picker/core": "1.0.0"
+    "@oklch-picker/core": "1.0.1"
   },
   "peerDependencies": {
     "solid-js": ">=1.8"

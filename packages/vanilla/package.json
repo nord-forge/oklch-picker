@@ -1,8 +1,8 @@
 {
   "name": "oklch-picker",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "//": "The bare name is the no-framework build: someone who types `npm i oklch-picker` without naming a framework wants the one that works anywhere. Framework users install @oklch-picker/react and friends.",
-  "description": "An OKLCH colour picker as a custom element \u2014 no framework, no build step. For plain HTML, HTMX, Alpine, Astro, and server-rendered pages.",
+  "description": "An OKLCH colour picker as a custom element — no framework, no build step. For plain HTML, HTMX, Alpine, Astro, and server-rendered pages.",
   "keywords": [
     "oklch",
     "colour",
@@ -45,7 +45,7 @@
     "build": "tsdown"
   },
   "dependencies": {
-    "@oklch-picker/core": "1.0.0"
+    "@oklch-picker/core": "1.0.1"
   },
   "repository": {
     "type": "git",
