@@ -11,7 +11,7 @@ import {
   oklchToHex,
   parseOklch,
   toOklch,
-} from "../src/colour.js";
+} from "../packages/core/src/colour.js";
 
 describe("parse / format", () => {
   test("parses the stored form", () => {

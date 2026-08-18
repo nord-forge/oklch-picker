@@ -1,23 +1,21 @@
 {
+  "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "target": "ES2022",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "jsx": "react-jsx",
-    "strict": true,
-    "noUncheckedIndexedAccess": true,
-    "noImplicitOverride": true,
-    "noFallthroughCasesInSwitch": true,
-    "noImplicitReturns": true,
-    "exactOptionalPropertyTypes": true,
-    "forceConsistentCasingInFileNames": true,
-    "esModuleInterop": true,
-    "isolatedModules": true,
-    "verbatimModuleSyntax": true,
-    "skipLibCheck": true,
-    "declaration": true,
-    "noEmit": true
+    // Typecheck the workspace from source. Without this, `@oklch-picker/*`
+    // resolves to each package's built `.d.mts`, and the vanilla package's
+    // global `<oklch-picker>` tag declaration then exists twice — once from
+    // dist, once from src — which TS reports as a conflicting redeclaration.
+    "paths": {
+      "@oklch-picker/core": ["./packages/core/src/index.ts"],
+      "@oklch-picker/react": ["./packages/react/src/index.ts"],
+      "@oklch-picker/vue": ["./packages/vue/src/index.ts"],
+      "oklch-picker": ["./packages/vanilla/src/index.ts"],
+      "@oklch-picker/svelte": ["./packages/svelte/src/index.ts"],
+      "@oklch-picker/solid": ["./packages/solid/src/index.tsx"]
+    }
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "test/**/*.ts", "test/**/*.tsx"]
+  // Solid is typechecked by packages/solid/tsconfig.json — its JSX needs
+  // `jsxImportSource: solid-js`, which cannot coexist with React's in one pass.
+  "include": ["packages/*/src/**/*.ts", "packages/*/src/**/*.tsx", "test/**/*.ts", "test/**/*.tsx"],
+  "exclude": ["packages/solid", "test/solid.test.tsx", "**/dist"]
 }

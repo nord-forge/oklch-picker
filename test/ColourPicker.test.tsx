@@ -1,8 +1,8 @@
 /** Rendered with Preact via the compat alias, proving the React-API build works there. */
+import { parseOklch } from "@oklch-picker/core";
 import { cleanup, fireEvent, render, screen } from "@testing-library/preact";
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { ColourPicker } from "../src/ColourPicker.js";
-import { parseOklch } from "../src/colour.js";
+import { ColourPicker } from "../packages/react/src/ColourPicker.js";
 
 // Auto-cleanup needs `globals: true`, which this config does not set.
 afterEach(cleanup);

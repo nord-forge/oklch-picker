@@ -1,7 +1,7 @@
 /** Rendered with Preact via the compat alias, like the picker's own tests. */
 import { cleanup, render } from "@testing-library/preact";
 import { afterEach, describe, expect, test } from "vitest";
-import { GamutChart } from "../src/GamutChart.js";
+import { GamutChart } from "../packages/react/src/GamutChart.js";
 
 afterEach(cleanup);
 

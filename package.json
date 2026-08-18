@@ -1,72 +1,59 @@
 {
-  "name": "oklch-picker",
-  "version": "0.2.0",
-  "description": "An OKLCH colour picker for React and Preact, with gamut-aware sliders. Zero dependencies.",
-  "keywords": [
-    "oklch",
-    "color",
-    "colour",
-    "color-picker",
-    "react",
-    "preact",
-    "gamut",
-    "srgb",
-    "accessibility"
-  ],
+  "name": "@oklch-picker/monorepo",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Workspace root for oklch-picker. The published packages live in packages/.",
   "license": "MIT",
   "author": "Nick Bevers",
   "type": "module",
-  "sideEffects": ["**/*.css"],
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.mts",
-      "default": "./dist/index.mjs"
-    },
-    "./colour": {
-      "types": "./dist/colour.d.mts",
-      "default": "./dist/colour.mjs"
-    },
-    "./styles.css": "./dist/styles.css",
-    "./package.json": "./package.json"
-  },
-  "files": ["dist", "README.md", "LICENSE"],
-  "publishConfig": {
-    "access": "public"
-  },
+  "workspaces": ["packages/*"],
   "engines": {
     "node": ">=20"
   },
   "scripts": {
-    "build": "tsdown",
+    "build": "npm run build --workspaces --if-present",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p packages/solid && svelte-check --threshold error",
     "logo": "node .demo/logo.mjs",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
-    "prepublishOnly": "npm run typecheck && npm run test && npm run build"
-  },
-  "peerDependencies": {
-    "preact": ">=10",
-    "react": ">=16.8"
-  },
-  "peerDependenciesMeta": {
-    "preact": {
-      "optional": true
-    },
-    "react": {
-      "optional": true
-    }
+    "changeset": "changeset",
+    "version-packages": "changeset version && npm install --package-lock-only",
+    "release": "npm run build && changeset publish",
+    "examples:install": "npm run build && npm --prefix examples/react install && npm --prefix examples/vue install && npm --prefix examples/svelte install && npm --prefix examples/solid install && npm --prefix examples/astro install",
+    "dev": "npm run build && concurrently -k -n vanilla,astro,react,vue,svelte,solid -c cyan,yellow,red,green,magenta,blue \"npm:dev:vanilla\" \"npm:dev:astro\" \"npm:dev:react\" \"npm:dev:vue\" \"npm:dev:svelte\" \"npm:dev:solid\"",
+    "dev:vanilla": "npx --yes http-server . -p 5272 -c-1 -o /examples/vanilla/",
+    "dev:astro": "npm --prefix examples/astro run dev -- --port 5277",
+    "dev:react": "npm --prefix examples/react run dev -- --port 5273 --strictPort",
+    "dev:vue": "npm --prefix examples/vue run dev -- --port 5274 --strictPort",
+    "dev:svelte": "npm --prefix examples/svelte run dev -- --port 5275 --strictPort",
+    "dev:solid": "npm --prefix examples/solid run dev -- --port 5276 --strictPort",
+    "examples:build": "npm run build && npm --prefix examples/react run build && npm --prefix examples/vue run build && npm --prefix examples/svelte run build && npm --prefix examples/solid run build && npm --prefix examples/astro run build"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
+    "@changesets/changelog-github": "^1.0.0",
+    "@changesets/cli": "^2.27.0",
+    "@solidjs/testing-library": "^0.8.10",
+    "@sveltejs/vite-plugin-svelte": "^7.3.0",
     "@testing-library/preact": "^3.2.4",
+    "@testing-library/svelte": "^5.4.2",
     "@types/react": "^19.0.0",
+    "@vitejs/plugin-vue": "^6.0.8",
+    "@vue/test-utils": "^2.4.11",
+    "concurrently": "^10.0.5",
     "happy-dom": "^20.11.2",
+    "lightningcss": "^1.33.0",
     "preact": "^10.24.0",
+    "solid-js": "^1.9.15",
+    "svelte": "^5.56.9",
+    "svelte-check": "^4.7.6",
     "tsdown": "^0.22.14",
     "typescript": "^5.6.0",
-    "vitest": "^4.1.10"
+    "vite-plugin-solid": "^2.11.14",
+    "vitest": "^4.1.10",
+    "vue": "^3.5.41"
   },
   "repository": {
     "type": "git",
