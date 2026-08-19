@@ -18,9 +18,9 @@ import {
   colourName,
   emitValue,
   gamutChartModel,
-  hexToOklch,
   pickerModel,
   resolveCurrent,
+  toOklch,
   withSingleChart,
 } from "@oklch-picker/core";
 import { For, Index, Show, createMemo, createSignal } from "solid-js";
@@ -369,6 +369,48 @@ export function ColourPicker(props: ColourPickerProps) {
             );
           }}
         </Index>
+
+        {/* Alpha rides with the axes for layout but is not one of them. No
+            chart and no hatching, because transparency cannot put a colour
+            outside what a screen can show. */}
+        <Show when={model().withAlpha}>
+          <div class={`${prefix()}__axis ${prefix()}__alpha`}>
+            <span class={`${prefix()}__axis-head`}>
+              <span class={`${prefix()}__axis-label`} aria-hidden="true">
+                {model().layout === "compact" ? "A" : "Alpha"}
+              </span>
+              <output class={`${prefix()}__axis-value`}>{model().alpha.value.toFixed(2)}</output>
+            </span>
+
+            <span class={`${prefix()}__track`}>
+              <span class={`${prefix()}__track-fill`}>
+                <span class={`${prefix()}__alpha-check`} />
+                <span
+                  class={`${prefix()}__alpha-ramp`}
+                  style={{ background: model().alpha.track }}
+                />
+              </span>
+              <input
+                type="range"
+                class={`${prefix()}__slider`}
+                min={model().alpha.min}
+                max={model().alpha.max}
+                step={model().alpha.step}
+                value={model().alpha.value}
+                aria-label="Alpha"
+                onInput={(e) => {
+                  const a = Number(e.currentTarget.value);
+                  // Opaque drops the key rather than storing `a: 1`, so one
+                  // shape means opaque everywhere.
+                  const { a: _drop, ...rest } = model().current;
+                  dial(a >= 1 ? rest : { ...rest, a });
+                }}
+                onPointerUp={commitCurrent}
+                onBlur={commitCurrent}
+              />
+            </span>
+          </div>
+        </Show>
       </div>
 
       <Show when={model().withGamutSwitch}>
@@ -401,18 +443,47 @@ export function ColourPicker(props: ColourPickerProps) {
               title={model().clipped ? model().notice : model().canonical}
             />
           </Show>
+          {/* Every field accepts any supported format whichever one it shows,
+              so `toOklch` parses rather than a per-field parser. Pasting a hex
+              into the oklch field works instead of being a rule to learn.
+              Typing passes through half-entered colours, so the commit is
+              leaving the field rather than each keystroke. */}
+          <Show when={model().parts.oklchInput}>
+            <input
+              class={`${prefix()}__field ${prefix()}__field--oklch`}
+              value={model().oklch}
+              spellcheck={false}
+              aria-label="OKLCH colour"
+              onInput={(e) => {
+                const parsed = toOklch(e.currentTarget.value);
+                if (parsed) dial(parsed);
+              }}
+              onBlur={commitCurrent}
+            />
+          </Show>
+          <Show when={model().parts.rgbInput}>
+            <input
+              class={`${prefix()}__field ${prefix()}__field--rgb`}
+              value={model().rgb}
+              spellcheck={false}
+              aria-label="RGB colour"
+              onInput={(e) => {
+                const parsed = toOklch(e.currentTarget.value);
+                if (parsed) dial(parsed);
+              }}
+              onBlur={commitCurrent}
+            />
+          </Show>
           <Show when={model().parts.hexInput}>
             <input
-              class={`${prefix()}__hex`}
+              class={`${prefix()}__field ${prefix()}__field--hex ${prefix()}__hex`}
               value={model().hex}
               spellcheck={false}
               aria-label="Hex colour"
               onInput={(e) => {
-                const parsed = hexToOklch(e.currentTarget.value);
+                const parsed = toOklch(e.currentTarget.value);
                 if (parsed) dial(parsed);
               }}
-              // Typing a hex passes through half-entered colours, so the commit
-              // is leaving the field rather than each keystroke.
               onBlur={commitCurrent}
             />
           </Show>

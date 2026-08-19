@@ -9,9 +9,9 @@ import {
   chartPick,
   colourName,
   emitValue,
-  hexToOklch,
   pickerModel,
   resolveCurrent,
+  toOklch,
   withSingleChart,
 } from "@oklch-picker/core";
 import { useState } from "react";
@@ -114,9 +114,22 @@ export function ColourPicker(props: ColourPickerProps) {
   };
   // Handlers are bound to both onInput and onChange. React fires the latter,
   // Preact the former. Each pair shares one function.
-  const editHex = (e: { target: EventTarget | null }) => {
-    const parsed = hexToOklch((e.target as HTMLInputElement).value);
+  //
+  // `toOklch` rather than a per-field parser: a field accepts any supported
+  // format whichever one it shows, so pasting a hex into the oklch field works
+  // instead of being a rule to learn.
+  const editColour = (e: { target: EventTarget | null }) => {
+    const parsed = toOklch((e.target as HTMLInputElement).value);
     if (parsed) emit(parsed);
+  };
+
+  // Fully opaque drops the key rather than storing `a: 1`, so a colour dragged
+  // to opaque emits `oklch(L C H)` and not `oklch(L C H / 1)`. One shape for
+  // "opaque", set in one place.
+  const slideAlpha = (e: { target: EventTarget | null }) => {
+    const a = Number((e.target as HTMLInputElement).value);
+    const { a: _drop, ...rest } = current;
+    emit(a >= 1 ? rest : { ...rest, a });
   };
 
   return (
@@ -237,6 +250,43 @@ export function ColourPicker(props: ColourPickerProps) {
             </div>
           );
         })}
+
+        {/* Alpha rides with the axes for layout but is not one of them. It has
+            no gamut chart and no hatching, because transparency cannot put a
+            colour outside what a screen can show. */}
+        {model.withAlpha && (
+          <div className={`${prefix}__axis ${prefix}__alpha`}>
+            <span className={`${prefix}__axis-head`}>
+              <span className={`${prefix}__axis-label`} aria-hidden="true">
+                {layout === "compact" ? "A" : "Alpha"}
+              </span>
+              <output className={`${prefix}__axis-value`}>{model.alpha.value.toFixed(2)}</output>
+            </span>
+
+            <span className={`${prefix}__track`}>
+              <span className={`${prefix}__track-fill`}>
+                <span className={`${prefix}__alpha-check`} />
+                <span
+                  className={`${prefix}__alpha-ramp`}
+                  style={{ background: model.alpha.track }}
+                />
+              </span>
+              <input
+                type="range"
+                className={`${prefix}__slider`}
+                min={model.alpha.min}
+                max={model.alpha.max}
+                step={model.alpha.step}
+                value={model.alpha.value}
+                aria-label="Alpha"
+                onInput={slideAlpha}
+                onChange={slideAlpha}
+                onPointerUp={commitCurrent}
+                onBlur={commitCurrent}
+              />
+            </span>
+          </div>
+        )}
       </div>
 
       {model.withGamutSwitch && (
@@ -271,16 +321,41 @@ export function ColourPicker(props: ColourPickerProps) {
               title={clipped ? model.notice : canonical}
             />
           )}
+          {/* Every field accepts any supported format, whichever it displays.
+              Pasting a hex into the oklch field works, because refusing it
+              would be a rule the reader has to learn for no benefit. */}
+          {show.oklchInput && (
+            <input
+              className={`${prefix}__field ${prefix}__field--oklch`}
+              value={model.oklch}
+              spellCheck={false}
+              aria-label="OKLCH colour"
+              onInput={editColour}
+              onChange={editColour}
+              onBlur={commitCurrent}
+            />
+          )}
+          {show.rgbInput && (
+            <input
+              className={`${prefix}__field ${prefix}__field--rgb`}
+              value={model.rgb}
+              spellCheck={false}
+              aria-label="RGB colour"
+              onInput={editColour}
+              onChange={editColour}
+              onBlur={commitCurrent}
+            />
+          )}
           {show.hexInput && (
             <input
-              className={`${prefix}__hex`}
+              className={`${prefix}__field ${prefix}__field--hex ${prefix}__hex`}
               value={hex}
               spellCheck={false}
               aria-label="Hex colour"
-              onInput={editHex}
-              onChange={editHex}
-              // Typing a hex passes through half-entered colours, so the commit
-              // is leaving the field rather than each keystroke.
+              onInput={editColour}
+              onChange={editColour}
+              // Typing passes through half-entered colours, so the commit is
+              // leaving the field rather than each keystroke.
               onBlur={commitCurrent}
             />
           )}

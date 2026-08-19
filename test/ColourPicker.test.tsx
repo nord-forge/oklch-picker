@@ -137,9 +137,13 @@ describe("ColourPicker (rendered with Preact)", () => {
     expect(onChange).toHaveBeenCalledWith("oklch(0.75 0.16 145)");
   });
 
+  // Opt in: hex is off by default since 2.0, because it is sRGB only and
+  // cannot carry a wide-gamut colour.
   test("accepts hex in the hex field", () => {
     const onChange = vi.fn();
-    render(<ColourPicker value="oklch(0.7 0.15 255)" onChange={onChange} />);
+    render(
+      <ColourPicker value="oklch(0.7 0.15 255)" onChange={onChange} parts={{ hexInput: true }} />,
+    );
 
     fireEvent.input(screen.getByLabelText("Hex colour"), { target: { value: "#ff0000" } });
 
@@ -158,7 +162,7 @@ describe("ColourPicker (rendered with Preact)", () => {
       <ColourPicker
         value="oklch(0.7 0.15 255)"
         onChange={() => {}}
-        parts={{ charts: false, hexInput: false, name: false, preview: false }}
+        parts={{ charts: false, oklchInput: false, hexInput: false, name: false, preview: false }}
       />,
     );
     expect(container.querySelector(".oklch-picker__chart")).toBeNull();
@@ -206,8 +210,10 @@ describe("ColourPicker (rendered with Preact)", () => {
     // One chart, and it sits above the axes rather than inside one of them.
     expect(container.querySelectorAll(".oklch-picker__chart")).toHaveLength(1);
     expect(container.querySelector(".oklch-picker__axis .oklch-picker__chart")).toBeNull();
-    // All three sliders remain.
-    expect(container.querySelectorAll(".oklch-picker__slider")).toHaveLength(3);
+    // The three axes remain. Counting sliders would also catch the alpha one,
+    // which is not an axis.
+    expect(container.querySelectorAll(".oklch-picker__axis")).toHaveLength(4);
+    expect(container.querySelectorAll(".oklch-picker__alpha")).toHaveLength(1);
   });
 
   test("stacked gives every axis its own chart", () => {
@@ -244,7 +250,8 @@ describe("ColourPicker (rendered with Preact)", () => {
       />,
     );
     expect(container.querySelector(".oklch-picker__chart")).toBeNull();
-    expect(container.querySelectorAll(".oklch-picker__slider")).toHaveLength(3);
+    // Three axes plus alpha; charts going away does not remove a slider.
+    expect(container.querySelectorAll(".oklch-picker__slider")).toHaveLength(4);
   });
 
   test("dragging the chart emits a clamped colour", () => {
@@ -416,5 +423,70 @@ describe("recent colours", () => {
       />,
     );
     expect(container.querySelector(".oklch-picker__recents")).toBeNull();
+  });
+});
+
+describe("colour formats and alpha", () => {
+  test("the oklch field leads and hex is off by default", () => {
+    const { container } = render(<ColourPicker value="oklch(0.7 0.15 255)" onChange={() => {}} />);
+    const oklch = screen.getByLabelText("OKLCH colour") as HTMLInputElement;
+    expect(oklch.value).toBe("oklch(0.7 0.15 255)");
+    // Hex was the default field in 1.0. It is opt-in now.
+    expect(container.querySelector(".oklch-picker__field--hex")).toBeNull();
+    expect(container.querySelector(".oklch-picker__field--rgb")).toBeNull();
+  });
+
+  test("each format renders when asked for", () => {
+    render(
+      <ColourPicker
+        value="oklch(0.7 0.15 255)"
+        onChange={() => {}}
+        parts={{ rgbInput: true, hexInput: true }}
+      />,
+    );
+    expect((screen.getByLabelText("RGB colour") as HTMLInputElement).value).toMatch(/^rgb\(/);
+    expect((screen.getByLabelText("Hex colour") as HTMLInputElement).value).toMatch(/^#/);
+  });
+
+  // A field takes any supported format, not only the one it displays.
+  test("the oklch field accepts a hex or an rgb string", () => {
+    const onChange = vi.fn();
+    render(<ColourPicker value="oklch(0.7 0.15 255)" onChange={onChange} />);
+    const field = screen.getByLabelText("OKLCH colour");
+
+    fireEvent.input(field, { target: { value: "#ff0000" } });
+    expect(parseOklch(onChange.mock.calls.at(-1)?.[0] as string)?.h).toBeCloseTo(29.23, 0);
+
+    fireEvent.input(field, { target: { value: "rgb(0 255 0)" } });
+    expect(parseOklch(onChange.mock.calls.at(-1)?.[0] as string)?.h).toBeCloseTo(142.5, 0);
+  });
+
+  test("the alpha slider emits the transparent form, and drops it at opaque", () => {
+    const onChange = vi.fn();
+    render(<ColourPicker value="oklch(0.7 0.15 255)" onChange={onChange} />);
+    const alpha = screen.getByLabelText("Alpha");
+
+    fireEvent.input(alpha, { target: { value: "0.5" } });
+    expect(onChange.mock.calls.at(-1)?.[0]).toBe("oklch(0.7 0.15 255 / 0.5)");
+
+    // Back to opaque emits the short form, not `/ 1`.
+    fireEvent.input(alpha, { target: { value: "1" } });
+    expect(onChange.mock.calls.at(-1)?.[0]).toBe("oklch(0.7 0.15 255)");
+  });
+
+  test("parts.alpha removes the slider", () => {
+    const { container } = render(
+      <ColourPicker value="oklch(0.7 0.15 255)" onChange={() => {}} parts={{ alpha: false }} />,
+    );
+    expect(container.querySelector(".oklch-picker__alpha")).toBeNull();
+    expect(container.querySelectorAll(".oklch-picker__slider")).toHaveLength(3);
+  });
+
+  test("an incoming alpha survives into the field and the slider", () => {
+    render(<ColourPicker value="oklch(0.7 0.15 255 / 0.4)" onChange={() => {}} />);
+    expect((screen.getByLabelText("OKLCH colour") as HTMLInputElement).value).toBe(
+      "oklch(0.7 0.15 255 / 0.4)",
+    );
+    expect((screen.getByLabelText("Alpha") as HTMLInputElement).value).toBe("0.4");
   });
 });

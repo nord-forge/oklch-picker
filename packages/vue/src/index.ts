@@ -18,9 +18,9 @@ import {
   colourName,
   emitValue,
   gamutChartModel,
-  hexToOklch,
   pickerModel,
   resolveCurrent,
+  toOklch,
   withSingleChart,
 } from "@oklch-picker/core";
 import { computed, defineComponent, h, ref } from "vue";
@@ -297,71 +297,106 @@ export const ColourPicker = defineComponent({
         );
       }
 
-      children.push(
-        h(
-          "div",
-          { class: `${p}__axes` },
-          m.axes.map((a, i) => {
-            // In the `chart` layout the one chart is hoisted above the axes.
-            const chart: ChartSlot | undefined = single ? undefined : m.charts[i];
-            // A div, not a label. The slider has its own aria-label.
-            return h("div", { key: a.key, class: `${p}__axis` }, [
-              h("span", { class: `${p}__axis-head` }, [
-                h("span", { class: `${p}__axis-label`, "aria-hidden": "true" }, [
-                  m.layout === "compact" ? a.key.toUpperCase() : m.labels[a.key],
-                ]),
-                h("output", { class: `${p}__axis-value` }, [
-                  a.key === "h" ? String(Math.round(a.value)) : a.value.toFixed(2),
-                ]),
-              ]),
+      const axisRows: VNode[] = m.axes.map((a, i) => {
+        // In the `chart` layout the one chart is hoisted above the axes.
+        const chart: ChartSlot | undefined = single ? undefined : m.charts[i];
+        // A div, not a label. The slider has its own aria-label.
+        return h("div", { key: a.key, class: `${p}__axis` }, [
+          h("span", { class: `${p}__axis-head` }, [
+            h("span", { class: `${p}__axis-label`, "aria-hidden": "true" }, [
+              m.layout === "compact" ? a.key.toUpperCase() : m.labels[a.key],
+            ]),
+            h("output", { class: `${p}__axis-value` }, [
+              a.key === "h" ? String(Math.round(a.value)) : a.value.toFixed(2),
+            ]),
+          ]),
 
-              // Read-only here: a 34px strip gives a drag almost no vertical
-              // travel, and it would set two axes at once right above the
-              // slider that sets one precisely. Only `chart` is big enough.
-              chart
-                ? h(GamutChart, {
-                    axis: chart.axis,
-                    curveKey: chart.key,
-                    x: chart.x,
-                    y: chart.y,
-                    references: m.references,
-                    classPrefix: p,
-                  })
-                : null,
+          // Read-only here: a 34px strip gives a drag almost no vertical
+          // travel, and it would set two axes at once right above the
+          // slider that sets one precisely. Only `chart` is big enough.
+          chart
+            ? h(GamutChart, {
+                axis: chart.axis,
+                curveKey: chart.key,
+                x: chart.x,
+                y: chart.y,
+                references: m.references,
+                classPrefix: p,
+              })
+            : null,
 
-              h("span", { class: `${p}__track` }, [
-                h(
-                  "span",
-                  { class: `${p}__track-fill`, style: { background: m.gradients[i] } },
-                  (m.spans[i] ?? []).map((s) =>
-                    h("span", {
-                      key: `${a.key}-${s.start}`,
-                      class: `${p}__out-of-gamut`,
-                      style: { left: `${s.start * 100}%`, width: `${(s.end - s.start) * 100}%` },
-                    }),
-                  ),
-                ),
-                h("input", {
-                  type: "range",
-                  class: `${p}__slider`,
-                  min: a.min,
-                  max: a.max,
-                  step: a.step,
-                  value: a.value,
-                  "aria-label": m.labels[a.key],
-                  onInput: (e: Event) =>
-                    dial({ ...m.current, [a.key]: Number((e.target as HTMLInputElement).value) }),
-                  // The gesture ending is the commit, not each value it passed
-                  // through. `blur` catches the keyboard: arrowing along a
-                  // slider should record once the user moves on, not per step.
-                  onPointerup: commitCurrent,
-                  onBlur: commitCurrent,
+          h("span", { class: `${p}__track` }, [
+            h(
+              "span",
+              { class: `${p}__track-fill`, style: { background: m.gradients[i] } },
+              (m.spans[i] ?? []).map((s) =>
+                h("span", {
+                  key: `${a.key}-${s.start}`,
+                  class: `${p}__out-of-gamut`,
+                  style: { left: `${s.start * 100}%`, width: `${(s.end - s.start) * 100}%` },
                 }),
+              ),
+            ),
+            h("input", {
+              type: "range",
+              class: `${p}__slider`,
+              min: a.min,
+              max: a.max,
+              step: a.step,
+              value: a.value,
+              "aria-label": m.labels[a.key],
+              onInput: (e: Event) =>
+                dial({ ...m.current, [a.key]: Number((e.target as HTMLInputElement).value) }),
+              // The gesture ending is the commit, not each value it passed
+              // through. `blur` catches the keyboard: arrowing along a
+              // slider should record once the user moves on, not per step.
+              onPointerup: commitCurrent,
+              onBlur: commitCurrent,
+            }),
+          ]),
+        ]);
+      });
+
+      // Alpha rides with the axes for layout but is not one of them. No chart
+      // and no hatching: transparency cannot put a colour out of gamut.
+      if (m.withAlpha) {
+        axisRows.push(
+          h("div", { key: "alpha", class: `${p}__axis ${p}__alpha` }, [
+            h("span", { class: `${p}__axis-head` }, [
+              h("span", { class: `${p}__axis-label`, "aria-hidden": "true" }, [
+                m.layout === "compact" ? "A" : "Alpha",
               ]),
-            ]);
-          }),
-        ),
-      );
+              h("output", { class: `${p}__axis-value` }, [m.alpha.value.toFixed(2)]),
+            ]),
+            h("span", { class: `${p}__track` }, [
+              h("span", { class: `${p}__track-fill` }, [
+                h("span", { class: `${p}__alpha-check` }),
+                h("span", { class: `${p}__alpha-ramp`, style: { background: m.alpha.track } }),
+              ]),
+              h("input", {
+                type: "range",
+                class: `${p}__slider`,
+                min: m.alpha.min,
+                max: m.alpha.max,
+                step: m.alpha.step,
+                value: m.alpha.value,
+                "aria-label": "Alpha",
+                onInput: (e: Event) => {
+                  const a = Number((e.target as HTMLInputElement).value);
+                  // Opaque drops the key rather than storing `a: 1`, so one
+                  // shape means opaque everywhere.
+                  const { a: _drop, ...rest } = m.current;
+                  dial(a >= 1 ? rest : { ...rest, a });
+                },
+                onPointerup: commitCurrent,
+                onBlur: commitCurrent,
+              }),
+            ]),
+          ]),
+        );
+      }
+
+      children.push(h("div", { class: `${p}__axes` }, axisRows));
 
       if (m.withGamutSwitch) {
         children.push(
@@ -397,23 +432,27 @@ export const ColourPicker = defineComponent({
             }),
           );
         }
-        if (m.parts.hexInput) {
-          footer.push(
-            h("input", {
-              class: `${p}__hex`,
-              value: m.hex,
-              spellcheck: "false",
-              "aria-label": "Hex colour",
-              onInput: (e: Event) => {
-                const parsed = hexToOklch((e.target as HTMLInputElement).value);
-                if (parsed) dial(parsed);
-              },
-              // Typing a hex passes through half-entered colours, so the commit
-              // is leaving the field rather than each keystroke.
-              onBlur: commitCurrent,
-            }),
-          );
-        }
+        // One builder for all three fields. Each accepts any supported format
+        // whichever one it shows, so `toOklch` parses rather than a per-field
+        // parser: pasting a hex into the oklch field should work.
+        const field = (kind: "oklch" | "rgb" | "hex", label: string, value: string) =>
+          h("input", {
+            class: [`${p}__field`, `${p}__field--${kind}`, kind === "hex" ? `${p}__hex` : null],
+            value,
+            spellcheck: "false",
+            "aria-label": label,
+            onInput: (e: Event) => {
+              const parsed = toOklch((e.target as HTMLInputElement).value);
+              if (parsed) dial(parsed);
+            },
+            // Typing passes through half-entered colours, so the commit is
+            // leaving the field rather than each keystroke.
+            onBlur: commitCurrent,
+          });
+
+        if (m.parts.oklchInput) footer.push(field("oklch", "OKLCH colour", m.oklch));
+        if (m.parts.rgbInput) footer.push(field("rgb", "RGB colour", m.rgb));
+        if (m.parts.hexInput) footer.push(field("hex", "Hex colour", m.hex));
         if (m.parts.name) footer.push(h("span", { class: `${p}__name` }, [m.name]));
         children.push(h("div", { class: `${p}__footer` }, footer));
       }

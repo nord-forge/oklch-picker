@@ -127,9 +127,12 @@ describe("ColourPicker (Solid)", () => {
     expect(onChange).toHaveBeenCalledWith("oklch(0.75 0.16 145)");
   });
 
+  // Opt in: hex is off by default since 2.0.
   test("accepts hex in the hex field", () => {
     const onChange = vi.fn();
-    render(() => <ColourPicker value="oklch(0.7 0.15 255)" onChange={onChange} />);
+    render(() => (
+      <ColourPicker value="oklch(0.7 0.15 255)" onChange={onChange} parts={{ hexInput: true }} />
+    ));
 
     fireEvent.input(screen.getByLabelText("Hex colour"), { target: { value: "#ff0000" } });
 
@@ -146,7 +149,7 @@ describe("ColourPicker (Solid)", () => {
       <ColourPicker
         value="oklch(0.7 0.15 255)"
         onChange={() => {}}
-        parts={{ charts: false, hexInput: false, name: false, preview: false }}
+        parts={{ charts: false, oklchInput: false, hexInput: false, name: false, preview: false }}
       />
     ));
     expect(container.querySelector(".oklch-picker__chart")).toBeNull();
@@ -195,7 +198,8 @@ describe("ColourPicker (Solid)", () => {
     expect(container.querySelectorAll(".oklch-picker__chart")).toHaveLength(1);
     expect(container.querySelector(".oklch-picker__axis .oklch-picker__chart")).toBeNull();
     // All three sliders remain.
-    expect(container.querySelectorAll(".oklch-picker__slider")).toHaveLength(3);
+    // Three axes plus alpha. Alpha is a slider but not an axis.
+    expect(container.querySelectorAll(".oklch-picker__slider")).toHaveLength(4);
   });
 
   test("stacked gives every axis its own chart", () => {
@@ -234,7 +238,8 @@ describe("ColourPicker (Solid)", () => {
       />
     ));
     expect(container.querySelector(".oklch-picker__chart")).toBeNull();
-    expect(container.querySelectorAll(".oklch-picker__slider")).toHaveLength(3);
+    // Three axes plus alpha. Alpha is a slider but not an axis.
+    expect(container.querySelectorAll(".oklch-picker__slider")).toHaveLength(4);
   });
 
   test("dragging the chart emits a clamped colour", () => {

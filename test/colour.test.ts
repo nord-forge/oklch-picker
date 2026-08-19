@@ -2,16 +2,21 @@ import { describe, expect, test } from "vitest";
 import {
   CHART_MAX_CHROMA,
   SRGB,
+  alphaOf,
   clampToGamut,
   colourName,
   formatOklch,
+  formatRgb,
   gamutCurve,
+  hasAlpha,
   hexToOklch,
   inGamut,
   isLight,
   maxChroma,
   oklchToHex,
+  oklchToRgb255,
   parseOklch,
+  parseRgb,
   toOklch,
 } from "../packages/core/src/colour.js";
 import { P3, REC2020 } from "../packages/core/src/gamuts.js";
@@ -39,10 +44,80 @@ describe("parse / format", () => {
     expect(formatOklch({ l: 0.7, c: 0.15, h: -20 })).toBe("oklch(0.7 0.15 340)");
   });
 
-  test("toOklch accepts either stored form", () => {
+  test("toOklch accepts every stored form", () => {
     expect(toOklch("oklch(0.75 0.16 145)")).toEqual({ l: 0.75, c: 0.16, h: 145 });
     expect(toOklch("#ff0000")).not.toBeNull();
+    expect(toOklch("rgb(255 0 0)")).not.toBeNull();
     expect(toOklch("nonsense")).toBeNull();
+  });
+});
+
+describe("alpha", () => {
+  // An opaque colour must keep the exact strings 1.x emitted, or every stored
+  // value in every existing app changes on upgrade for no reason.
+  test("opaque colours keep the short form everywhere", () => {
+    expect(formatOklch({ l: 0.7, c: 0.15, h: 255 })).toBe("oklch(0.7 0.15 255)");
+    expect(formatOklch({ l: 0.7, c: 0.15, h: 255, a: 1 })).toBe("oklch(0.7 0.15 255)");
+    expect(oklchToHex({ l: 0.7, c: 0.15, h: 255 })).toMatch(/^#[0-9a-f]{6}$/);
+    expect(formatRgb({ l: 0.7, c: 0.15, h: 255 })).toMatch(/^rgb\(\d+ \d+ \d+\)$/);
+  });
+
+  test("transparency reaches every format", () => {
+    const c = { l: 0.7, c: 0.15, h: 255, a: 0.5 };
+    expect(formatOklch(c)).toBe("oklch(0.7 0.15 255 / 0.5)");
+    expect(oklchToHex(c)).toMatch(/^#[0-9a-f]{8}$/);
+    expect(formatRgb(c)).toBe(`rgb(${oklchToRgb255(c).join(" ")} / 0.5)`);
+  });
+
+  test("alpha parses as a fraction or a percentage", () => {
+    expect(parseOklch("oklch(0.7 0.15 255 / 0.5)")).toEqual({ l: 0.7, c: 0.15, h: 255, a: 0.5 });
+    expect(parseOklch("oklch(0.7 0.15 255 / 50%)")).toEqual({ l: 0.7, c: 0.15, h: 255, a: 0.5 });
+    // Fully opaque drops the key, so `a` never appears meaning "opaque".
+    expect(parseOklch("oklch(0.7 0.15 255 / 1)")).toEqual({ l: 0.7, c: 0.15, h: 255 });
+  });
+
+  test("hex carries alpha in its 4 and 8 digit forms", () => {
+    expect(hasAlpha(hexToOklch("#59a0f980") as never)).toBe(true);
+    expect(hasAlpha(hexToOklch("#59a0f9") as never)).toBe(false);
+    expect(hasAlpha(hexToOklch("#f008") as never)).toBe(true);
+  });
+
+  test("alpha survives an oklch to hex to oklch trip", () => {
+    const back = hexToOklch(oklchToHex({ l: 0.7, c: 0.15, h: 255, a: 0.5 }));
+    expect(alphaOf(back as never)).toBeCloseTo(0.5, 2);
+  });
+
+  // Alpha is not a gamut axis. Transparency cannot pull a colour in or out of
+  // what a screen can show, so it must not reach the clamping.
+  test("alpha does not affect gamut, and survives clamping", () => {
+    const wide = { l: 0.75, c: 0.35, h: 145, a: 0.4 };
+    expect(inGamut(wide)).toBe(inGamut({ l: 0.75, c: 0.35, h: 145 }));
+    const clamped = clampToGamut(wide);
+    expect(alphaOf(clamped)).toBe(0.4);
+    expect(clamped.c).toBeLessThan(wide.c);
+  });
+});
+
+describe("rgb", () => {
+  test("parses the comma and space forms, and rgba", () => {
+    const space = parseRgb("rgb(89 160 249)");
+    const comma = parseRgb("rgb(89, 160, 249)");
+    expect(space).not.toBeNull();
+    expect(formatRgb(space as never)).toBe("rgb(89 160 249)");
+    expect(formatRgb(comma as never)).toBe("rgb(89 160 249)");
+    expect(alphaOf(parseRgb("rgba(89, 160, 249, 0.5)") as never)).toBe(0.5);
+  });
+
+  test("channels survive an rgb round trip", () => {
+    for (const rgb of ["rgb(255 0 0)", "rgb(0 128 64)", "rgb(18 52 86)"]) {
+      expect(formatRgb(parseRgb(rgb) as never)).toBe(rgb);
+    }
+  });
+
+  test("rejects what is not an rgb string", () => {
+    expect(parseRgb("oklch(0.7 0.15 255)")).toBeNull();
+    expect(parseRgb("#ff0000")).toBeNull();
+    expect(parseRgb("rgb(1 2)")).toBeNull();
   });
 });
 

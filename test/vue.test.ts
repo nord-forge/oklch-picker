@@ -128,8 +128,11 @@ describe("ColourPicker (Vue)", () => {
     expect(emitted(w)).toEqual(["oklch(0.75 0.16 145)"]);
   });
 
+  // Opt in: hex is off by default since 2.0.
   test("accepts hex in the hex field", async () => {
-    const w = mount(ColourPicker, { props: { modelValue: "oklch(0.7 0.15 255)" } });
+    const w = mount(ColourPicker, {
+      props: { modelValue: "oklch(0.7 0.15 255)", parts: { hexInput: true } },
+    });
     await w.find(".oklch-picker__hex").setValue("#ff0000");
     expect(parseOklch(emitted(w).at(-1) as string)?.h).toBeCloseTo(29.23, 0);
   });
@@ -143,7 +146,7 @@ describe("ColourPicker (Vue)", () => {
     const w = mount(ColourPicker, {
       props: {
         modelValue: "oklch(0.7 0.15 255)",
-        parts: { charts: false, hexInput: false, name: false, preview: false },
+        parts: { charts: false, oklchInput: false, hexInput: false, name: false, preview: false },
       },
     });
     expect(w.find(".oklch-picker__chart").exists()).toBe(false);
@@ -188,7 +191,8 @@ describe("ColourPicker (Vue)", () => {
     expect(w.findAll(".oklch-picker__chart")).toHaveLength(1);
     expect(w.find(".oklch-picker__axis .oklch-picker__chart").exists()).toBe(false);
     // All three sliders remain.
-    expect(w.findAll(".oklch-picker__slider")).toHaveLength(3);
+    // Three axes plus alpha. Alpha is a slider but not an axis.
+    expect(w.findAll(".oklch-picker__slider")).toHaveLength(4);
   });
 
   test("stacked gives every axis its own chart", () => {
@@ -220,7 +224,8 @@ describe("ColourPicker (Vue)", () => {
       props: { modelValue: "oklch(0.7 0.15 255)", layout: "chart", parts: { charts: false } },
     });
     expect(w.find(".oklch-picker__chart").exists()).toBe(false);
-    expect(w.findAll(".oklch-picker__slider")).toHaveLength(3);
+    // Three axes plus alpha. Alpha is a slider but not an axis.
+    expect(w.findAll(".oklch-picker__slider")).toHaveLength(4);
   });
 
   test("dragging the chart emits a clamped colour", () => {
