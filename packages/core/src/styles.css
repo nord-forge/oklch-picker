@@ -15,6 +15,11 @@
   --okp-chart-height: 34px;
   /* The `chart` layout's single plot, where the chart is the main control. */
   --okp-chart-large-height: 180px;
+  /* `side-by-side` only: the left column needs room for a chart worth reading,
+     and the rail a fixed width so it does not resize as the colour name
+     changes length. Both are overridable; the width is a max, not a floor. */
+  --okp-side-by-side-width: 560px;
+  --okp-rail-width: 152px;
   --okp-thumb-size: 16px;
   /* A native range thumb is inset by half its width at each end, so its centre
      travels less than the full track. Everything positioned by value — the
@@ -263,16 +268,22 @@
 
 /* Side-by-side: the chart and sliders on the left, readout and presets in a
    right rail. The grid places areas regardless of DOM order, and collapses any
-   part turned off — including the chart, which `parts.charts` can remove. */
+   part turned off — including the chart, which `parts.charts` can remove.
+
+   The rail is a fixed column rather than `auto`: sized to content it grew and
+   shrank as the colour name changed length, which moved the chart under the
+   pointer mid-drag. The picker is given a width here because the left column
+   has to be wide enough for a chart to be worth reading — but it is a
+   `max-width`, so a narrower container still wins. */
 .oklch-picker--side-by-side {
   display: grid;
-  grid-template-columns: 1fr auto;
-  grid-template-rows: auto auto 1fr auto;
+  max-width: var(--okp-side-by-side-width);
+  grid-template-columns: minmax(0, 1fr) var(--okp-rail-width);
   grid-template-areas:
-    "chart footer"
-    "axes footer"
-    "axes presets"
+    "chart  footer"
+    "axes   presets"
     "notice notice";
+  grid-template-rows: min-content min-content auto;
   align-items: start;
   column-gap: calc(var(--okp-gap) * 1.6);
   row-gap: var(--okp-gap);
@@ -282,16 +293,39 @@
 }
 .oklch-picker--side-by-side .oklch-picker__axes {
   grid-area: axes;
+  align-self: start;
 }
+/* The readout becomes a column in the rail: preview, hex, then name. */
 .oklch-picker--side-by-side .oklch-picker__footer {
   grid-area: footer;
+  align-self: start;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: stretch;
+  gap: var(--okp-gap);
 }
+/* The preview fills the rail's width instead of sitting as a 34px chip beside
+   a hex field it no longer shares a row with. */
+.oklch-picker--side-by-side .oklch-picker__preview {
+  width: auto;
+  height: 44px;
+}
+.oklch-picker--side-by-side .oklch-picker__hex {
+  width: auto;
+}
+/* Presets fill the rail as a grid rather than wrapping inside a 96px cap,
+   which used to stack five swatches into a thin column. Fixed 24px cells, not
+   `1fr`: stretched swatches on a short last row would be wider than the ones
+   above whenever the count does not divide evenly.
+
+   They sit in the sliders' row, so the rail reads readout-then-swatches down
+   the side. `start` keeps them at the top of that row rather than floating. */
 .oklch-picker--side-by-side .oklch-picker__presets {
   grid-area: presets;
-  max-width: 96px;
-  align-content: start;
+  align-self: start;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 24px);
+  justify-content: start;
+  gap: 8px;
 }
 .oklch-picker--side-by-side .oklch-picker__notice {
   grid-area: notice;

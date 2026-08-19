@@ -215,7 +215,7 @@ Whatever you use, the emitted value is always a canonical, gamut-clamped `oklch(
 ### Layouts
 
 - **`chart`** (default) — one large lightness × chroma plot above all three sliders, reshaping as the hue slider moves. Drag it to set lightness and chroma at once.
-- **`side-by-side`** — the same large plot and sliders, with preview, hex, name, and presets in a right rail. For wide settings panels.
+- **`side-by-side`** — the same large plot and sliders, with preview, hex, name, and presets in a right rail. For wide settings panels. It caps itself at `--okp-side-by-side-width` (560px) so the chart has room to be worth reading; override that and `--okp-rail-width` to resize it.
 - **`compact`** — no charts, tighter spacing, single-letter labels inline with each slider. For popovers and toolbars. (Screen readers still get the full labels.)
 - **`stacked`** — a thin gamut chart above each axis instead of one large one. Each sweeps the two axes it does not control, so all three show a different slice. This is what 1.0 rendered by default.
 
@@ -297,6 +297,8 @@ If you do use it, the palette is custom properties on the root:
   --okp-track-height: 12px;
   --okp-chart-height: 34px;
   --okp-chart-large-height: 180px;
+  --okp-side-by-side-width: 560px;
+  --okp-rail-width: 152px;
   --okp-thumb-size: 16px;
 }
 ```
