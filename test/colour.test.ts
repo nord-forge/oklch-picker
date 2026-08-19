@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import {
+  CHART_MAX_CHROMA,
   clampToGamut,
   colourName,
   formatOklch,
@@ -217,6 +218,30 @@ describe("gamutCurve", () => {
     const cols = gamutCurve({ l: 0.7, c: 0.15, h: 0 }, "l", 32);
     const values = cols.map((c) => c.c);
     expect(Math.max(...values)).toBeGreaterThan(Math.min(...values) + 0.05);
+  });
+
+  // The charts scaled to MAX_CHROMA, the bisection bound, which no colour
+  // reaches — the top 13% of every chart was permanently empty.
+  test("the tallest curve nearly fills the chart, and none overflows", () => {
+    let tallest = 0;
+    for (let h = 0; h < 360; h += 3) {
+      for (const col of gamutCurve({ l: 0, c: 0, h }, "h", 64)) {
+        expect(col.c).toBeLessThanOrEqual(1);
+        tallest = Math.max(tallest, col.c);
+      }
+    }
+    // Some hue must come close to the top, or the scale is too generous again.
+    expect(tallest).toBeGreaterThan(0.9);
+  });
+
+  test("the chart scale sits just above the reachable peak", () => {
+    let peak = 0;
+    for (let h = 0; h < 360; h += 3) {
+      for (let l = 0; l <= 1; l += 0.02) peak = Math.max(peak, maxChroma(l, h));
+    }
+    // Above, so nothing clips; close, so no band of the chart is dead.
+    expect(CHART_MAX_CHROMA).toBeGreaterThan(peak);
+    expect(CHART_MAX_CHROMA).toBeLessThan(peak * 1.1);
   });
 
   // The bug this replaced: the c and h charts both swept max chroma against

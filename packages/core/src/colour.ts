@@ -14,8 +14,18 @@ export interface Oklch {
 
 export type Axis = "l" | "c" | "h";
 
-/** Chroma high enough that no sRGB colour reaches it — the slider's upper end. */
+/** Chroma high enough that no sRGB colour reaches it — the bisection's upper
+ * bound, deliberately past the real peak so the search always brackets it. */
 export const MAX_CHROMA = 0.37;
+
+/** The highest chroma sRGB actually reaches, at any lightness and hue (~0.321
+ * around h=328, l=0.7), rounded up to a round number.
+ *
+ * This is the charts' vertical scale rather than `MAX_CHROMA`: scaling to the
+ * bisection bound left the top 13% of every chart permanently unreachable, and
+ * a hue like teal — whose own peak is ~0.15 — used under half the height. A
+ * wider gamut would raise this, which is the one number to change. */
+export const CHART_MAX_CHROMA = 0.33;
 
 function srgbToLinear(v: number): number {
   return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
@@ -169,10 +179,13 @@ export const CHART_PLANES: Record<Axis, { x: Axis; y: Axis }> = {
   h: { x: "l", y: "c" },
 };
 
-/** The full-scale value of an axis, for mapping 0..1 screen positions onto it. */
+/** The full-scale value of an axis, for mapping 0..1 chart positions onto it.
+ *
+ * The curve, the crosshair, and a drag all read this, so it is the one place
+ * the chart's scale is decided — change it here or they desync. */
 export function axisMax(axis: Axis): number {
   if (axis === "h") return 360;
-  if (axis === "c") return MAX_CHROMA;
+  if (axis === "c") return CHART_MAX_CHROMA;
   return 1;
 }
 

@@ -8,6 +8,7 @@
  */
 export {
   axisMax,
+  CHART_MAX_CHROMA,
   CHART_PLANES,
   chartColour,
   clampToGamut,
