@@ -7,6 +7,8 @@
 
 An OKLCH colour picker for React, Preact, Vue, Svelte, Solid, and for no framework at all. Zero runtime dependencies. The component is ~5.3 kB gzipped, and the colour maths alone is ~1.8 kB.
 
+**[Documentation and live demos](https://nord-forge.github.io/oklch-picker/)**, covering every layout and every part, with a playground that emits code you can copy.
+
 Every axis is a slider over a **gamut cross-section**. The filled silhouette is the range sRGB can actually show, so the reachable colours are visible instead of something you discover by dragging into a region that does nothing.
 
 ![The picker in dark mode, showing blue and amber](https://raw.githubusercontent.com/nord-forge/oklch-picker/main/docs/media/dark.png)

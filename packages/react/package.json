@@ -5,7 +5,7 @@
   "keywords": ["oklch", "colour", "color-picker", "react", "preact", "gamut"],
   "license": "MIT",
   "author": "Nick Bevers <hello@nickbevers.dev>",
-  "homepage": "https://github.com/nord-forge/oklch-picker#readme",
+  "homepage": "https://nord-forge.github.io/oklch-picker/",
   "bugs": {
     "url": "https://github.com/nord-forge/oklch-picker/issues"
   },

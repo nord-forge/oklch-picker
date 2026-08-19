@@ -7,6 +7,8 @@
 
 An OKLCH colour picker as a **custom element**. No framework, no build step. For plain HTML, HTMX, Alpine, Astro, and any server-rendered page.
 
+**[Documentation and live demos](https://nord-forge.github.io/oklch-picker/)**
+
 Every axis is a slider over a **gamut cross-section**. The filled silhouette is the range sRGB can actually show, so the reachable colours are visible. You do not have to discover them by dragging into a region that does nothing.
 
 ![The picker in dark mode, showing blue and amber](https://raw.githubusercontent.com/nord-forge/oklch-picker/main/docs/media/dark.png)
