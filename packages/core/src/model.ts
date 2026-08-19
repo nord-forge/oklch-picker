@@ -1,7 +1,7 @@
 /**
- * Headless picker logic — the framework-agnostic layer between the colour
- * maths and a component. A new framework adapter should only add markup and
- * state wiring on top of these. Framework-free, no DOM.
+ * Headless picker logic. This is the framework-agnostic layer between the
+ * colour maths and a component. A new framework adapter should only add markup
+ * and state wiring on top of these. Framework-free, no DOM.
  */
 import {
   type Axis,
@@ -26,8 +26,9 @@ import {
 export type PickerLayout = "stacked" | "compact" | "side-by-side" | "chart";
 
 /** The arrangement a picker takes when none is asked for. `chart` leads with
- * the one plot that shows what the sliders cannot — where the gamut actually
- * ends — rather than three strips restating what each track already hatches. */
+ * the one plot that shows what the sliders cannot, which is where the gamut
+ * actually ends. The alternative is three strips restating what each track
+ * already hatches. */
 export const DEFAULT_LAYOUT: PickerLayout = "chart";
 
 /** Optional parts of the picker; each renders unless turned off. */
@@ -68,11 +69,11 @@ export const DEFAULT_LABELS: Record<Axis | "outOfGamut", string> = {
   // Names sRGB rather than "what a screen can display": the picker can target
   // P3, which is also a screen, so the generic phrasing was only true while
   // sRGB was the only option.
-  outOfGamut: "Outside sRGB — the nearest sRGB colour is used.",
+  outOfGamut: "Outside sRGB, the nearest sRGB colour is used.",
 };
 
 /** Per-gamut notice key, so `labels` can word the message for one output space
- * without touching the others — `{ "outOf:p3": "…" }`. */
+ * without touching the others, as in `{ "outOf:p3": "…" }`. */
 export function gamutNoticeKey(gamut: Gamut): `outOf:${string}` {
   return `outOf:${gamut.id}`;
 }
@@ -84,7 +85,7 @@ export function defaultOutOfGamutNotice(gamut: Gamut, fallback: string): string 
   // sRGB defers to `labels.outOfGamut` so a translation or an override of that
   // one key still wins; every other space words itself from its own label.
   if (gamut.id === SRGB.id) return fallback;
-  return `Outside ${gamut.label} — the nearest ${gamut.label} colour is used.`;
+  return `Outside ${gamut.label}, the nearest ${gamut.label} colour is used.`;
 }
 
 /** How many recent colours are kept when no limit is given. Enough to be
@@ -93,11 +94,11 @@ export const DEFAULT_MAX_RECENTS = 8;
 
 /** Add a committed colour to the recents list, most recent first.
  *
- * Pure, so the caller owns the storage — component state for the session, or a
- * backend for something durable. Deduplicated by the canonical string rather
- * than by object identity: re-picking a colour should move it to the front
- * rather than appear twice, and two dials of the same colour are the same
- * colour however they were reached. */
+ * Pure, so the caller owns the storage. That can be component state for the
+ * session, or a backend for something durable. Deduplicated by the canonical
+ * string rather than by object identity. Re-picking a colour should move it to
+ * the front rather than appear twice, and two dials of the same colour are the
+ * same colour however they were reached. */
 export function addRecent(recents: string[], colour: string, max = DEFAULT_MAX_RECENTS): string[] {
   if (max <= 0) return [];
   return [colour, ...recents.filter((c) => c !== colour)].slice(0, max);
@@ -125,7 +126,8 @@ export interface Span {
   end: number;
 }
 
-/** Every out-of-gamut run, as 0..1 fractions — an axis can be unreachable at both ends. */
+/** Every out-of-gamut run, as 0..1 fractions. An axis can be unreachable at
+ * both ends. */
 export function outOfGamutSpans(base: Oklch, axis: Axis, max: number, gamut: Gamut = SRGB): Span[] {
   const steps = 64;
   const spans: Span[] = [];
@@ -151,8 +153,8 @@ export interface AxisModel {
   value: number;
 }
 
-/** Slider ranges for a colour. Chroma's max hugs what is actually reachable —
- * a fixed max is up to 87% dead travel at low lightness. */
+/** Slider ranges for a colour. Chroma's max hugs what is actually reachable,
+ * because a fixed max is up to 87% dead travel at low lightness. */
 export function axisModels(current: Oklch, reachable: number): AxisModel[] {
   const chromaMax = Math.max(0.02, Math.ceil(reachable * 100) / 100);
   return [
@@ -162,7 +164,7 @@ export function axisModels(current: Oklch, reachable: number): AxisModel[] {
   ];
 }
 
-/** What the picker shows before anything is set — a mid blue. */
+/** What the picker shows before anything is set. A mid blue. */
 export const FALLBACK: Oklch = { l: 0.7, c: 0.13, h: 260 };
 
 /** The colour to show: the draft while it still round-trips to what was
@@ -206,8 +208,8 @@ export function withSingleChart(layout: PickerLayout): boolean {
 }
 
 /** Which charts a layout renders. The single-chart layouts show the hue slice
- * alone — one plot of lightness against chroma, reshaped as the hue slider
- * moves — where the others give every axis its own. */
+ * alone, one plot of lightness against chroma, reshaped as the hue slider
+ * moves. The others give every axis its own. */
 export function chartAxes(layout: PickerLayout): Axis[] {
   return withSingleChart(layout) ? ["h"] : ["l", "c", "h"];
 }
@@ -245,7 +247,7 @@ export interface PickerModel {
   /** Spaces drawn as reference outlines but never clamped to. */
   references: Gamut[];
   /** The spaces the switcher offers, in order. Empty when it is off, or when
-   * fewer than two were given — one option is not a choice. */
+   * fewer than two were given, because one option is not a choice. */
   gamutChoices: Gamut[];
   /** Whether the gamut switcher should render. */
   withGamutSwitch: boolean;
@@ -264,7 +266,7 @@ export interface PickerModel {
   labels: Record<Axis | "outOfGamut", string> & Partial<Record<string, string>>;
   parts: Required<PickerParts>;
   layout: PickerLayout;
-  /** Whether charts should render at all — `compact` has no room for them. */
+  /** Whether charts should render at all. `compact` has no room for them. */
   withCharts: boolean;
   /** True when at least one footer part is on, so the footer renders. */
   withFooter: boolean;
@@ -287,7 +289,7 @@ export interface PickerOptions {
   labels?: Partial<Record<LabelKey, string>> | undefined;
   /** The output space. Everything follows it: the sliders' reach, what is
    * clamped and emitted, and what the notice measures against. Defaults to
-   * sRGB. Import wider spaces from `@oklch-picker/core/gamuts` — omitting this
+   * sRGB. Import wider spaces from `@oklch-picker/core/gamuts`. Omitting this
    * ships none of that code. */
   gamut?: Gamut | undefined;
   /** Extra spaces to outline on the charts without clamping to them. Defaults
@@ -298,7 +300,7 @@ export interface PickerOptions {
   gamutChoices?: Gamut[] | undefined;
 }
 
-/** Derive a whole picker from the current colour. Pure — call it per render. */
+/** Derive a whole picker from the current colour. Pure, so call it per render. */
 export function pickerModel(current: Oklch, options: PickerOptions = {}): PickerModel {
   const labels = { ...DEFAULT_LABELS, ...options.labels } as PickerModel["labels"];
   const parts = { ...DEFAULT_PARTS, ...options.parts };

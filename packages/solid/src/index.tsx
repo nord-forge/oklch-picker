@@ -1,5 +1,5 @@
 /**
- * Solid adapter. Props are read lazily throughout — destructuring at the top
+ * Solid adapter. Props are read lazily throughout. Destructuring at the top
  * of a Solid component would snapshot them and break reactivity.
  */
 import {
@@ -142,12 +142,12 @@ export interface ColourPickerProps {
   onChange: (colour: string) => void;
   presets?: string[];
   /** Recently used colours, most recent first. Omit to let the picker keep its
-   * own list for the session; pass one to store them yourself — in a backend,
+   * own list for the session; pass one to store them yourself, in a backend,
    * or shared between pickers. */
   recents?: string[];
   /** Called with the new list when a colour is committed, for the controlled
-   * form above. Fires on commit — a pointer release, a preset, a hex entry —
-   * not on every value a drag passes through. */
+   * form above. Fires on commit, so on a pointer release, a preset, or a hex
+   * entry. Not on every value a drag passes through. */
   onRecentsChange?: (recents: string[]) => void;
   /** How many recents to keep. Ignored when `recents` is controlled: the list
    * you pass is the list that renders. */
@@ -173,8 +173,8 @@ export interface ColourPickerProps {
   /** What the switcher offers, when `parts.gamutSwitch` is on. Defaults to the
    * output gamut plus its references. */
   gamutChoices?: Gamut[];
-  /** Called when a switcher button is pressed. Omit to leave the buttons inert
-   * — the app is driving `gamut` as a prop either way. */
+  /** Called when a switcher button is pressed. Omit to leave the buttons
+   * inert. The app is driving `gamut` as a prop either way. */
   onGamutChange?: (gamut: Gamut) => void;
   /** Class prefix for every element, so styles can be overridden. */
   classPrefix?: string;
@@ -217,7 +217,8 @@ export function ColourPicker(props: ColourPickerProps) {
 
   // A drag calls `onChange` for every value it passes through, so recording
   // there would bury the list in near-identical colours from one gesture.
-  // Only a commit — a pointer release, a preset, a hex entry — lands here.
+  // Only a commit lands here. That is a pointer release, a preset or a hex
+  // entry.
   const commit = (colour: string) => {
     const next = addRecent(recents(), colour, props.maxRecents);
     setOwnRecents(next);
@@ -293,14 +294,14 @@ export function ColourPicker(props: ColourPickerProps) {
       <div class={`${prefix()}__axes`}>
         {/* `Index`, not `For`: `For` keys by object identity, and `axisModels`
             returns fresh objects each render, so every keystroke replaced all
-            three rows — taking focus and pointer capture with them mid-drag.
+            three rows, taking focus and pointer capture with them mid-drag.
             The axes are a fixed three in a fixed order, so position is the
             right key. */}
         <Index each={model().axes}>
           {(a, i) => {
             // In the `chart` layout the one chart is hoisted above the axes.
             const chart = (): ChartSlot | undefined => (single() ? undefined : model().charts[i]);
-            // A div, not a label — the slider has its own aria-label.
+            // A div, not a label. The slider has its own aria-label.
             return (
               <div class={`${prefix()}__axis`}>
                 <span class={`${prefix()}__axis-head`}>

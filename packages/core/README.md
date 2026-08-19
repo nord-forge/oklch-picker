@@ -5,9 +5,9 @@
 
 # @oklch-picker/core
 
-The OKLCH colour maths and headless picker model behind every `oklch-picker` adapter. **No UI** — framework-free, no DOM, zero dependencies.
+The OKLCH colour maths and headless picker model behind every `oklch-picker` adapter. **No UI.** Framework-free, no DOM, zero dependencies.
 
-Every axis is a slider over a **gamut cross-section** — the filled silhouette is the range sRGB can actually show, so the reachable colours are visible instead of something you discover by dragging into a region that does nothing.
+Every axis is a slider over a **gamut cross-section**. The filled silhouette is the range sRGB can actually show, so the reachable colours are visible. You do not have to discover them by dragging into a region that does nothing.
 
 ![The picker in dark mode, showing blue and amber](https://raw.githubusercontent.com/nord-forge/oklch-picker/main/docs/media/dark.png)
 
@@ -23,7 +23,7 @@ npm install @oklch-picker/core
 
 ## Usage
 
-Every adapter depends on this package, so you rarely install it directly for a picker. It is useful on its own for colour work with no UI attached — validating stored values on a server, generating palettes, or naming colours in a table:
+Every adapter depends on this package, so you rarely install it directly for a picker. On its own it is useful for colour work with no UI attached: validating stored values on a server, generating palettes, or naming colours in a table.
 
 ```js
 import { colourName, clampToGamut, maxChroma, toOklch } from "@oklch-picker/core";
@@ -43,7 +43,7 @@ import "@oklch-picker/core/styles.css";      // or styles.min.css
 
 | Using | Install |
 | --- | --- |
-| No framework — HTML, HTMX, Alpine, Astro, Rails, Laravel, Django | [`oklch-picker`](https://www.npmjs.com/package/oklch-picker) |
+| No framework: HTML, HTMX, Alpine, Astro, Rails, Laravel, Django | [`oklch-picker`](https://www.npmjs.com/package/oklch-picker) |
 | React / Preact | [`@oklch-picker/react`](https://www.npmjs.com/package/@oklch-picker/react) |
 | Vue | [`@oklch-picker/vue`](https://www.npmjs.com/package/@oklch-picker/vue) |
 | Svelte 5 | [`@oklch-picker/svelte`](https://www.npmjs.com/package/@oklch-picker/svelte) |

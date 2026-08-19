@@ -46,7 +46,7 @@ describe("ColourPicker (Svelte)", () => {
 
   // The vanilla element regressed here by reading the colour from a build-time
   // closure. Svelte writes back into its bindable `value` and re-renders from
-  // it, so no feeding is needed — this pins that it stays true.
+  // it, so no feeding is needed. This pins that it stays true.
   test("moving one slider keeps what the others were already dragged to", async () => {
     const onchange = vi.fn();
     render(ColourPicker, { props: { value: "oklch(0.7 0.15 255)", onchange } });
@@ -270,7 +270,7 @@ describe("ColourPicker (Svelte)", () => {
     expect(container.querySelector(".my-picker__axis")).not.toBeNull();
   });
 
-  // Outside sRGB, inside P3 — the colour the gamut tests turn on.
+  // Outside sRGB, inside P3. This is the colour the gamut tests turn on.
   const wide = "oklch(0.7 0.25 145)";
 
   test("the sRGB default costs nothing: no boundary, no switcher", () => {

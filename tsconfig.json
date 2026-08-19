@@ -3,8 +3,8 @@
   "compilerOptions": {
     // Typecheck the workspace from source. Without this, `@oklch-picker/*`
     // resolves to each package's built `.d.mts`, and the vanilla package's
-    // global `<oklch-picker>` tag declaration then exists twice — once from
-    // dist, once from src — which TS reports as a conflicting redeclaration.
+    // global `<oklch-picker>` tag declaration then exists twice, once from
+    // dist and once from src. TS reports that as a conflicting redeclaration.
     "paths": {
       "@oklch-picker/core": ["./packages/core/src/index.ts"],
       "@oklch-picker/react": ["./packages/react/src/index.ts"],
@@ -14,7 +14,7 @@
       "@oklch-picker/solid": ["./packages/solid/src/index.tsx"]
     }
   },
-  // Solid is typechecked by packages/solid/tsconfig.json — its JSX needs
+  // Solid is typechecked by packages/solid/tsconfig.json. Its JSX needs
   // `jsxImportSource: solid-js`, which cannot coexist with React's in one pass.
   "include": ["packages/*/src/**/*.ts", "packages/*/src/**/*.tsx", "test/**/*.ts", "test/**/*.tsx"],
   "exclude": ["packages/solid", "test/solid.test.tsx", "**/dist"]

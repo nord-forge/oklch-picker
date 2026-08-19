@@ -273,7 +273,7 @@ describe("ColourPicker (Solid)", () => {
     expect(container.querySelector(".my-picker__axis")).not.toBeNull();
   });
 
-  // Outside sRGB, inside P3 — the colour the gamut tests turn on.
+  // Outside sRGB, inside P3. This is the colour the gamut tests turn on.
   const wide = "oklch(0.7 0.25 145)";
 
   test("the sRGB default costs nothing: no boundary, no switcher", () => {

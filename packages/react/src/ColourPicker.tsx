@@ -24,12 +24,12 @@ export interface ColourPickerProps {
   onChange: (colour: string) => void;
   presets?: string[];
   /** Recently used colours, most recent first. Omit to let the picker keep its
-   * own list for the session; pass one to store them yourself — in a backend,
+   * own list for the session; pass one to store them yourself, in a backend,
    * or shared between pickers. */
   recents?: string[];
   /** Called with the new list when a colour is committed, for the controlled
-   * form above. Fires on commit — a pointer release, a preset, a hex entry —
-   * not on every value a drag passes through. */
+   * form above. Fires on commit, so on a pointer release, a preset, or a hex
+   * entry. Not on every value a drag passes through. */
   onRecentsChange?: (recents: string[]) => void;
   /** How many recents to keep. Ignored when `recents` is controlled: the list
    * you pass is the list that renders. */
@@ -55,8 +55,8 @@ export interface ColourPickerProps {
   /** What the switcher offers, when `parts.gamutSwitch` is on. Defaults to the
    * output gamut plus its references. */
   gamutChoices?: Gamut[];
-  /** Called when a switcher button is pressed. Omit to leave the buttons inert
-   * — the app is driving `gamut` as a prop either way. */
+  /** Called when a switcher button is pressed. Omit to leave the buttons
+   * inert. The app is driving `gamut` as a prop either way. */
   onGamutChange?: (gamut: Gamut) => void;
   /** Class prefix for every element, so styles can be overridden. */
   classPrefix?: string;
@@ -94,7 +94,8 @@ export function ColourPicker(props: ColourPickerProps) {
 
   // A drag calls `onChange` for every value it passes through, so recording
   // there would bury the list in near-identical colours from one gesture.
-  // Only a commit — a pointer release, a preset, a hex entry — lands here.
+  // Only a commit lands here. That is a pointer release, a preset or a hex
+  // entry.
   const commit = (colour: string) => {
     const next = addRecent(recents, colour, props.maxRecents);
     setOwnRecents(next);
@@ -111,7 +112,7 @@ export function ColourPicker(props: ColourPickerProps) {
     props.onChange(colour);
     commit(colour);
   };
-  // Handlers are bound to both onInput and onChange — React fires the latter,
+  // Handlers are bound to both onInput and onChange. React fires the latter,
   // Preact the former. Each pair shares one function.
   const editHex = (e: { target: EventTarget | null }) => {
     const parsed = hexToOklch((e.target as HTMLInputElement).value);
@@ -176,7 +177,7 @@ export function ColourPicker(props: ColourPickerProps) {
           const chart = single ? undefined : model.charts[i];
           const slide = (e: { target: EventTarget | null }) =>
             emit({ ...current, [a.key]: Number((e.target as HTMLInputElement).value) });
-          // A div, not a label — the slider has its own aria-label.
+          // A div, not a label. The slider has its own aria-label.
           return (
             <div key={a.key} className={`${prefix}__axis`}>
               <span className={`${prefix}__axis-head`}>

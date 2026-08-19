@@ -22,9 +22,9 @@
   --okp-rail-width: 152px;
   --okp-thumb-size: 16px;
   /* A native range thumb is inset by half its width at each end, so its centre
-     travels less than the full track. Everything positioned by value — the
-     chart, its crosshair, the hatching — is inset to match, or they drift apart
-     by half a thumb at the extremes. */
+     travels less than the full track. The chart, its crosshair and the
+     hatching are all positioned by value, so each is inset to match. Without
+     that they drift apart by half a thumb at the extremes. */
   --okp-inset: calc(var(--okp-thumb-size) / 2);
 
   /* Both palettes in one place: light-dark() resolves per the colour scheme,
@@ -158,8 +158,8 @@
 }
 /* Distinguishable by weight rather than hue: two of these can run close
    together over part of the sweep, and the outer one is always the more
-   speculative. sRGB is the firmest line — it is the space the reader can be
-   sure of — so it carries the most contrast. */
+   speculative. sRGB is the firmest line, because it is the space the reader
+   can be sure of, so it carries the most contrast. */
 .oklch-picker__gamut-boundary--srgb {
   --okp-boundary-opacity: 0.85;
 }
@@ -197,7 +197,7 @@
   height: var(--okp-track-height);
 }
 /* An inset shadow rather than a border, so the fill's box stays exactly the
-   width of the chart above it — a 1px border would make it 2px wider. */
+   width of the chart above it. A 1px border would make it 2px wider. */
 .oklch-picker__track-fill {
   position: absolute;
   inset: 0 var(--okp-inset);
@@ -359,12 +359,12 @@
 
 /* Side-by-side: the chart and sliders on the left, readout and presets in a
    right rail. The grid places areas regardless of DOM order, and collapses any
-   part turned off — including the chart, which `parts.charts` can remove.
+   part turned off, including the chart, which `parts.charts` can remove.
 
    The rail is a fixed column rather than `auto`: sized to content it grew and
    shrank as the colour name changed length, which moved the chart under the
    pointer mid-drag. The picker is given a width here because the left column
-   has to be wide enough for a chart to be worth reading — but it is a
+   has to be wide enough for a chart to be worth reading, but it is a
    `max-width`, so a narrower container still wins. */
 .oklch-picker--side-by-side {
   display: grid;

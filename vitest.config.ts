@@ -7,14 +7,14 @@ import { defineConfig } from "vitest/config";
  * they cannot share a single config (Solid and Preact both claim JSX).
  *
  * Tests run against the workspace source, resolved through the same
- * `@oklch-picker/*` specifiers a consumer uses — npm workspaces symlink them,
+ * `@oklch-picker/*` specifiers a consumer uses. npm workspaces symlink them,
  * so a broken `exports` map fails here rather than after publishing. */
 export default defineConfig({
   test: {
     projects: [
       {
-        // The React-API build, rendered with Preact via the compat alias —
-        // proving the single build genuinely works there.
+        // The React-API build, rendered with Preact via the compat alias.
+        // That proves the single build genuinely works there.
         test: {
           name: "react",
           environment: "happy-dom",

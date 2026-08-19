@@ -1,4 +1,4 @@
-/** The custom element, driven through real DOM — no framework involved. */
+/** The custom element, driven through real DOM. No framework involved. */
 import { SRGB, parseOklch } from "@oklch-picker/core";
 import { P3, REC2020 } from "@oklch-picker/core/gamuts";
 import { type OklchPickerElement, register } from "oklch-picker";
@@ -319,8 +319,9 @@ describe("<oklch-picker>", () => {
   test("a property set before upgrade is not shadowed", () => {
     const picker = document.createElement("oklch-picker") as OklchPickerElement;
     // A value assigned before the definition loads lands as an own property,
-    // shadowing the accessor. Recreate that state directly — `createElement`
-    // has already upgraded this instance, so assigning normally would not.
+    // shadowing the accessor. Recreate that state directly, because
+    // `createElement` has already upgraded this instance and assigning
+    // normally would not.
     Object.defineProperty(picker, "value", {
       value: "oklch(0.5 0.1 30)",
       writable: true,
@@ -363,7 +364,7 @@ describe("<oklch-picker>", () => {
   test("only the element's own change escapes, never the inner input's", () => {
     const picker = mount({ value: "oklch(0.7 0.15 255)" });
     const seen: (string | undefined)[] = [];
-    // Listening on a parent is the realistic case — a stray bubbled `change`
+    // Listening on a parent is the realistic case. A stray bubbled `change`
     // from the range input carries no detail and would break the handler.
     host?.addEventListener("change", (e) => seen.push((e as CustomEvent).detail?.colour));
 
@@ -415,7 +416,7 @@ describe("<oklch-picker>", () => {
     expect(document.activeElement).toBe(hue);
   });
 
-  // Outside sRGB, inside P3 — the colour the gamut tests turn on.
+  // Outside sRGB, inside P3. This is the colour the gamut tests turn on.
   const wide = "oklch(0.7 0.25 145)";
 
   test("the sRGB default costs nothing: no boundary, no switcher", () => {
@@ -537,7 +538,7 @@ describe("<oklch-picker> recent colours", () => {
       hue.value = v;
       hue.dispatchEvent(new Event("input"));
     }
-    expect(seen).toHaveLength(0); // nothing yet — the gesture is still running
+    expect(seen).toHaveLength(0); // nothing yet, the gesture is still running
 
     hue.dispatchEvent(new PointerEvent("pointerup", { bubbles: true }));
     expect(seen).toHaveLength(1);
@@ -562,8 +563,8 @@ describe("<oklch-picker> recent colours", () => {
     expect(picker.querySelectorAll(".oklch-picker__recent")).toHaveLength(2);
   });
 
-  // The list is a plain array of strings, so it reads from an attribute too —
-  // the no-framework fallback, exactly as `presets` does.
+  // The list is a plain array of strings, so it reads from an attribute too.
+  // That is the no-framework fallback, exactly as `presets` does.
   test("a JSON attribute controls the list as the property does", () => {
     const picker = mount({
       value: "oklch(0.7 0.15 255)",

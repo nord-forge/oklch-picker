@@ -5,9 +5,9 @@
 
 # oklch-picker
 
-An OKLCH colour picker as a **custom element** — no framework, no build step. For plain HTML, HTMX, Alpine, Astro, and any server-rendered page.
+An OKLCH colour picker as a **custom element**. No framework, no build step. For plain HTML, HTMX, Alpine, Astro, and any server-rendered page.
 
-Every axis is a slider over a **gamut cross-section** — the filled silhouette is the range sRGB can actually show, so the reachable colours are visible instead of something you discover by dragging into a region that does nothing.
+Every axis is a slider over a **gamut cross-section**. The filled silhouette is the range sRGB can actually show, so the reachable colours are visible. You do not have to discover them by dragging into a region that does nothing.
 
 ![The picker in dark mode, showing blue and amber](https://raw.githubusercontent.com/nord-forge/oklch-picker/main/docs/media/dark.png)
 
@@ -37,9 +37,9 @@ npm install oklch-picker
 </script>
 ```
 
-With a bundler, the import is `import "oklch-picker/register"`. Either way, that one side-effect import defines the tag — that is the whole client-side cost.
+With a bundler, the import is `import "oklch-picker/register"`. Either way, that one side-effect import defines the tag. That is the whole client-side cost.
 
-**It works in forms.** The element is form-associated, so it submits under its `name` like a built-in input — no hidden field to keep in sync:
+**It works in forms.** The element is form-associated, so it submits under its `name` like a built-in input. There is no hidden field to keep in sync.
 
 ```html
 <form method="post">
@@ -58,7 +58,7 @@ With a bundler, the import is `import "oklch-picker/register"`. Either way, that
 ></oklch-picker>
 ```
 
-It renders into the light DOM, so the stylesheet and `--okp-*` overrides apply as they do everywhere else — which also means it is not style-isolated.
+It renders into the light DOM, so the stylesheet and `--okp-*` overrides apply as they do everywhere else. That also means it is not style-isolated.
 
 > **Upgrading from 0.2?** This package used to be the React component. It is now the no-framework build; React users want [`@oklch-picker/react`](https://www.npmjs.com/package/@oklch-picker/react).
 
@@ -66,7 +66,7 @@ It renders into the light DOM, so the stylesheet and `--okp-*` overrides apply a
 
 | Using | Install |
 | --- | --- |
-| No framework — HTML, HTMX, Alpine, Astro, Rails, Laravel, Django | [`oklch-picker`](https://www.npmjs.com/package/oklch-picker) |
+| No framework: HTML, HTMX, Alpine, Astro, Rails, Laravel, Django | [`oklch-picker`](https://www.npmjs.com/package/oklch-picker) |
 | React / Preact | [`@oklch-picker/react`](https://www.npmjs.com/package/@oklch-picker/react) |
 | Vue | [`@oklch-picker/vue`](https://www.npmjs.com/package/@oklch-picker/vue) |
 | Svelte 5 | [`@oklch-picker/svelte`](https://www.npmjs.com/package/@oklch-picker/svelte) |

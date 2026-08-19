@@ -19,11 +19,11 @@ published with credit, unless you would rather not be named.
 This is a client-side colour picker with no network access, no storage, and no
 runtime dependencies, so the realistic surface is small. Worth reporting:
 
-- Anything in the packages' supply chain — a dependency of the build or a
-  compromised release artefact.
+- Anything in the packages' supply chain, such as a dependency of the build or
+  a compromised release artefact.
 - Input handling that could be turned into script execution: the `value`
   attribute and hex field accept arbitrary strings, and the custom element
   renders into the light DOM.
 
 Colour values that render unexpectedly, or clamp differently than you expected,
-are bugs rather than vulnerabilities — please open a normal issue for those.
+are bugs rather than vulnerabilities. Please open a normal issue for those.

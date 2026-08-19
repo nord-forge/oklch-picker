@@ -10,7 +10,7 @@ export default defineConfig({
   hooks: {
     // Minified twin for the no-build path: `oklch-picker` is served
     // straight from a CDN, where nothing else will compress it. Bundler users
-    // keep importing `styles.css` — their build minifies it anyway, and the
+    // keep importing `styles.css`. Their build minifies it anyway, and the
     // readable file is the reference for the `--okp-*` variables.
     "build:done": async () => {
       const { readFile, writeFile } = await import("node:fs/promises");

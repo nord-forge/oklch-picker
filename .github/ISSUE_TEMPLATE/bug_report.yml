@@ -6,7 +6,7 @@ body:
     attributes:
       value: |
         Thanks for taking the time. The most useful thing you can include is a
-        way to reproduce it — a few lines of code beat a long description.
+        way to reproduce it. A few lines of code beat a long description.
 
   - type: dropdown
     id: package
@@ -46,7 +46,7 @@ body:
       label: How can it be reproduced?
       description: |
         A minimal snippet, or a link to a StackBlitz / CodeSandbox. Include the
-        colour value involved if the problem depends on one — gamut behaviour
+        colour value involved if the problem depends on one. Gamut behaviour
         varies a lot across the space.
       render: js
     validations:

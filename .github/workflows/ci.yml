@@ -44,7 +44,7 @@ jobs:
       - run: npm ci
 
       # Each example installs its package by file: path, so this is what
-      # catches a broken exports map — it fails here rather than after release.
+      # catches a broken exports map. It fails here rather than after release.
       # Both scripts build the workspace first, so no separate build step.
       - run: npm run examples:install
       - run: npm run examples:build

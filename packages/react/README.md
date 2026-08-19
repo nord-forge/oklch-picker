@@ -7,7 +7,7 @@
 
 An OKLCH colour picker for **React and Preact**, with gamut-aware sliders.
 
-Every axis is a slider over a **gamut cross-section** — the filled silhouette is the range sRGB can actually show, so the reachable colours are visible instead of something you discover by dragging into a region that does nothing.
+Every axis is a slider over a **gamut cross-section**. The filled silhouette is the range sRGB can actually show, so the reachable colours are visible. You do not have to discover them by dragging into a region that does nothing.
 
 ![The picker in dark mode, showing blue and amber](https://raw.githubusercontent.com/nord-forge/oklch-picker/main/docs/media/dark.png)
 
@@ -42,7 +42,7 @@ Preact works through `preact/compat`, which most Preact setups already alias.
 
 | Using | Install |
 | --- | --- |
-| No framework — HTML, HTMX, Alpine, Astro, Rails, Laravel, Django | [`oklch-picker`](https://www.npmjs.com/package/oklch-picker) |
+| No framework: HTML, HTMX, Alpine, Astro, Rails, Laravel, Django | [`oklch-picker`](https://www.npmjs.com/package/oklch-picker) |
 | React / Preact | [`@oklch-picker/react`](https://www.npmjs.com/package/@oklch-picker/react) |
 | Vue | [`@oklch-picker/vue`](https://www.npmjs.com/package/@oklch-picker/vue) |
 | Svelte 5 | [`@oklch-picker/svelte`](https://www.npmjs.com/package/@oklch-picker/svelte) |

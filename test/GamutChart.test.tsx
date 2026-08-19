@@ -23,7 +23,7 @@ describe("GamutChart", () => {
     expect(paths[1]?.getAttribute("d")).not.toMatch(/Z$/);
   });
 
-  test("is hidden from assistive tech — it duplicates the slider", () => {
+  test("is hidden from assistive tech, because it duplicates the slider", () => {
     const { container } = render(
       <GamutChart base={BASE} axis="l" id="l" x={0.5} y={0.5} classPrefix="oklch-picker" />,
     );

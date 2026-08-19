@@ -22,7 +22,7 @@
 
 <main class="demo">
   <header class="demo__head">
-    <h1 class="demo__title">oklch-picker — Svelte</h1>
+    <h1 class="demo__title">oklch-picker for Svelte</h1>
     <p class="demo__subtitle">
       Bound with <code class="demo__code">bind:value</code>; an
       <code class="demo__code">onchange</code> callback is available too.

@@ -20,8 +20,8 @@ single plot. Pass `layout="stacked"` to keep what 1.0 rendered:
 ```
 
 This is a minor release because the API is unchanged and every previous
-arrangement is still reachable by name — but it does change what an existing
-app draws without asking, so it is worth a look before upgrading.
+arrangement is still reachable by name. It does change what an existing app
+draws without asking, though, so it is worth a look before upgrading.
 
 Each chart now sweeps the two axes it does not itself control, so the three are
 genuinely different views: the L chart plots hue against chroma, the C chart hue
@@ -42,6 +42,7 @@ near white, so it accepted chroma that quantises to plain `#000000`. The picker
 would sit on a colour it could not display, draw the crosshair above the curve,
 and show no out-of-gamut notice. The tolerance is now applied to the encoded
 channel, and a colour counts as displayable only if it survives 8-bit
-quantisation as something other than grey — so the gamut closes to a point at
-black, as it already did at white. This removes a `maxChroma` workaround that
-hard-zeroed every chroma below L=0.06, which had zeroed a real region.
+quantisation as something other than grey. The gamut therefore closes to a
+point at black, as it already did at white. This removes a `maxChroma`
+workaround that hard-zeroed every chroma below L=0.06, which had zeroed a real
+region.

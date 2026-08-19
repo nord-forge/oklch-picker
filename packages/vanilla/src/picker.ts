@@ -1,5 +1,5 @@
 /**
- * `<oklch-picker>` — the picker as a custom element, on straight DOM calls.
+ * `<oklch-picker>`, the picker as a custom element, on straight DOM calls.
  * No framework and no build step required, so this covers plain HTML, HTMX,
  * Alpine, Astro, and any server-rendered page (Rails, Laravel, Django, PHP).
  *
@@ -33,7 +33,7 @@ import {
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 
-/** Set an attribute only when it changed — untouched DOM is not re-laid-out. */
+/** Set an attribute only when it changed. Untouched DOM is not re-laid-out. */
 function attr(el: Element, name: string, value: string): void {
   if (el.getAttribute(name) !== value) el.setAttribute(name, value);
 }
@@ -56,8 +56,8 @@ function svg<K extends keyof SVGElementTagNameMap>(
   return node;
 }
 
-/** Parse a JSON attribute, ignoring malformed values rather than throwing —
- * an attribute typed by hand should never take the whole page down. */
+/** Parse a JSON attribute, ignoring malformed values rather than throwing.
+ * An attribute typed by hand should never take the whole page down. */
 function json<T>(raw: string | null): T | undefined {
   if (!raw) return undefined;
   try {
@@ -68,7 +68,7 @@ function json<T>(raw: string | null): T | undefined {
 }
 
 /** A list-of-colours attribute, as either a JSON array or a plain
- * comma-separated list — hand-written markup should not have to quote. */
+ * comma-separated list. Hand-written markup should not have to quote. */
 function colourList(raw: string | null): string[] | null {
   return (
     json<string[]>(raw) ??
@@ -160,7 +160,7 @@ export class OklchPickerElement extends HTMLElement {
   // from the slider mid-drag.
   #presetButtons: { button: HTMLButtonElement; colour: string }[] = [];
   /** The recents row and the buttons in it. Unlike every other row here the
-   * list grows, so #updateRecents rebuilds these children — but only these,
+   * list grows, so #updateRecents rebuilds these children. Only these,
    * because rebuilding the tree would drop focus from the slider mid-drag. */
   #recentsRow: HTMLElement | undefined;
   #recentButtons: { button: HTMLButtonElement; colour: string }[] = [];
@@ -209,7 +209,7 @@ export class OklchPickerElement extends HTMLElement {
     this.#rebuild();
   }
 
-  /** Recently committed colours, most recent first. Null — the default —
+  /** Recently committed colours, most recent first. Null is the default. It
    * leaves the element keeping its own list for the session; assigning one
    * makes it controlled, exactly as `value` is. */
   get recents(): string[] | null {
@@ -218,7 +218,7 @@ export class OklchPickerElement extends HTMLElement {
   set recents(next: string[] | null) {
     this.#recents = next;
     // Only the row's children change, so this is a render rather than a
-    // rebuild — the sliders keep their nodes and their focus.
+    // rebuild. The sliders keep their nodes and their focus.
     this.#render();
   }
 
@@ -253,7 +253,7 @@ export class OklchPickerElement extends HTMLElement {
    * function, which no attribute string could express. Import wider spaces
    * from `@oklch-picker/core/gamuts`.
    *
-   * Rebuilds rather than re-renders — each reference space owns a path node,
+   * Rebuilds rather than re-renders. Each reference space owns a path node,
    * and those are built once and mutated thereafter. */
   get gamut(): Gamut | undefined {
     return this.#gamut;
@@ -391,7 +391,7 @@ export class OklchPickerElement extends HTMLElement {
   }
 
   /** Emit a dialled colour: keep it as the draft, publish the clamped form.
-   * Clamped to the output gamut, not to sRGB — otherwise a P3 picker would
+   * Clamped to the output gamut, not to sRGB. Otherwise a P3 picker would
    * throw away the chroma it was configured to reach. */
   #emit(next: Oklch): void {
     this.#draft = next;
@@ -399,9 +399,9 @@ export class OklchPickerElement extends HTMLElement {
   }
 
   /** Switch the output space. The element owns its own state, so it applies
-   * the choice rather than only announcing it — and re-publishes the colour,
-   * because narrowing the gamut would otherwise leave a stored value the
-   * picker has just promised it will not emit. */
+   * the choice rather than only announcing it. It also re-publishes the
+   * colour, because narrowing the gamut would otherwise leave a stored value
+   * the picker has just promised it will not emit. */
   #chooseGamut(gamut: Gamut): void {
     if (gamut.id === (this.#gamut ?? SRGB).id) return;
     const dialled = this.#currentColour();
@@ -417,7 +417,7 @@ export class OklchPickerElement extends HTMLElement {
     this.#rebuild();
   }
 
-  /** Emit a chosen colour verbatim — a preset is already canonical. */
+  /** Emit a chosen colour verbatim. A preset is already canonical. */
   #pick(colour: string): void {
     this.#draft = null;
     this.#publish(colour);
@@ -426,8 +426,8 @@ export class OklchPickerElement extends HTMLElement {
 
   /** Record a committed colour. A drag emits for every value it passes
    * through, so recording there would bury the list in near-identical colours
-   * from one gesture; only a commit — a pointer release, a preset, leaving the
-   * hex field — reaches here. */
+   * from one gesture. Only a commit reaches here, meaning a pointer release,
+   * a preset, or leaving the hex field. */
   #commit(colour: string): void {
     const recents = addRecent(this.#recents ?? this.#ownRecents, colour, this.#maxRecents);
     this.#ownRecents = recents;
@@ -503,9 +503,9 @@ export class OklchPickerElement extends HTMLElement {
   #build(model: ReturnType<typeof pickerModel>): void {
     const p = this.#prefix;
     this.className = `${p} ${p}--${model.layout}`;
-    // The model resolves the reference list — including the sRGB outline a
-    // wider output gamut gets for free — so the boundary nodes are cut from it
-    // rather than from the raw property.
+    // The model resolves the reference list, including the sRGB outline a
+    // wider output gamut gets for free. The boundary nodes are cut from that
+    // list rather than from the raw property.
     this.#builtReferences = model.references;
 
     if (this.#presets && this.#presets.length > 0) {
@@ -660,7 +660,7 @@ export class OklchPickerElement extends HTMLElement {
       // Pointer, not mouse, so a touch drag works. Pointer capture keeps the
       // drag alive once it leaves the chart, so the value still tracks rather
       // than sticking at the edge. These are our own events, not an inner
-      // input's, so nothing needs containing — #emit dispatches once.
+      // input's, so nothing needs containing. #emit dispatches once.
       const pick = (event: PointerEvent) => {
         const r = root.getBoundingClientRect();
         if (!r.width || !r.height) return;
@@ -687,7 +687,7 @@ export class OklchPickerElement extends HTMLElement {
     const defs = svg("defs");
     const gradient = svg("linearGradient");
     // Gradient ids share a document-wide namespace, and a page may hold more
-    // than one picker — qualify with the element's own id when it has one.
+    // than one picker. Qualify with the element's own id when it has one.
     gradient.setAttribute("id", `${p}-gamut-${this.id ? `${this.id}-` : ""}${axis}`);
     gradient.setAttribute("x1", "0");
     gradient.setAttribute("x2", "1");
@@ -764,7 +764,7 @@ export class OklchPickerElement extends HTMLElement {
       this.#preview.style.color = model.light ? "#000" : "#fff";
       attr(this.#preview, "title", model.clipped ? model.notice : model.canonical);
     }
-    // Never overwrite what is being typed — a half-entered hex is not a colour.
+    // Never overwrite what is being typed. A half-entered hex is not a colour.
     if (this.#hex && this.#hex !== this.ownerDocument.activeElement) this.#hex.value = model.hex;
     if (this.#name) this.#name.textContent = model.name;
     if (this.#notice) {
@@ -859,7 +859,7 @@ export class OklchPickerElement extends HTMLElement {
   }
 }
 
-/** Register the element. Explicit, so importing the class has no side effect —
+/** Register the element. Explicit, so importing the class has no side effect.
  * `import "oklch-picker/vanilla/register"` does this for you. */
 export function register(tag = "oklch-picker"): void {
   if (typeof customElements === "undefined") return;
@@ -875,9 +875,10 @@ export type OklchPickerChangeEvent = CustomEvent<{ colour: string }>;
  * applied the choice; a `change` with the re-clamped colour follows. */
 export type OklchPickerGamutChangeEvent = CustomEvent<{ gamut: Gamut }>;
 
-/** The `recentschange` event raised when a colour is committed — a pointer
- * release, a preset, leaving the hex field — not on every value a drag passes
- * through. `detail.recents` is the whole list, most recent first. */
+/** The `recentschange` event raised when a colour is committed, so on a
+ * pointer release, a preset, or leaving the hex field. Not on every value a
+ * drag passes through. `detail.recents` is the whole list, most recent
+ * first. */
 export type OklchPickerRecentsChangeEvent = CustomEvent<{ recents: string[] }>;
 
 declare global {
@@ -894,7 +895,7 @@ declare global {
 }
 
 /** Narrows `addEventListener` on the element so `change` carries the colour.
- * This merges with the class above — the standard way to type a custom
+ * This merges with the class above. That is the standard way to type a custom
  * element's own events, and it adds no members that shadow the class. */
 export interface OklchPickerElement {
   addEventListener<K extends keyof OklchPickerElementEventMap>(

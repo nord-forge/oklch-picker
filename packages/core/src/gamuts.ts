@@ -12,7 +12,7 @@
  */
 import type { Gamut } from "./colour.js";
 
-/** Display P3 — the DCI-P3 primaries on a D65 white point, which is what a
+/** Display P3. The DCI-P3 primaries on a D65 white point, which is what a
  * modern phone or laptop screen actually shows. Roughly 25% wider than sRGB,
  * most visibly in reds and greens. */
 export const P3: Gamut = {
@@ -28,7 +28,7 @@ export const P3: Gamut = {
   chartMaxChroma: 0.37,
 };
 
-/** Rec. 2020 — the UHD broadcast primaries, wider still than P3. Very few
+/** Rec. 2020. The UHD broadcast primaries, wider still than P3. Very few
  * screens cover it fully, so treat its boundary as aspirational rather than a
  * promise about what the viewer will see. */
 export const REC2020: Gamut = {
@@ -39,8 +39,8 @@ export const REC2020: Gamut = {
     -0.8846105941 * l_ + 2.1633265207 * m_ - 0.2787159266 * s_,
     -0.0485265653 * l_ - 0.4547300538 * m_ + 1.5032566191 * s_,
   ],
-  // Peak ~0.464 at l=0.83, h=153 — far past what sRGB needs, so a shared
-  // bound would have clipped this boundary without any visible error.
+  // Peak ~0.464 at l=0.83, h=153. That is far past what sRGB needs, so a
+  // shared bound would have clipped this boundary without any visible error.
   maxChroma: 0.52,
   chartMaxChroma: 0.47,
 };
