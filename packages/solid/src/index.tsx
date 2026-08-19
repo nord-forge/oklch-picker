@@ -23,7 +23,7 @@ import {
   resolveCurrent,
   withSingleChart,
 } from "@oklch-picker/core";
-import { For, Show, createMemo, createSignal } from "solid-js";
+import { For, Index, Show, createMemo, createSignal } from "solid-js";
 
 interface GamutChartProps {
   /** The axis held fixed; the chart sweeps the other two. */
@@ -291,19 +291,24 @@ export function ColourPicker(props: ColourPickerProps) {
       </Show>
 
       <div class={`${prefix()}__axes`}>
-        <For each={model().axes}>
+        {/* `Index`, not `For`: `For` keys by object identity, and `axisModels`
+            returns fresh objects each render, so every keystroke replaced all
+            three rows — taking focus and pointer capture with them mid-drag.
+            The axes are a fixed three in a fixed order, so position is the
+            right key. */}
+        <Index each={model().axes}>
           {(a, i) => {
             // In the `chart` layout the one chart is hoisted above the axes.
-            const chart = (): ChartSlot | undefined => (single() ? undefined : model().charts[i()]);
+            const chart = (): ChartSlot | undefined => (single() ? undefined : model().charts[i]);
             // A div, not a label — the slider has its own aria-label.
             return (
               <div class={`${prefix()}__axis`}>
                 <span class={`${prefix()}__axis-head`}>
                   <span class={`${prefix()}__axis-label`} aria-hidden="true">
-                    {model().layout === "compact" ? a.key.toUpperCase() : model().labels[a.key]}
+                    {model().layout === "compact" ? a().key.toUpperCase() : model().labels[a().key]}
                   </span>
                   <output class={`${prefix()}__axis-value`}>
-                    {a.key === "h" ? Math.round(a.value) : a.value.toFixed(2)}
+                    {a().key === "h" ? Math.round(a().value) : a().value.toFixed(2)}
                   </output>
                 </span>
 
@@ -326,9 +331,9 @@ export function ColourPicker(props: ColourPickerProps) {
                 <span class={`${prefix()}__track`}>
                   <span
                     class={`${prefix()}__track-fill`}
-                    style={{ background: model().gradients[i()] }}
+                    style={{ background: model().gradients[i] }}
                   >
-                    <For each={model().spans[i()]}>
+                    <For each={model().spans[i]}>
                       {(s) => (
                         <span
                           class={`${prefix()}__out-of-gamut`}
@@ -343,13 +348,13 @@ export function ColourPicker(props: ColourPickerProps) {
                   <input
                     type="range"
                     class={`${prefix()}__slider`}
-                    min={a.min}
-                    max={a.max}
-                    step={a.step}
-                    value={a.value}
-                    aria-label={model().labels[a.key]}
+                    min={a().min}
+                    max={a().max}
+                    step={a().step}
+                    value={a().value}
+                    aria-label={model().labels[a().key]}
                     onInput={(e) =>
-                      dial({ ...model().current, [a.key]: Number(e.currentTarget.value) })
+                      dial({ ...model().current, [a().key]: Number(e.currentTarget.value) })
                     }
                     // The gesture ending is the commit, not each value it
                     // passed through. `blur` catches the keyboard: arrowing
@@ -362,7 +367,7 @@ export function ColourPicker(props: ColourPickerProps) {
               </div>
             );
           }}
-        </For>
+        </Index>
       </div>
 
       <Show when={model().withGamutSwitch}>
