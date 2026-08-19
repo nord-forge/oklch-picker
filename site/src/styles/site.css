@@ -1,8 +1,8 @@
 /* The docs site's own chrome.
    The picker brings its own stylesheet; this is the page around it. The
    palette deliberately echoes `--okp-*` so the component does not look pasted
-   onto a foreign page, but the names are `--site-*` — overriding `--okp-*`
-   here would restyle every demo and misrepresent the defaults. */
+   onto a foreign page, but the names are `--site-*`, because overriding
+   `--okp-*` here would restyle every demo and misrepresent the defaults. */
 
 :root {
   color-scheme: light dark;
@@ -299,15 +299,41 @@ code {
 }
 
 .tabs__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
   padding: 0.3rem 0.7rem;
   font-size: 0.85rem;
   color: var(--site-text-muted);
   border-radius: 0.35rem;
   cursor: pointer;
   user-select: none;
+  /* The selected state adds weight; reserving it stops the row reflowing as
+     the reader moves between tabs. */
+  box-shadow: inset 0 0 0 1px transparent;
 }
 
 .tabs__tab:hover {
+  color: var(--site-text);
+  background: var(--site-bg);
+}
+
+/* Pushed to the right of the tabs by `margin-left: auto`, so it sits at the
+   far end of the bar however many tabs a set has. */
+.tabs__copy {
+  margin-left: auto;
+  padding: 0.3rem 0.7rem;
+  font: inherit;
+  font-size: 0.8rem;
+  color: var(--site-text-muted);
+  background: transparent;
+  border: 1px solid var(--site-line);
+  border-radius: 0.35rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.tabs__copy:hover {
   color: var(--site-text);
   background: var(--site-bg);
 }
@@ -324,27 +350,11 @@ code {
   line-height: 1.55;
 }
 
-/* Bind radio N to panel N and tab N.
-   The radios are the only <input> children of `.tabs`, so `nth-of-type` on them
-   is unambiguous; panels and tabs are counted with `nth-child` inside their own
-   wrapper, because `nth-of-type` would count `.tabs__list` as a div too and
-   shift every panel by one. Six is more tabs than any example needs — the spare
-   rules cost nothing and mean adding one never silently fails to switch. */
-.tabs__radio:nth-of-type(1):checked ~ .tabs__panels .tabs__panel:nth-child(1),
-.tabs__radio:nth-of-type(2):checked ~ .tabs__panels .tabs__panel:nth-child(2),
-.tabs__radio:nth-of-type(3):checked ~ .tabs__panels .tabs__panel:nth-child(3),
-.tabs__radio:nth-of-type(4):checked ~ .tabs__panels .tabs__panel:nth-child(4),
-.tabs__radio:nth-of-type(5):checked ~ .tabs__panels .tabs__panel:nth-child(5),
-.tabs__radio:nth-of-type(6):checked ~ .tabs__panels .tabs__panel:nth-child(6) {
-  display: block;
-}
-
-.tabs__radio:nth-of-type(1):checked ~ .tabs__list .tabs__tab:nth-child(1),
-.tabs__radio:nth-of-type(2):checked ~ .tabs__list .tabs__tab:nth-child(2),
-.tabs__radio:nth-of-type(3):checked ~ .tabs__list .tabs__tab:nth-child(3),
-.tabs__radio:nth-of-type(4):checked ~ .tabs__list .tabs__tab:nth-child(4),
-.tabs__radio:nth-of-type(5):checked ~ .tabs__list .tabs__tab:nth-child(5),
-.tabs__radio:nth-of-type(6):checked ~ .tabs__list .tabs__tab:nth-child(6) {
+/* Selected tab and visible panel.
+   The pairing itself is done per tab set in CodeTabs.astro, which generates one
+   rule per label it was actually given. Naming every possible label here by
+   hand would mean a new one silently shows nothing. */
+.tabs__tab--on {
   color: var(--site-text);
   background: var(--site-bg);
   font-weight: 600;
@@ -409,6 +419,45 @@ code {
   overflow-x: auto;
   font-size: 0.85rem;
   line-height: 1.55;
+}
+
+/* A standalone code block and its copy button. The button only appears on
+   hover or focus, so a page of examples is not a wall of buttons, but it stays
+   reachable by keyboard. */
+.codeblock {
+  position: relative;
+}
+
+.codeblock__copy {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  padding: 0.25rem 0.6rem;
+  font: inherit;
+  font-size: 0.75rem;
+  color: var(--site-text-muted);
+  background: var(--site-bg);
+  border: 1px solid var(--site-line);
+  border-radius: 0.35rem;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.codeblock:hover .codeblock__copy,
+.codeblock__copy:focus-visible {
+  opacity: 1;
+}
+
+.codeblock__copy:hover {
+  color: var(--site-text);
+}
+
+/* Touch has no hover, so leaving it hidden there would hide it for good. */
+@media (hover: none) {
+  .codeblock__copy {
+    opacity: 1;
+  }
 }
 
 .content table {

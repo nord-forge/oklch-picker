@@ -6,13 +6,13 @@ import { url } from "../../lib/url";
 ---
 
 <Page
-  title="Install — oklch-picker"
+  title="Install · oklch-picker"
   description="Install the adapter for your framework, or the no-framework custom element. Each pulls in only its own adapter plus the shared core."
 >
   <h1>Install</h1>
 
   <p class="lede">
-    Install the package for your framework — each pulls in only its own adapter
+    Install the package for your framework. Each pulls in only its own adapter
     plus the shared core.
   </p>
 
@@ -22,7 +22,7 @@ import { url } from "../../lib/url";
     </thead>
     <tbody>
       <tr>
-        <td><strong>No framework</strong> — plain HTML, HTMX, Alpine, Astro, Rails, Laravel, Django, PHP, WordPress</td>
+        <td><strong>No framework</strong>: plain HTML, HTMX, Alpine, Astro, Rails, Laravel, Django, PHP, WordPress</td>
         <td><code>oklch-picker</code></td>
         <td><code>&lt;oklch-picker&gt;</code> element</td>
       </tr>
@@ -78,17 +78,17 @@ import { url } from "../../lib/url";
   <p>
     <code>@oklch-picker/core</code> holds the colour maths and the headless
     model, with no UI. Every adapter depends on it, and it is worth installing
-    on its own if you want the maths without a picker — validating stored
-    colours on a server, generating palettes, or naming colours in a table. See
+    on its own if you want the maths without a picker: validating stored
+    colours on a server, generating palettes, or naming colours in a table. See&nbsp;
     <a href={url("/docs/utilities")}>colour utilities</a>.
   </p>
 
   <pre><code>import &lbrace; colourName, clampToGamut, maxChroma &rbrace; from "@oklch-picker/core";</code></pre>
 
   <p>
-    Whichever you import, the props are the same — <code>presets</code>,
+    Whichever you import, the props are the same (<code>presets</code>,
     <code>layout</code>, <code>parts</code>, <code>labels</code>,
-    <code>classPrefix</code> — and the value semantics follow each framework's
+    <code>classPrefix</code>), and the value semantics follow each framework's
     idiom.
   </p>
 
@@ -114,7 +114,7 @@ import { url } from "../../lib/url";
   </table>
 
   <p>
-    Nothing else changes — the components, props, and emitted values are
+    Nothing else changes. The components, props, and emitted values are
     identical. The split exists so an app downloads only the adapter it uses
     instead of all five.
   </p>

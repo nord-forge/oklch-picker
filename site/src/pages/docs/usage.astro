@@ -76,7 +76,7 @@ export function Example() {
 ---
 
 <Page
-  title="Usage — oklch-picker"
+  title="Usage · oklch-picker"
   description="Binding the picker in React, Vue, Svelte, Solid, or with no framework at all. The emitted value is always a canonical, gamut-clamped oklch() string."
 >
   <h1>Usage</h1>
@@ -87,7 +87,7 @@ export function Example() {
     pass in accepts either that or hex.
   </p>
 
-  <Picker caption="Drag anything — the readout shows what would reach your onChange." />
+  <Picker caption="Drag anything. The readout shows what would reach your onChange." />
 
   <CodeTabs name="usage" snippets={BASIC} />
 
@@ -96,13 +96,13 @@ export function Example() {
   <p>
     <code>oklch-picker</code> is a custom element, so it is just a tag. That
     covers <strong>plain HTML, HTMX, Alpine, Astro, and any server-rendered
-    page</strong> — Rails, Laravel, Django, PHP, WordPress. No framework, no
+    page</strong>: Rails, Laravel, Django, PHP, WordPress. No framework, no
     bundler, and no build step.
   </p>
 
   <p>
     <code>styles.min.css</code> is the same stylesheet at 1.3 kB gzipped instead
-    of 2.3 kB — worth using whenever nothing in front of it will minify. With a
+    of 2.3 kB, worth using whenever nothing in front of it will minify. With a
     bundler, import plain <code>styles.css</code>: your build minifies it
     anyway, and the readable file is where the <code>--okp-*</code> variables
     are documented.
@@ -110,7 +110,7 @@ export function Example() {
 
   <p>
     With a bundler the import is <code>import "oklch-picker/register"</code>.
-    Either way that one side-effect import defines the tag — that is the whole
+    Either way that one side-effect import defines the tag. That is the whole
     client-side cost, and nothing else needs wiring.
   </p>
 
@@ -118,7 +118,7 @@ export function Example() {
 
   <p>
     The element is form-associated, so it submits under its <code>name</code>
-    like a built-in input — no hidden field, and no JavaScript to sync one. A
+    like a built-in input: no hidden field, and no JavaScript to sync one. A
     server can render the current value and read the new one straight back from
     the POST body:
   </p>
@@ -146,8 +146,8 @@ export function Example() {
 
   <p>
     No <code>client:*</code> directive, because there is no framework to
-    hydrate — the page ships the markup and the element upgrades itself. This
-    site is built that way; every demo here is the custom element.
+    hydrate. The page ships the markup and the element upgrades itself. This
+    site is built that way, and every demo here is the custom element.
   </p>
 
   <CodeTabs
@@ -202,7 +202,7 @@ import "@oklch-picker/core/styles.css";
 
   <p>
     The element renders into the light DOM, so the stylesheet and
-    <code>--okp-*</code> overrides apply exactly as they do elsewhere — which
+    <code>--okp-*</code> overrides apply exactly as they do elsewhere, which
     also means it is not style-isolated.
   </p>
 

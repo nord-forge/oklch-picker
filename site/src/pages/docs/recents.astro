@@ -6,13 +6,13 @@ import Page from "../../layouts/Page.astro";
 ---
 
 <Page
-  title="Recent colours — oklch-picker"
+  title="Recent colours · oklch-picker"
   description="A row of recently committed colours, on by default and empty until something is committed. Controlled or session-local."
 >
   <h1>Recent colours</h1>
 
   <p class="lede">
-    On by default, and empty until something is committed — so it costs nothing
+    On by default, and empty until something is committed, so it costs nothing
     until it has something to show.
   </p>
 
@@ -23,8 +23,8 @@ import Page from "../../layouts/Page.astro";
 
   <p>
     That keeps a list for the session, per picker. A colour joins it when it is
-    <strong>committed</strong> — a pointer release, a preset click, a hex entry,
-    leaving a slider — not on every value a drag passes through. Dragging the
+    <strong>committed</strong> (a pointer release, a preset click, a hex entry,
+    leaving a slider), not on every value a drag passes through. Dragging the
     hue slider across the spectrum records one colour, not forty.
   </p>
 
@@ -37,7 +37,7 @@ import Page from "../../layouts/Page.astro";
 
   <p>
     To keep them in a backend, or share them between pickers, pass the list in
-    and take the updates — the same controlled shape <code>value</code> and
+    and take the updates, using the same controlled shape <code>value</code> and
     <code>onChange</code> already use:
   </p>
 

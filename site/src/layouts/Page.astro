@@ -1,6 +1,10 @@
 ---
 import { NAV } from "../lib/nav";
 import { url, isCurrent } from "../lib/url";
+// The picker's own stylesheet, before the site's, so a `--okp-*` override in
+// site.css wins. Imported here rather than in Picker.astro because the
+// playground builds its element directly, and every page shows a picker.
+import "@oklch-picker/core/styles.css";
 import "../styles/site.css";
 
 interface Props {
@@ -109,6 +113,39 @@ const pathname = Astro.url.pathname;
         <a href="https://github.com/nord-forge/oklch-picker/blob/main/CHANGELOG.md">Changelog</a>
       </div>
     </footer>
+
+    <script>
+      // Copy buttons on standalone code blocks. CodeTabs brings its own, one
+      // per set, so anything already inside a tab panel is skipped here.
+      for (const pre of document.querySelectorAll<HTMLElement>(".content pre")) {
+        if (pre.closest("[data-tabs]")) continue;
+
+        const wrap = document.createElement("div");
+        wrap.className = "codeblock";
+        pre.parentNode?.insertBefore(wrap, pre);
+        wrap.append(pre);
+
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "codeblock__copy";
+        button.textContent = "Copy";
+        button.setAttribute("aria-label", "Copy code");
+        wrap.append(button);
+
+        button.addEventListener("click", async () => {
+          try {
+            await navigator.clipboard.writeText(pre.innerText.trimEnd());
+            button.textContent = "Copied";
+          } catch {
+            // Refused, or absent over plain HTTP. Say so rather than no-op.
+            button.textContent = "Press Ctrl+C";
+          }
+          setTimeout(() => {
+            button.textContent = "Copy";
+          }, 1400);
+        });
+      }
+    </script>
 
     <script>
       // Three states, not two: "system" is the default and is stored as the

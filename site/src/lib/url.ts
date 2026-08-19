@@ -3,7 +3,7 @@
  *
  * The site is served from `/oklch-picker/` on GitHub Pages and from `/` once it
  * has a domain, so a hand-written `href="/docs/install/"` works locally and
- * 404s in production — the failure is invisible in dev, which is exactly why
+ * 404s in production. The failure is invisible in dev, which is exactly why
  * links are built rather than typed.
  */
 export function url(path: string): string {

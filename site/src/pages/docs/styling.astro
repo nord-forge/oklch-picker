@@ -6,14 +6,14 @@ import Page from "../../layouts/Page.astro";
 ---
 
 <Page
-  title="Styling — oklch-picker"
+  title="Styling · oklch-picker"
   description="Every value is a custom property, so a theme is set by overriding those rather than rewriting rules. Or skip the stylesheet entirely."
 >
   <h1>Styling</h1>
 
   <p class="lede">
     <code>@oklch-picker/core/styles.css</code> is a starting point, not a
-    requirement — every element has a stable class name, so you can skip it
+    requirement. Every element has a stable class name, so you can skip it
     entirely and write your own.
   </p>
 
@@ -74,7 +74,7 @@ import Page from "../../layouts/Page.astro";
   <p>
     It follows the system colour scheme by default. Set
     <code>data-theme="light"</code> or <code>data-theme="dark"</code> on the
-    root element to pin one — which is what this site's own theme toggle does,
+    root element to pin one. That is what this site's own theme toggle does,
     so the pickers below follow the button in the header.
   </p>
 
@@ -84,7 +84,7 @@ import Page from "../../layouts/Page.astro";
 
   <p>
     Every class is prefixed, and the prefix is a prop. Change it and the
-    stylesheet no longer applies — which is the point when you are writing your
+    stylesheet no longer applies, which is the point when you are writing your
     own:
   </p>
 
@@ -113,7 +113,7 @@ import Page from "../../layouts/Page.astro";
     <p>
       The custom element renders into the light DOM, so the stylesheet and any
       <code>--okp-*</code> override applies exactly as it does for the framework
-      adapters — which also means it is not style-isolated.
+      adapters, which also means it is not style-isolated.
     </p>
   </div>
 

@@ -1,5 +1,7 @@
 ---
+import FrameworkIcon from "../components/FrameworkIcon.astro";
 import Page from "../layouts/Page.astro";
+import { FRAMEWORKS, slug } from "../lib/framework";
 
 const LAYOUTS = ["chart", "side-by-side", "compact", "stacked"] as const;
 const GAMUTS = [
@@ -19,8 +21,8 @@ const PARTS = [
 ---
 
 <Page
-  title="Playground — oklch-picker"
-  description="Every prop as a control, with the matching code for each framework — change anything and copy the result."
+  title="Playground · oklch-picker"
+  description="Every prop as a control, with the matching code for each framework. Change anything and copy the result."
 >
   <h1>Playground</h1>
 
@@ -90,14 +92,15 @@ const PARTS = [
     <div class="play__codehead">
       <div class="play__tabs" role="group" aria-label="Framework">
         {
-          ["React", "Vue", "Svelte", "Solid", "HTML"].map((name, i) => (
+          FRAMEWORKS.map((name, i) => (
             <button
               type="button"
               class="play__tab"
-              data-framework={name.toLowerCase()}
+              data-framework={slug(name)}
               aria-pressed={i === 0 ? "true" : "false"}
             >
-              {name}
+              <FrameworkIcon name={name} />
+              <span>{name}</span>
             </button>
           ))
         }
@@ -111,6 +114,7 @@ const PARTS = [
 <script>
   import { SRGB } from "@oklch-picker/core";
   import { P3, REC2020 } from "@oklch-picker/core/gamuts";
+  import { slug, STORAGE_KEY } from "../lib/framework";
   import "oklch-picker/register";
 
   const GAMUTS = { srgb: SRGB, p3: P3, rec2020: REC2020 };
@@ -133,7 +137,14 @@ const PARTS = [
   const output = document.querySelector("[data-output]");
   const form = document.querySelector(".play__controls");
 
+  // Shares the choice with every CodeTabs set, and with the next page.
   let framework = "react";
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) framework = slug(stored);
+  } catch {
+    // No storage available; the default stands.
+  }
 
   function read() {
     const layout =
@@ -149,7 +160,7 @@ const PARTS = [
     return { layout, gamut, presets: !!presets, parts };
   }
 
-  /** Only what differs from the defaults, so the snippet stays honest — a
+  /** Only what differs from the defaults, so the snippet stays honest. A
    *  playground that emits every prop teaches the wrong habit. */
   function changedParts(parts: Record<string, boolean>) {
     const out: Record<string, boolean> = {};
@@ -184,7 +195,7 @@ const PARTS = [
       .map(([k, v]) => `${k}: ${v}`)
       .join(", ")} }`;
 
-    if (framework === "html") {
+    if (framework === "no-framework") {
       const attrs = [
         `value="oklch(0.7 0.15 255)"`,
         state.layout !== "chart" ? `layout="${state.layout}"` : "",
@@ -236,23 +247,40 @@ const PARTS = [
 
   form?.addEventListener("change", apply);
 
-  for (const tab of document.querySelectorAll<HTMLButtonElement>("[data-framework]")) {
+  function paintTabs() {
+    for (const tab of document.querySelectorAll<HTMLButtonElement>(".play__tab")) {
+      tab.setAttribute("aria-pressed", tab.dataset.framework === framework ? "true" : "false");
+    }
+  }
+
+  for (const tab of document.querySelectorAll<HTMLButtonElement>(".play__tab")) {
     tab.addEventListener("click", () => {
       framework = tab.dataset.framework ?? "react";
-      for (const other of document.querySelectorAll("[data-framework]")) {
-        other.setAttribute("aria-pressed", other === tab ? "true" : "false");
+      try {
+        // Store the label, not the slug: that is what CodeTabs matches on.
+        localStorage.setItem(STORAGE_KEY, tab.textContent?.trim() ?? "React");
+      } catch {
+        // No storage available; the choice still applies to this page.
       }
+      paintTabs();
       apply();
     });
   }
 
+  paintTabs();
+
   const copy = document.querySelector<HTMLButtonElement>("[data-copy]");
   copy?.addEventListener("click", async () => {
-    await navigator.clipboard.writeText(output?.textContent ?? "");
-    copy.textContent = "Copied";
+    try {
+      await navigator.clipboard.writeText(output?.textContent ?? "");
+      copy.textContent = "Copied";
+    } catch {
+      // Refused, or absent over plain HTTP. Say so rather than no-op.
+      copy.textContent = "Press Ctrl+C";
+    }
     setTimeout(() => {
       copy.textContent = "Copy";
-    }, 1200);
+    }, 1400);
   });
 
   picker.addEventListener("gamutchange", (event) => {

@@ -6,7 +6,7 @@ import Page from "../../layouts/Page.astro";
 ---
 
 <Page
-  title="Wider gamuts — oklch-picker"
+  title="Wider gamuts · oklch-picker"
   description="Display P3 and Rec. 2020 as output spaces, not decoration: the chroma slider reaches further and the value is clamped to the space you chose."
 >
   <h1>Wider gamuts</h1>
@@ -75,11 +75,11 @@ document.querySelector("oklch-picker").gamut = P3;`,
 
   <p>
     The same colour in each space. Drag chroma to the top of its track in each
-    and watch how much further it reaches — and note that sRGB stays outlined on
+    and watch how much further it reaches. Note that sRGB stays outlined on
     the wider charts as a reference, so the safe region remains visible.
   </p>
 
-  <Picker value="oklch(0.7 0.2 145)" caption="sRGB — the default." />
+  <Picker value="oklch(0.7 0.2 145)" caption="sRGB, the default." />
   <Picker value="oklch(0.7 0.2 145)" gamut="p3" caption="Display P3." />
   <Picker value="oklch(0.7 0.2 145)" gamut="rec2020" caption="Rec. 2020." />
 
@@ -91,7 +91,7 @@ document.querySelector("oklch-picker").gamut = P3;`,
   <div class="note">
     <p>
       <code>P3</code> and <code>REC2020</code> live behind their own entry point
-      on purpose. An app that never imports them never ships the matrices — the
+      on purpose. An app that never imports them never ships the matrices. The
       bundler drops the module statically, so there is no dynamic import and
       nothing async in the render path. Opting in costs a few hundred bytes.
     </p>
@@ -148,8 +148,8 @@ picker.addEventListener("gamutchange", (event) => {
 
   <p>
     <code>gamutChoices</code> defaults to the output gamut plus its references.
-    The control hides itself when that leaves only one option — one option is
-    not a choice.
+    The control hides itself when that leaves only one option, because one
+    option is not a choice.
   </p>
 
   <h2>Notices</h2>
@@ -161,14 +161,14 @@ picker.addEventListener("gamutchange", (event) => {
 
   <ul>
     <li>
-      <strong><code>outOfGamut</code></strong> — the sRGB message, and the
-      fallback for any space with no wording of its own. Defaults to
-      <em>"Outside sRGB — the nearest sRGB colour is used."</em>
+      <strong><code>outOfGamut</code></strong> is the sRGB message. It is also
+      the fallback for any space with no wording of its own. It defaults to
+      <em>"Outside sRGB, the nearest sRGB colour is used."</em>
     </li>
     <li>
-      <strong><code>outOf:&lt;gamut id&gt;</code></strong> — the message for one
-      output space. With <code>gamut=&lbrace;P3&rbrace;</code> the default
-      becomes <em>"Outside Display P3 — the nearest Display P3 colour is
+      <strong><code>outOf:&lt;gamut id&gt;</code></strong> is the message for
+      one output space. With <code>gamut=&lbrace;P3&rbrace;</code> the default
+      becomes <em>"Outside Display P3, the nearest Display P3 colour is
       used."</em>
     </li>
   </ul>
@@ -203,7 +203,7 @@ picker.addEventListener("gamutchange", (event) => {
   />
 
   <p>
-    Or turn the message off entirely, leaving the maths untouched — the value is
+    Or turn the message off entirely, leaving the maths untouched. The value is
     still clamped, the hatching still shows, only the text goes:
   </p>
 

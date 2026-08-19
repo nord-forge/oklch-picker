@@ -8,7 +8,7 @@
  * The per-framework code lives beside the demo in <CodeTabs>.
  *
  * `parts`, `presets`, `labels` and `gamut-choices` are JSON attributes, so a
- * demo needs no scripting to configure — except `gamut` itself, which is an
+ * demo needs no scripting to configure, except `gamut` itself, which is an
  * object and has to be set as a property. `gamutIds` handles that.
  */
 interface Props {
@@ -17,11 +17,11 @@ interface Props {
   presets?: readonly string[];
   parts?: Record<string, boolean>;
   labels?: Record<string, string>;
-  /** Output space, by id. Set as a property on mount — see the script below. */
+  /** Output space, by id. Set as a property on mount. See the script below. */
   gamut?: "srgb" | "p3" | "rec2020";
   /** Ids offered by the switcher, when `parts.gamutSwitch` is on. */
   gamutChoices?: readonly ("srgb" | "p3" | "rec2020")[];
-  /** Shows the emitted value under the picker — on for most demos. */
+  /** Shows the emitted value under the picker. On for most demos. */
   readout?: boolean;
   /** A caption above the frame, when the demo needs naming. */
   caption?: string;
@@ -120,7 +120,7 @@ const id = `picker-${Math.random().toString(36).slice(2, 9)}`;
 
     paint(picker.value);
     // `change`, not `input`: the element contains its inner inputs' events on
-    // purpose, and `change` is the one it raises — carrying the canonical,
+    // purpose, and `change` is the one it raises, carrying the canonical,
     // gamut-clamped colour in `detail`.
     picker.addEventListener("change", (event) => {
       paint((event as CustomEvent<{ colour: string }>).detail.colour);

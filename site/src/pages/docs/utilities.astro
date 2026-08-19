@@ -5,13 +5,13 @@ import Page from "../../layouts/Page.astro";
 ---
 
 <Page
-  title="Colour utilities — oklch-picker"
+  title="Colour utilities · oklch-picker"
   description="The colour maths is framework-free and exported separately: parsing, conversion, gamut queries, and colour naming, with no UI."
 >
   <h1>Colour utilities</h1>
 
   <p class="lede">
-    The maths is framework-free and exported separately — useful for validating
+    The maths is framework-free and exported separately, useful for validating
     stored colours on a server, generating palettes, or naming colours in a
     table. No DOM, no UI.
   </p>
@@ -25,7 +25,7 @@ import Page from "../../layouts/Page.astro";
         code: `import { colourName, maxChroma, clampToGamut, toOklch } from "@oklch-picker/core";
 
 colourName("oklch(0.43 0.19 338)");  // "Dark pink"
-maxChroma(0.7, 255);                 // 0.160 — highest chroma sRGB can show there
+maxChroma(0.7, 255);                 // 0.160, highest chroma sRGB can show there
 clampToGamut({ l: 0.75, c: 0.35, h: 145 });  // chroma reduced until it fits`,
       },
     ]}
@@ -64,7 +64,7 @@ clampToGamut({ l: 0.75, c: 0.35, h: 145 });  // chroma reduced until it fits`,
       </tr>
       <tr>
         <td><code>addRecent</code></td>
-        <td>The recents list rule — dedupe to front, capped</td>
+        <td>The recents list rule: dedupe to front, capped</td>
       </tr>
     </tbody>
   </table>
@@ -89,7 +89,7 @@ import { P3, REC2020 } from "@oklch-picker/core/gamuts";
 inGamut({ l: 0.7, c: 0.25, h: 145 }, SRGB);   // false
 inGamut({ l: 0.7, c: 0.25, h: 145 }, P3);     // true
 
-// Clamping targets a space too — chroma is reduced until it fits,
+// Clamping targets a space too: chroma is reduced until it fits,
 // keeping lightness and hue.
 clampToGamut({ l: 0.7, c: 0.35, h: 145 }, P3);`,
       },
@@ -100,7 +100,7 @@ clampToGamut({ l: 0.7, c: 0.35, h: 145 }, P3);`,
 
   <p>
     <code>pickerModel()</code> returns everything a picker needs for one
-    render — axis ranges, track gradients, chart geometry, and the draft/emit
+    render: axis ranges, track gradients, chart geometry, and the draft/emit
     resolution. It is what the five adapters are built on, and it is exported
     for anyone building a sixth.
   </p>

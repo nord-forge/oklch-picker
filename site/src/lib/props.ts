@@ -3,7 +3,7 @@
  *
  * Hand-maintaining this table means it drifts the first time a prop changes and
  * nobody remembers the docs. Reading `dist/index.d.mts` means the reference
- * cannot disagree with the types — and if the shape it expects ever stops
+ * cannot disagree with the types, and if the shape it expects ever stops
  * matching, `assertProps` throws the build rather than quietly rendering an
  * empty table.
  *
@@ -49,14 +49,14 @@ export function readProps(): PropDoc[] {
     source = readFileSync(DECLARATIONS, "utf8");
   } catch {
     throw new Error(
-      `Could not read ${DECLARATIONS}. The site reads the packages' dist, not their source — run \`npm run build\` at the repo root first.`,
+      `Could not read ${DECLARATIONS}. The site reads the packages' dist, not their source. Run \`npm run build\` at the repo root first.`,
     );
   }
 
   const start = source.indexOf("interface ColourPickerProps {");
   if (start === -1) {
     throw new Error(
-      "Could not find ColourPickerProps in @oklch-picker/react's declarations. Run `npm run build` first — the site reads dist, not src.",
+      "Could not find ColourPickerProps in @oklch-picker/react's declarations. Run `npm run build` first: the site reads dist, not src.",
     );
   }
 
@@ -102,7 +102,7 @@ export function readProps(): PropDoc[] {
 }
 
 export function defaultFor(name: string): string {
-  return DEFAULTS[name] ?? "—";
+  return DEFAULTS[name] ?? "-";
 }
 
 /**
@@ -116,7 +116,7 @@ export function assertProps(props: PropDoc[]): PropDoc[] {
   if (props.length < 10 || missing.length > 0) {
     const absent = missing.length ? `, missing: ${missing.join(", ")}` : "";
     throw new Error(
-      `Parsed only ${props.length} props from the React declarations${absent}. The declaration shape changed — update site/src/lib/props.ts.`,
+      `Parsed only ${props.length} props from the React declarations${absent}. The declaration shape changed. Update site/src/lib/props.ts.`,
     );
   }
 

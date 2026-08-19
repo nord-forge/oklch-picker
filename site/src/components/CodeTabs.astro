@@ -2,16 +2,17 @@
 /**
  * The same example in each framework, one tab at a time.
  *
- * Tabs are radio inputs with CSS-driven panels, so switching needs no
- * JavaScript and arrow-key navigation comes free from the radio group. A
- * visitor with JS off still gets every snippet.
- *
- * The radios sit before both the labels and the panels as siblings of one
- * container, because `:checked ~ .tabs__panel` can only reach forward — the
- * markup order is load-bearing, not stylistic.
+ * Two layers on purpose. The radios and `:checked ~` rules make the tabs work
+ * with no JavaScript at all. The markup order is load-bearing for that, and
+ * the radios sit before both the labels and the panels because a sibling
+ * combinator only reaches forward. On top of that, a small script syncs every
+ * tab set on the page to one choice and remembers it, because a reader uses one
+ * framework and should not have to say so in every code block.
  */
 import { Code } from "astro:components";
 import { THEMES } from "../lib/code";
+import { slug } from "../lib/framework";
+import FrameworkIcon from "./FrameworkIcon.astro";
 
 export interface Snippet {
   label: string;
@@ -27,18 +28,34 @@ interface Props {
 
 const { snippets, name } = Astro.props;
 const group = name ?? `tabs-${Math.random().toString(36).slice(2, 9)}`;
+const available = snippets.map((s) => s.label);
+
+// One pair of rules per label this set actually has, so the no-JS path works
+// for any label without a global list to keep in step. Scoped to `#group` so
+// several sets on a page never match each other's radios.
+const rules = snippets
+  .map((snippet) => {
+    const s = slug(snippet.label);
+    return `#${group} .tabs__radio[data-framework="${s}"]:checked ~ .tabs__panels [data-panel="${s}"] { display: block; }
+#${group} .tabs__radio[data-framework="${s}"]:checked ~ .tabs__list [data-tab="${s}"] { color: var(--site-text); background: var(--site-bg); font-weight: 600; box-shadow: inset 0 0 0 1px var(--site-line); }`;
+  })
+  .join("\n");
 ---
 
-<div class="tabs" style={`--tab-count:${snippets.length}`}>
+<style set:html={rules}></style>
+
+
+<div class="tabs" id={group} data-tabs data-available={JSON.stringify(available)}>
   {
-    snippets.map((_, i) => (
+    snippets.map((snippet, i) => (
       <input
         class="tabs__radio"
         type="radio"
         name={group}
         id={`${group}-${i}`}
+        value={snippet.label}
         checked={i === 0}
-        data-index={i}
+        data-framework={slug(snippet.label)}
       />
     ))
   }
@@ -46,18 +63,29 @@ const group = name ?? `tabs-${Math.random().toString(36).slice(2, 9)}`;
   <div class="tabs__list">
     {
       snippets.map((snippet, i) => (
-        <label class="tabs__tab" for={`${group}-${i}`}>
-          {snippet.label}
+        <label class="tabs__tab" for={`${group}-${i}`} data-tab={slug(snippet.label)}>
+          <FrameworkIcon name={snippet.label} />
+          <span>{snippet.label}</span>
         </label>
       ))
     }
+
+    {/* One button for the whole set, copying whichever panel is showing. A
+        button per panel would put four hidden copies in the tab order. */}
+    <button type="button" class="tabs__copy" data-copy aria-label="Copy code">
+      <span data-copy-label>Copy</span>
+    </button>
   </div>
 
   <div class="tabs__panels">
     {
-      snippets.map((snippet, i) => (
-        <div class="tabs__panel" data-index={i}>
-          {/* `markdown.shikiConfig` governs Markdown only — <Code> does not
+      snippets.map((snippet) => (
+        <div
+          class="tabs__panel"
+          data-panel={slug(snippet.label)}
+          data-source={snippet.code.trim()}
+        >
+          {/* `markdown.shikiConfig` governs Markdown only. <Code> does not
               read it, and without this the block renders single-theme dark on
               a light page. The keys must be named light/dark, not an array:
               Shiki emits `--shiki-dark-*` variables the stylesheet switches. */}
@@ -67,3 +95,78 @@ const group = name ?? `tabs-${Math.random().toString(36).slice(2, 9)}`;
     }
   </div>
 </div>
+
+<script>
+  import { resolve, STORAGE_KEY } from "../lib/framework";
+
+  /** Point every tab set at `choice`, skipping any that does not offer it. */
+  function sync(choice: string, origin?: Element) {
+    for (const tabs of document.querySelectorAll<HTMLElement>("[data-tabs]")) {
+      const available: string[] = JSON.parse(tabs.dataset.available ?? "[]");
+      const wanted = resolve(choice, available);
+      if (!wanted) continue;
+
+      const radio = tabs.querySelector<HTMLInputElement>(
+        `.tabs__radio[value="${CSS.escape(wanted)}"]`,
+      );
+      // Skip the set the reader just clicked: it is already checked, and
+      // re-setting it would fire another change event.
+      if (radio && tabs !== origin) radio.checked = true;
+    }
+  }
+
+  document.addEventListener("change", (event) => {
+    const radio = event.target as HTMLInputElement;
+    if (!radio.classList?.contains("tabs__radio")) return;
+
+    try {
+      localStorage.setItem(STORAGE_KEY, radio.value);
+    } catch {
+      // Private browsing can refuse storage; syncing this page still works.
+    }
+    sync(radio.value, radio.closest("[data-tabs]") ?? undefined);
+  });
+
+  // Apply the remembered choice on load. The first tab is already checked
+  // server-side, so a reader with no stored choice sees no shift.
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) sync(stored);
+  } catch {
+    // No storage available, so the server-rendered default stands.
+  }
+
+  /** The panel a set is currently showing.
+   *  Read from the checked radio rather than from computed style, because CSS
+   *  drives visibility here and `display` is not reliable to query back. */
+  function visiblePanel(tabs: HTMLElement): HTMLElement | null {
+    const checked = tabs.querySelector<HTMLInputElement>(".tabs__radio:checked");
+    const wanted = checked?.dataset.framework;
+    if (!wanted) return null;
+    return tabs.querySelector<HTMLElement>(`[data-panel="${CSS.escape(wanted)}"]`);
+  }
+
+  for (const button of document.querySelectorAll<HTMLButtonElement>("[data-copy]")) {
+    const tabs = button.closest<HTMLElement>("[data-tabs]");
+    const label = button.querySelector("[data-copy-label]");
+    if (!tabs || !label) continue;
+
+    button.addEventListener("click", async () => {
+      const source = visiblePanel(tabs)?.dataset.source;
+      if (!source) return;
+
+      try {
+        await navigator.clipboard.writeText(source);
+        label.textContent = "Copied";
+      } catch {
+        // Clipboard access can be refused, and over plain HTTP it is absent.
+        // Saying so beats a button that silently does nothing.
+        label.textContent = "Press Ctrl+C";
+      }
+
+      setTimeout(() => {
+        label.textContent = "Copy";
+      }, 1400);
+    });
+  }
+</script>

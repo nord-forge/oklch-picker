@@ -11,13 +11,13 @@ const props = assertProps(readProps());
 ---
 
 <Page
-  title="API — oklch-picker"
+  title="API · oklch-picker"
   description="Every prop the picker takes, generated from the published type declarations so the reference cannot drift from the types."
 >
   <h1>API</h1>
 
   <p class="lede">
-    Every prop, read from the published type declarations at build time — so
+    Every prop, read from the published type declarations at build time, so
     this table cannot disagree with what you actually get.
   </p>
 
@@ -41,7 +41,7 @@ const props = assertProps(readProps());
               {prop.required && <span class="req" title="Required"> *</span>}
             </td>
             <td><code>{prop.type}</code></td>
-            <td>{defaultFor(prop.name) === "—" ? "—" : <code>{defaultFor(prop.name)}</code>}</td>
+            <td>{defaultFor(prop.name) === "-" ? "-" : <code>{defaultFor(prop.name)}</code>}</td>
             <td>{prop.description}</td>
           </tr>
         ))
