@@ -53,7 +53,10 @@ import Page from "../../layouts/Page.astro";
     <tbody>
       <tr><td><code>charts</code></td><td>on</td><td>The gamut plots, large or thin</td></tr>
       <tr><td><code>preview</code></td><td>on</td><td>The swatch in the footer</td></tr>
-      <tr><td><code>hexInput</code></td><td>on</td><td>The hex field in the footer</td></tr>
+      <tr><td><code>oklchInput</code></td><td>on</td><td>The editable <code>oklch()</code> field</td></tr>
+      <tr><td><code>rgbInput</code></td><td><strong>off</strong></td><td>The editable <code>rgb()</code> field</td></tr>
+      <tr><td><code>hexInput</code></td><td><strong>off</strong></td><td>The editable hex field</td></tr>
+      <tr><td><code>alpha</code></td><td>on</td><td>The alpha slider</td></tr>
       <tr><td><code>name</code></td><td>on</td><td>The colour name in the footer</td></tr>
       <tr><td><code>notice</code></td><td>on</td><td>The out-of-gamut message</td></tr>
       <tr><td><code>recents</code></td><td>on</td><td>The recent colours row</td></tr>
@@ -62,17 +65,58 @@ import Page from "../../layouts/Page.astro";
   </table>
 
   <p>
-    <code>preview</code>, <code>hexInput</code>, and <code>name</code> make up
-    the footer; turning all three off removes it entirely. Presets are
+    <code>preview</code>, the three value fields, and <code>name</code> make up
+    the footer. Turning all of them off removes it entirely. Presets are
     controlled by the <code>presets</code> prop itself.
   </p>
+
+  <h2>The value fields</h2>
+
+  <p>
+    The picker shows an editable <code>oklch()</code> field by default. Turn on
+    as many of the three as you want. Each accepts <strong>any</strong>
+    supported format whichever one it displays, so pasting a hex into the
+    <code>oklch()</code> field works.
+  </p>
+
+  <Picker
+    parts={{ rgbInput: true, hexInput: true }}
+    caption="All three fields at once. Type any format into any of them."
+  />
+
+  <div class="note">
+    <p>
+      The hex field was on by default in 1.0 and is off from 1.1. Hex is sRGB
+      only, so it cannot carry a P3 or Rec. 2020 colour at all, which makes it a
+      poor default for a picker whose point is the gamut. Pass
+      <code>parts=&lbrace;&lbrace; hexInput: true &rbrace;&rbrace;</code> to
+      keep it.
+    </p>
+  </div>
+
+  <h2>Alpha</h2>
+
+  <p>
+    OKLCH carries alpha, so the picker has a fourth slider for it, on by
+    default. Without it a value passed in with transparency would come back
+    opaque. Drag it left and the checkerboard shows through.
+  </p>
+
+  <Picker value="oklch(0.7 0.15 255 / 0.6)" caption="A colour that arrives partly transparent." />
+
+  <p>
+    An opaque colour is unchanged in every format, and dragging back to fully
+    opaque drops the alpha rather than emitting <code>/ 1</code>.
+  </p>
+
+  <Picker parts={{ alpha: false }} caption="The same picker with the alpha slider off." />
 
   <h2>Sliders only</h2>
 
   <p>Everything off, which is as small as the picker gets:</p>
 
   <Picker
-    parts={{ charts: false, preview: false, hexInput: false, name: false, notice: false, recents: false }}
+    parts={{ charts: false, preview: false, oklchInput: false, name: false, notice: false, recents: false, alpha: false }}
     caption="Three sliders and nothing else."
   />
 

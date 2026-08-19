@@ -5,7 +5,7 @@
 
 # oklch-picker
 
-An OKLCH colour picker for React, Preact, Vue, Svelte, Solid, and for no framework at all. Zero runtime dependencies. The component is ~4.8 kB gzipped, and the colour maths alone is ~2.5 kB.
+An OKLCH colour picker for React, Preact, Vue, Svelte, Solid, and for no framework at all. Zero runtime dependencies. The component is ~5.3 kB gzipped, and the colour maths alone is ~1.8 kB.
 
 Every axis is a slider over a **gamut cross-section**. The filled silhouette is the range sRGB can actually show, so the reachable colours are visible instead of something you discover by dragging into a region that does nothing.
 
@@ -154,7 +154,7 @@ export function Example() {
 </script>
 ```
 
-`styles.min.css` is the same stylesheet at 1.3 kB gzipped instead of 2.3 kB. Use it whenever nothing in front of it will minify. With a bundler, import plain `styles.css`. Your build minifies it anyway, and the readable file is where the `--okp-*` variables are documented.
+`styles.min.css` is the same stylesheet at 2.0 kB gzipped instead of 5.0 kB. Use it whenever nothing in front of it will minify. With a bundler, import plain `styles.css`. Your build minifies it anyway, and the readable file is where the `--okp-*` variables are documented.
 
 With a bundler, the import is `import "oklch-picker/register"` instead. Either way that one side-effect import defines the tag. That is the whole client-side cost, and nothing else needs wiring.
 
@@ -374,20 +374,61 @@ Everything except the sliders is optional:
 />
 ```
 
-`preview`, `hexInput`, and `name` make up the footer; turning all three off removes it entirely. `notice` is the out-of-gamut message. Presets are controlled by the `presets` prop itself.
+| Part | Default | Covers |
+| --- | --- | --- |
+| `charts` | on | The gamut plots, large or thin |
+| `preview` | on | The swatch in the footer |
+| `oklchInput` | on | The editable `oklch()` field |
+| `rgbInput` | **off** | The editable `rgb()` field |
+| `hexInput` | **off** | The editable hex field |
+| `alpha` | on | The alpha slider |
+| `name` | on | The colour name in the footer |
+| `notice` | on | The out-of-gamut message |
+| `recents` | on | The recent colours row |
+| `gamutSwitch` | **off** | The output space switcher |
+
+`preview`, the three value fields, and `name` make up the footer. Turning all of them off removes it entirely. Presets are controlled by the `presets` prop itself.
+
+### The value fields
+
+The picker shows an editable `oklch()` field by default. Turn on as many of the three as you want:
+
+```tsx
+<ColourPicker value={colour} onChange={setColour} parts={{ rgbInput: true, hexInput: true }} />
+```
+
+Each field accepts **any** supported format, whichever one it displays. Pasting a hex into the `oklch()` field works, so there is no rule to learn about which box takes what.
+
+> [!NOTE]
+> The hex field was on by default in 1.0 and is off from 1.1. Hex is sRGB only,
+> so it cannot carry a P3 or Rec. 2020 colour at all, which makes it a poor
+> default for a picker whose point is the gamut. Pass
+> `parts={{ hexInput: true }}` to keep it.
+
+### Alpha
+
+OKLCH carries alpha, so the picker has a fourth slider for it, on by default. Without it a value passed in with transparency would come back opaque.
+
+```tsx
+<ColourPicker value="oklch(0.7 0.15 255 / 0.4)" onChange={setColour} />
+```
+
+An opaque colour is unchanged in every format: `oklch(0.7 0.15 255)` stays exactly that, hex stays six digits, and `rgb()` stays three channels. The alpha forms appear only when a colour is actually transparent, and dragging back to fully opaque drops the alpha rather than emitting `/ 1`.
+
+`parts={{ alpha: false }}` removes the slider.
 
 ## Props
 
 | Prop | Type | Default | |
 |---|---|---|---|
-| `value` | `string \| null` | none | `oklch(L C H)` or hex |
-| `onChange` | `(colour: string) => void` | none | Receives a canonical, clamped `oklch(L C H)` |
-| `presets` | `string[]` | none | Swatches shown above the sliders |
+| `value` | `string \| null` | none | `oklch()`, `rgb()` or hex, with or without alpha |
+| `onChange` | `(colour: string) => void` | none | Receives a canonical, clamped `oklch(L C H)`, or `oklch(L C H / A)` when transparent |
+| `presets` | `string[]` | none | Swatches shown below the sliders |
 | `recents` | `string[]` | none | Controlled recent colours; omit to keep a session list |
 | `onRecentsChange` | `(recents: string[]) => void` | none | Fired on commit, not during a drag |
 | `maxRecents` | `number` | `8` | How many to keep when uncontrolled |
 | `layout` | `"chart" \| "side-by-side" \| "compact" \| "stacked"` | `"chart"` | See [Layouts](#layouts) |
-| `parts` | `{ charts?, preview?, hexInput?, name?, notice?, recents?, gamutSwitch?: boolean }` | all `true` except `gamutSwitch` | Turn parts off, e.g. `{ charts: false }` |
+| `parts` | `{ charts?, preview?, oklchInput?, rgbInput?, hexInput?, alpha?, name?, notice?, recents?, gamutSwitch?: boolean }` | on except `rgbInput`, `hexInput`, `gamutSwitch` | Turn parts off, e.g. `{ charts: false }` |
 | `labels` | `Partial<Record<LabelKey, string>>` | English | Translation and custom notices. See [Notices](#notices) |
 | `gamut` | `Gamut` | `SRGB` | The output space, clamped and emitted. See [Wider gamuts](#wider-gamuts) |
 | `references` | `Gamut[]` | `[SRGB]` when wider | Spaces outlined on the chart but never clamped to |
@@ -441,12 +482,25 @@ clampToGamut({ l: 0.75, c: 0.35, h: 145 });  // chroma reduced until it fits
 
 | | |
 |---|---|
-| `toOklch`, `parseOklch`, `formatOklch` | Parse and format |
+| `toOklch`, `parseOklch`, `formatOklch` | Parse and format. `toOklch` takes any supported form |
 | `hexToOklch`, `oklchToHex` | Convert, exact round-trip within sRGB |
+| `parseRgb`, `formatRgb`, `oklchToRgb255` | The same for `rgb()` and `rgba()` |
+| `hasAlpha`, `alphaOf` | Ask about transparency without re-deriving "absent means opaque" |
 | `inGamut`, `clampToGamut`, `maxChroma` | Gamut queries |
 | `gamutCurve` | Cross-section data behind the charts |
 | `colourName` | "Dark pink", "Muted teal", "Light grey" |
 | `isLight` | WCAG luminance, for readable text over a swatch |
+
+Alpha rides along rather than being a fourth axis. It cannot move a colour in or out of gamut, so `inGamut` ignores it and `clampToGamut` preserves it:
+
+```ts
+import { alphaOf, clampToGamut, formatOklch } from "@oklch-picker/core";
+
+const dialled = { l: 0.75, c: 0.35, h: 145, a: 0.4 };
+const fitted = clampToGamut(dialled);   // chroma reduced, alpha untouched
+alphaOf(fitted);                        // 0.4
+formatOklch(fitted);                    // "oklch(0.75 0.2359 145 / 0.4)"
+```
 
 ## Accessibility
 
