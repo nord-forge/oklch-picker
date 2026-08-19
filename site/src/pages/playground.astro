@@ -9,10 +9,15 @@ const GAMUTS = [
   { id: "p3", label: "Display P3" },
   { id: "rec2020", label: "Rec. 2020" },
 ] as const;
+// `on` must match DEFAULT_PARTS in the core, since the emitted snippet lists
+// only what differs from the defaults.
 const PARTS = [
   { id: "charts", label: "Charts", on: true },
   { id: "preview", label: "Preview", on: true },
-  { id: "hexInput", label: "Hex input", on: true },
+  { id: "oklchInput", label: "OKLCH field", on: true },
+  { id: "rgbInput", label: "RGB field", on: false },
+  { id: "hexInput", label: "Hex field", on: false },
+  { id: "alpha", label: "Alpha slider", on: true },
   { id: "name", label: "Name", on: true },
   { id: "notice", label: "Notice", on: true },
   { id: "recents", label: "Recents", on: true },
@@ -112,7 +117,7 @@ const PARTS = [
 </Page>
 
 <script>
-  import { SRGB } from "@oklch-picker/core";
+  import { DEFAULT_PARTS, SRGB } from "@oklch-picker/core";
   import { P3, REC2020 } from "@oklch-picker/core/gamuts";
   import { slug, STORAGE_KEY } from "../lib/framework";
   import "oklch-picker/register";
@@ -125,7 +130,12 @@ const PARTS = [
     "oklch(0.7 0.15 255)",
     "oklch(0.65 0.22 305)",
   ];
-  const DEFAULT_ON = ["charts", "preview", "hexInput", "name", "notice", "recents"];
+  // Read from the core rather than copied here. A hand-kept list would drift
+  // the first time a default changes, and the snippet would then claim props
+  // the picker already does by itself.
+  const DEFAULT_ON = Object.entries(DEFAULT_PARTS)
+    .filter(([, on]) => on)
+    .map(([key]) => key);
 
   const picker = document.getElementById("play") as HTMLElement & {
     value: string;
