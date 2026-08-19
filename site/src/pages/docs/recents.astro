@@ -1,0 +1,112 @@
+---
+import CodeTabs from "../../components/CodeTabs.astro";
+import Pager from "../../components/Pager.astro";
+import Picker from "../../components/Picker.astro";
+import Page from "../../layouts/Page.astro";
+---
+
+<Page
+  title="Recent colours — oklch-picker"
+  description="A row of recently committed colours, on by default and empty until something is committed. Controlled or session-local."
+>
+  <h1>Recent colours</h1>
+
+  <p class="lede">
+    On by default, and empty until something is committed — so it costs nothing
+    until it has something to show.
+  </p>
+
+  <Picker
+    presets={["oklch(0.75 0.16 145)", "oklch(0.7 0.15 255)", "oklch(0.72 0.19 35)"]}
+    caption="Click a preset, or release a slider, and the row appears below."
+  />
+
+  <p>
+    That keeps a list for the session, per picker. A colour joins it when it is
+    <strong>committed</strong> — a pointer release, a preset click, a hex entry,
+    leaving a slider — not on every value a drag passes through. Dragging the
+    hue slider across the spectrum records one colour, not forty.
+  </p>
+
+  <p>
+    Repeats move to the front rather than appearing twice, and the list is
+    capped at <code>maxRecents</code> (8 by default).
+  </p>
+
+  <h2>Storing them yourself</h2>
+
+  <p>
+    To keep them in a backend, or share them between pickers, pass the list in
+    and take the updates — the same controlled shape <code>value</code> and
+    <code>onChange</code> already use:
+  </p>
+
+  <CodeTabs
+    name="recents"
+    snippets={[
+      {
+        label: "React",
+        lang: "tsx",
+        code: `const [recents, setRecents] = useState(loadFromServer);
+
+<ColourPicker
+  value={colour}
+  onChange={setColour}
+  recents={recents}
+  onRecentsChange={(next) => {
+    setRecents(next);
+    save(next);
+  }}
+/>`,
+      },
+      {
+        label: "Vue",
+        lang: "vue",
+        code: `<ColourPicker
+  v-model="colour"
+  :recents="recents"
+  @recents-change="onRecentsChange"
+/>`,
+      },
+      {
+        label: "Svelte",
+        lang: "svelte",
+        code: `<ColourPicker bind:value={colour} bind:recents={recents} />`,
+      },
+      {
+        label: "Solid",
+        lang: "tsx",
+        code: `<ColourPicker
+  value={colour()}
+  onChange={setColour}
+  recents={recents()}
+  onRecentsChange={setRecents}
+/>`,
+      },
+      {
+        label: "No framework",
+        lang: "js",
+        code: `const picker = document.querySelector("oklch-picker");
+picker.recents = loadFromServer();
+
+picker.addEventListener("recentschange", (event) => {
+  save(event.detail.recents);
+});`,
+      },
+    ]}
+  />
+
+  <p>
+    <code>addRecent</code> is exported for callers doing their own bookkeeping,
+    and <code>parts=&lbrace;&lbrace; recents: false &rbrace;&rbrace;</code>
+    removes the row.
+  </p>
+
+  <Picker
+    parts={{ recents: false }}
+    presets={["oklch(0.75 0.16 145)", "oklch(0.7 0.15 255)"]}
+    caption="The same picker with the recents row turned off."
+  />
+
+  <Pager />
+</Page>

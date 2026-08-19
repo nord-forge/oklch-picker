@@ -1,0 +1,383 @@
+---
+import Page from "../layouts/Page.astro";
+
+const LAYOUTS = ["chart", "side-by-side", "compact", "stacked"] as const;
+const GAMUTS = [
+  { id: "srgb", label: "sRGB" },
+  { id: "p3", label: "Display P3" },
+  { id: "rec2020", label: "Rec. 2020" },
+] as const;
+const PARTS = [
+  { id: "charts", label: "Charts", on: true },
+  { id: "preview", label: "Preview", on: true },
+  { id: "hexInput", label: "Hex input", on: true },
+  { id: "name", label: "Name", on: true },
+  { id: "notice", label: "Notice", on: true },
+  { id: "recents", label: "Recents", on: true },
+  { id: "gamutSwitch", label: "Gamut switch", on: false },
+] as const;
+---
+
+<Page
+  title="Playground — oklch-picker"
+  description="Every prop as a control, with the matching code for each framework — change anything and copy the result."
+>
+  <h1>Playground</h1>
+
+  <p class="lede">
+    Change anything and the code below follows. Copy it into your app.
+  </p>
+
+  <div class="play">
+    <div class="play__stage">
+      <oklch-picker id="play" value="oklch(0.7 0.15 255)"></oklch-picker>
+    </div>
+
+    <div class="play__controls">
+      <fieldset class="play__group">
+        <legend>Layout</legend>
+        <div class="play__row">
+          {
+            LAYOUTS.map((layout, i) => (
+              <label class="play__choice">
+                <input type="radio" name="layout" value={layout} checked={i === 0} />
+                <span>{layout}</span>
+              </label>
+            ))
+          }
+        </div>
+      </fieldset>
+
+      <fieldset class="play__group">
+        <legend>Output gamut</legend>
+        <div class="play__row">
+          {
+            GAMUTS.map((gamut, i) => (
+              <label class="play__choice">
+                <input type="radio" name="gamut" value={gamut.id} checked={i === 0} />
+                <span>{gamut.label}</span>
+              </label>
+            ))
+          }
+        </div>
+      </fieldset>
+
+      <fieldset class="play__group">
+        <legend>Parts</legend>
+        <div class="play__row">
+          {
+            PARTS.map((part) => (
+              <label class="play__choice">
+                <input type="checkbox" name="part" value={part.id} checked={part.on} />
+                <span>{part.label}</span>
+              </label>
+            ))
+          }
+        </div>
+      </fieldset>
+
+      <fieldset class="play__group">
+        <legend>Presets</legend>
+        <label class="play__choice">
+          <input type="checkbox" name="presets" />
+          <span>Show five preset swatches</span>
+        </label>
+      </fieldset>
+    </div>
+  </div>
+
+  <div class="play__code">
+    <div class="play__codehead">
+      <div class="play__tabs" role="group" aria-label="Framework">
+        {
+          ["React", "Vue", "Svelte", "Solid", "HTML"].map((name, i) => (
+            <button
+              type="button"
+              class="play__tab"
+              data-framework={name.toLowerCase()}
+              aria-pressed={i === 0 ? "true" : "false"}
+            >
+              {name}
+            </button>
+          ))
+        }
+      </div>
+      <button type="button" class="play__copy" data-copy>Copy</button>
+    </div>
+    <pre class="play__pre"><code data-output></code></pre>
+  </div>
+</Page>
+
+<script>
+  import { SRGB } from "@oklch-picker/core";
+  import { P3, REC2020 } from "@oklch-picker/core/gamuts";
+  import "oklch-picker/register";
+
+  const GAMUTS = { srgb: SRGB, p3: P3, rec2020: REC2020 };
+  const PRESETS = [
+    "oklch(0.72 0.19 35)",
+    "oklch(0.8 0.17 85)",
+    "oklch(0.75 0.16 145)",
+    "oklch(0.7 0.15 255)",
+    "oklch(0.65 0.22 305)",
+  ];
+  const DEFAULT_ON = ["charts", "preview", "hexInput", "name", "notice", "recents"];
+
+  const picker = document.getElementById("play") as HTMLElement & {
+    value: string;
+    parts?: Record<string, boolean>;
+    presets?: string[];
+    gamut?: unknown;
+    gamutChoices?: unknown[];
+  };
+  const output = document.querySelector("[data-output]");
+  const form = document.querySelector(".play__controls");
+
+  let framework = "react";
+
+  function read() {
+    const layout =
+      document.querySelector<HTMLInputElement>('input[name="layout"]:checked')?.value ?? "chart";
+    const gamut =
+      document.querySelector<HTMLInputElement>('input[name="gamut"]:checked')?.value ?? "srgb";
+    const presets = document.querySelector<HTMLInputElement>('input[name="presets"]')?.checked;
+
+    const parts: Record<string, boolean> = {};
+    for (const box of document.querySelectorAll<HTMLInputElement>('input[name="part"]')) {
+      parts[box.value] = box.checked;
+    }
+    return { layout, gamut, presets: !!presets, parts };
+  }
+
+  /** Only what differs from the defaults, so the snippet stays honest — a
+   *  playground that emits every prop teaches the wrong habit. */
+  function changedParts(parts: Record<string, boolean>) {
+    const out: Record<string, boolean> = {};
+    for (const [key, on] of Object.entries(parts)) {
+      const isDefault = DEFAULT_ON.includes(key) ? on : !on;
+      if (!isDefault) out[key] = on;
+    }
+    return out;
+  }
+
+  function apply() {
+    const state = read();
+
+    picker.setAttribute("layout", state.layout);
+    picker.parts = state.parts;
+    picker.presets = state.presets ? PRESETS : [];
+    picker.gamut = GAMUTS[state.gamut as keyof typeof GAMUTS];
+    picker.gamutChoices = state.parts.gamutSwitch
+      ? [GAMUTS.srgb, GAMUTS.p3, GAMUTS.rec2020]
+      : undefined;
+
+    if (output) output.textContent = snippet(state);
+  }
+
+  function snippet(state: ReturnType<typeof read>) {
+    const parts = changedParts(state.parts);
+    const hasParts = Object.keys(parts).length > 0;
+    const wide = state.gamut !== "srgb";
+    const gamutName = state.gamut === "p3" ? "P3" : "REC2020";
+
+    const partsLiteral = `{ ${Object.entries(parts)
+      .map(([k, v]) => `${k}: ${v}`)
+      .join(", ")} }`;
+
+    if (framework === "html") {
+      const attrs = [
+        `value="oklch(0.7 0.15 255)"`,
+        state.layout !== "chart" ? `layout="${state.layout}"` : "",
+        state.presets ? `presets='${JSON.stringify(PRESETS)}'` : "",
+        hasParts ? `parts='${JSON.stringify(parts)}'` : "",
+      ].filter(Boolean);
+
+      const tag = `<oklch-picker\n  ${attrs.join("\n  ")}\n></oklch-picker>`;
+      if (!wide) return tag;
+      return `${tag}\n\n<script type="module">\n  import { ${gamutName} } from "@oklch-picker/core/gamuts";\n  document.querySelector("oklch-picker").gamut = ${gamutName};\n<\/script>`;
+    }
+
+    const imports = wide ? `import { ${gamutName} } from "@oklch-picker/core/gamuts";\n\n` : "";
+
+    if (framework === "vue") {
+      const attrs = [
+        `v-model="colour"`,
+        state.layout !== "chart" ? `layout="${state.layout}"` : "",
+        state.presets ? `:presets="presets"` : "",
+        hasParts ? `:parts="${partsLiteral.replaceAll('"', "'")}"` : "",
+        wide ? `:gamut="${gamutName}"` : "",
+      ].filter(Boolean);
+      return `${imports}<ColourPicker\n  ${attrs.join("\n  ")}\n/>`;
+    }
+
+    if (framework === "svelte") {
+      const attrs = [
+        `bind:value={colour}`,
+        state.layout !== "chart" ? `layout="${state.layout}"` : "",
+        state.presets ? `{presets}` : "",
+        hasParts ? `parts={${partsLiteral}}` : "",
+        wide ? `gamut={${gamutName}}` : "",
+      ].filter(Boolean);
+      return `${imports}<ColourPicker\n  ${attrs.join("\n  ")}\n/>`;
+    }
+
+    // React and Solid share a shape; only the value expression differs.
+    const value = framework === "solid" ? "colour()" : "colour";
+    const attrs = [
+      `value={${value}}`,
+      `onChange={setColour}`,
+      state.layout !== "chart" ? `layout="${state.layout}"` : "",
+      state.presets ? `presets={presets}` : "",
+      hasParts ? `parts={${partsLiteral}}` : "",
+      wide ? `gamut={${gamutName}}` : "",
+    ].filter(Boolean);
+    return `${imports}<ColourPicker\n  ${attrs.join("\n  ")}\n/>`;
+  }
+
+  form?.addEventListener("change", apply);
+
+  for (const tab of document.querySelectorAll<HTMLButtonElement>("[data-framework]")) {
+    tab.addEventListener("click", () => {
+      framework = tab.dataset.framework ?? "react";
+      for (const other of document.querySelectorAll("[data-framework]")) {
+        other.setAttribute("aria-pressed", other === tab ? "true" : "false");
+      }
+      apply();
+    });
+  }
+
+  const copy = document.querySelector<HTMLButtonElement>("[data-copy]");
+  copy?.addEventListener("click", async () => {
+    await navigator.clipboard.writeText(output?.textContent ?? "");
+    copy.textContent = "Copied";
+    setTimeout(() => {
+      copy.textContent = "Copy";
+    }, 1200);
+  });
+
+  picker.addEventListener("gamutchange", (event) => {
+    const next = (event as CustomEvent<{ gamut: { id: string } }>).detail?.gamut;
+    if (!next) return;
+    const radio = document.querySelector<HTMLInputElement>(`input[name="gamut"][value="${next.id}"]`);
+    if (radio) radio.checked = true;
+    apply();
+  });
+
+  apply();
+</script>
+
+<style>
+  .play {
+    display: grid;
+    gap: 1.5rem;
+    margin: 1.5rem 0;
+  }
+
+  @media (min-width: 56rem) {
+    .play {
+      grid-template-columns: minmax(0, 1fr) 15rem;
+      align-items: start;
+    }
+  }
+
+  .play__stage {
+    padding: 1.5rem;
+    border: 1px solid var(--site-line);
+    border-radius: 0.75rem;
+    background: var(--site-surface);
+  }
+
+  .play__controls {
+    display: grid;
+    gap: 1rem;
+  }
+
+  .play__group {
+    margin: 0;
+    padding: 0.75rem 0.9rem 0.9rem;
+    border: 1px solid var(--site-line);
+    border-radius: 0.6rem;
+  }
+
+  .play__group legend {
+    padding: 0 0.35rem;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--site-text-muted);
+  }
+
+  .play__row {
+    display: grid;
+    gap: 0.35rem;
+  }
+
+  .play__choice {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.88rem;
+    cursor: pointer;
+  }
+
+  .play__code {
+    margin: 1.5rem 0 3rem;
+    border: 1px solid var(--site-line);
+    border-radius: 0.6rem;
+    overflow: hidden;
+  }
+
+  .play__codehead {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem;
+    border-bottom: 1px solid var(--site-line);
+    background: var(--site-surface);
+  }
+
+  .play__tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.15rem;
+    flex: 1;
+  }
+
+  .play__tab,
+  .play__copy {
+    padding: 0.3rem 0.7rem;
+    font: inherit;
+    font-size: 0.85rem;
+    color: var(--site-text-muted);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 0.35rem;
+    cursor: pointer;
+  }
+
+  .play__tab:hover,
+  .play__copy:hover {
+    color: var(--site-text);
+    background: var(--site-bg);
+  }
+
+  .play__tab[aria-pressed="true"] {
+    color: var(--site-text);
+    background: var(--site-bg);
+    border-color: var(--site-line);
+    font-weight: 600;
+  }
+
+  .play__copy {
+    border-color: var(--site-line);
+  }
+
+  .play__pre {
+    margin: 0;
+    padding: 1rem;
+    overflow-x: auto;
+    font-size: 0.85rem;
+    line-height: 1.55;
+    font-family: var(--site-mono);
+  }
+</style>

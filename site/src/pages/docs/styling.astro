@@ -1,0 +1,121 @@
+---
+import CodeTabs from "../../components/CodeTabs.astro";
+import Pager from "../../components/Pager.astro";
+import Picker from "../../components/Picker.astro";
+import Page from "../../layouts/Page.astro";
+---
+
+<Page
+  title="Styling — oklch-picker"
+  description="Every value is a custom property, so a theme is set by overriding those rather than rewriting rules. Or skip the stylesheet entirely."
+>
+  <h1>Styling</h1>
+
+  <p class="lede">
+    <code>@oklch-picker/core/styles.css</code> is a starting point, not a
+    requirement — every element has a stable class name, so you can skip it
+    entirely and write your own.
+  </p>
+
+  <p>If you do use it, the palette is custom properties on the root:</p>
+
+  <CodeTabs
+    name="palette"
+    snippets={[
+      {
+        label: "Colours",
+        lang: "css",
+        code: `.oklch-picker {
+  --okp-text: #1a1a1a;
+  --okp-text-muted: #6b6b6b;
+  --okp-line: #d8d8d8;
+  --okp-surface: #ffffff;
+  --okp-warn: #9a6b00;
+  --okp-focus: #2f6fd0;
+  --okp-thumb: #fff;
+  --okp-thumb-line: rgb(0 0 0 / 0.55);
+  --okp-segment-selected: #1a1a1a;
+}`,
+      },
+      {
+        label: "Metrics",
+        lang: "css",
+        code: `.oklch-picker {
+  --okp-gap: 10px;
+  --okp-radius: 6px;
+  --okp-track-height: 12px;
+  --okp-chart-height: 34px;
+  --okp-chart-large-height: 180px;
+  --okp-side-by-side-width: 560px;
+  --okp-rail-width: 152px;
+  --okp-thumb-size: 16px;
+
+  /* A native range thumb is inset by half its width at each end, so
+     everything positioned by value is inset to match. Change it only
+     alongside --okp-thumb-size. */
+  --okp-inset: calc(var(--okp-thumb-size) / 2);
+
+  /* How strongly reference-gamut outlines are drawn on the chart. */
+  --okp-boundary-opacity: 0.45;
+}`,
+      },
+    ]}
+  />
+
+  <p>
+    The <code>--okp-text</code> … <code>--okp-focus</code> colours are
+    <code>light-dark()</code> pairs by default, so override them with a plain
+    colour to pin one, or your own <code>light-dark()</code> pair to keep both
+    schemes.
+  </p>
+
+  <h2>Colour scheme</h2>
+
+  <p>
+    It follows the system colour scheme by default. Set
+    <code>data-theme="light"</code> or <code>data-theme="dark"</code> on the
+    root element to pin one — which is what this site's own theme toggle does,
+    so the pickers below follow the button in the header.
+  </p>
+
+  <Picker caption="Toggle the theme in the header and watch this follow." />
+
+  <h2>Renaming the classes</h2>
+
+  <p>
+    Every class is prefixed, and the prefix is a prop. Change it and the
+    stylesheet no longer applies — which is the point when you are writing your
+    own:
+  </p>
+
+  <CodeTabs
+    name="prefix"
+    snippets={[
+      {
+        label: "React",
+        lang: "tsx",
+        code: `<ColourPicker value={colour} onChange={setColour} classPrefix="brand-picker" />`,
+      },
+      {
+        label: "No framework",
+        lang: "html",
+        code: `<oklch-picker class-prefix="brand-picker"></oklch-picker>`,
+      },
+    ]}
+  />
+
+  <p>
+    <code>className</code> adds a class to the root element without replacing
+    the prefix, for the common case of one-off spacing.
+  </p>
+
+  <div class="note">
+    <p>
+      The custom element renders into the light DOM, so the stylesheet and any
+      <code>--okp-*</code> override applies exactly as it does for the framework
+      adapters — which also means it is not style-isolated.
+    </p>
+  </div>
+
+  <Pager />
+</Page>

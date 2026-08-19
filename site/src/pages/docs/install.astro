@@ -1,0 +1,123 @@
+---
+import CodeTabs from "../../components/CodeTabs.astro";
+import Pager from "../../components/Pager.astro";
+import Page from "../../layouts/Page.astro";
+import { url } from "../../lib/url";
+---
+
+<Page
+  title="Install — oklch-picker"
+  description="Install the adapter for your framework, or the no-framework custom element. Each pulls in only its own adapter plus the shared core."
+>
+  <h1>Install</h1>
+
+  <p class="lede">
+    Install the package for your framework — each pulls in only its own adapter
+    plus the shared core.
+  </p>
+
+  <table>
+    <thead>
+      <tr><th>Using</th><th>Install</th><th>Binding</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>No framework</strong> — plain HTML, HTMX, Alpine, Astro, Rails, Laravel, Django, PHP, WordPress</td>
+        <td><code>oklch-picker</code></td>
+        <td><code>&lt;oklch-picker&gt;</code> element</td>
+      </tr>
+      <tr>
+        <td>React / Preact</td>
+        <td><code>@oklch-picker/react</code></td>
+        <td><code>value</code> + <code>onChange</code></td>
+      </tr>
+      <tr>
+        <td>Vue</td>
+        <td><code>@oklch-picker/vue</code></td>
+        <td><code>v-model</code></td>
+      </tr>
+      <tr>
+        <td>Svelte 5</td>
+        <td><code>@oklch-picker/svelte</code></td>
+        <td><code>bind:value</code></td>
+      </tr>
+      <tr>
+        <td>Solid</td>
+        <td><code>@oklch-picker/solid</code></td>
+        <td><code>value</code> + <code>onChange</code></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <CodeTabs
+    name="install"
+    snippets={[
+      { label: "React", lang: "sh", code: "npm install @oklch-picker/react" },
+      { label: "Vue", lang: "sh", code: "npm install @oklch-picker/vue" },
+      { label: "Svelte", lang: "sh", code: "npm install @oklch-picker/svelte" },
+      { label: "Solid", lang: "sh", code: "npm install @oklch-picker/solid" },
+      { label: "No framework", lang: "sh", code: "npm install oklch-picker" },
+    ]}
+  />
+
+  <h2>The stylesheet</h2>
+
+  <p>
+    It lives in the shared core, which every adapter already depends on:
+  </p>
+
+  <pre><code>import "@oklch-picker/core/styles.css";</code></pre>
+
+  <p>
+    Your framework is an optional peer dependency. Preact works through
+    <code>preact/compat</code>, which most Preact setups already alias.
+  </p>
+
+  <h2>The shared core</h2>
+
+  <p>
+    <code>@oklch-picker/core</code> holds the colour maths and the headless
+    model, with no UI. Every adapter depends on it, and it is worth installing
+    on its own if you want the maths without a picker — validating stored
+    colours on a server, generating palettes, or naming colours in a table. See
+    <a href={url("/docs/utilities")}>colour utilities</a>.
+  </p>
+
+  <pre><code>import &lbrace; colourName, clampToGamut, maxChroma &rbrace; from "@oklch-picker/core";</code></pre>
+
+  <p>
+    Whichever you import, the props are the same — <code>presets</code>,
+    <code>layout</code>, <code>parts</code>, <code>labels</code>,
+    <code>classPrefix</code> — and the value semantics follow each framework's
+    idiom.
+  </p>
+
+  <h2>Coming from <code>oklch-picker</code> 0.2 or earlier?</h2>
+
+  <p>
+    <code>oklch-picker</code> used to be the React component; it is now the
+    no-framework custom element, so that <code>npm i oklch-picker</code> gives
+    the build that works anywhere. Framework users move to a scoped package:
+  </p>
+
+  <table>
+    <thead><tr><th>Was</th><th>Now</th></tr></thead>
+    <tbody>
+      <tr><td><code>oklch-picker</code></td><td><code>@oklch-picker/react</code></td></tr>
+      <tr><td><code>oklch-picker/vue</code></td><td><code>@oklch-picker/vue</code></td></tr>
+      <tr><td><code>oklch-picker/svelte</code></td><td><code>@oklch-picker/svelte</code></td></tr>
+      <tr><td><code>oklch-picker/solid</code></td><td><code>@oklch-picker/solid</code></td></tr>
+      <tr><td><code>oklch-picker/vanilla</code></td><td><code>oklch-picker</code></td></tr>
+      <tr><td><code>oklch-picker/colour</code></td><td><code>@oklch-picker/core</code></td></tr>
+      <tr><td><code>oklch-picker/styles.css</code></td><td><code>@oklch-picker/core/styles.css</code></td></tr>
+    </tbody>
+  </table>
+
+  <p>
+    Nothing else changes — the components, props, and emitted values are
+    identical. The split exists so an app downloads only the adapter it uses
+    instead of all five.
+  </p>
+
+  <Pager />
+</Page>

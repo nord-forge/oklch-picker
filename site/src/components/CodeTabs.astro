@@ -1,0 +1,69 @@
+---
+/**
+ * The same example in each framework, one tab at a time.
+ *
+ * Tabs are radio inputs with CSS-driven panels, so switching needs no
+ * JavaScript and arrow-key navigation comes free from the radio group. A
+ * visitor with JS off still gets every snippet.
+ *
+ * The radios sit before both the labels and the panels as siblings of one
+ * container, because `:checked ~ .tabs__panel` can only reach forward — the
+ * markup order is load-bearing, not stylistic.
+ */
+import { Code } from "astro:components";
+import { THEMES } from "../lib/code";
+
+export interface Snippet {
+  label: string;
+  lang: "tsx" | "vue" | "svelte" | "html" | "astro" | "js" | "ts" | "sh" | "css";
+  code: string;
+}
+
+interface Props {
+  snippets: readonly Snippet[];
+  /** Distinguishes radio groups when a page holds several tab sets. */
+  name?: string;
+}
+
+const { snippets, name } = Astro.props;
+const group = name ?? `tabs-${Math.random().toString(36).slice(2, 9)}`;
+---
+
+<div class="tabs" style={`--tab-count:${snippets.length}`}>
+  {
+    snippets.map((_, i) => (
+      <input
+        class="tabs__radio"
+        type="radio"
+        name={group}
+        id={`${group}-${i}`}
+        checked={i === 0}
+        data-index={i}
+      />
+    ))
+  }
+
+  <div class="tabs__list">
+    {
+      snippets.map((snippet, i) => (
+        <label class="tabs__tab" for={`${group}-${i}`}>
+          {snippet.label}
+        </label>
+      ))
+    }
+  </div>
+
+  <div class="tabs__panels">
+    {
+      snippets.map((snippet, i) => (
+        <div class="tabs__panel" data-index={i}>
+          {/* `markdown.shikiConfig` governs Markdown only — <Code> does not
+              read it, and without this the block renders single-theme dark on
+              a light page. The keys must be named light/dark, not an array:
+              Shiki emits `--shiki-dark-*` variables the stylesheet switches. */}
+          <Code code={snippet.code.trim()} lang={snippet.lang} themes={THEMES} />
+        </div>
+      ))
+    }
+  </div>
+</div>

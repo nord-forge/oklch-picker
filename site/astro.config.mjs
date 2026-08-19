@@ -24,6 +24,15 @@ export default defineConfig({
   // `/docs/install/` anyway, and matching it here avoids the redirect.
   trailingSlash: "always",
   build: { format: "directory" },
+  // Both themes, so highlighted code follows the page rather than pinning one
+  // scheme. Shiki emits CSS variables for the dark set, which the stylesheet
+  // switches on `prefers-color-scheme` and on the `data-theme` override.
+  markdown: {
+    shikiConfig: {
+      themes: { light: "github-light", dark: "github-dark" },
+    },
+  },
+
   // The packages are linked by `file:` path, so their dist lives outside this
   // root. Same allowance the Astro example needs.
   vite: { server: { fs: { allow: [".", ".."] } } },

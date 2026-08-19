@@ -1,0 +1,117 @@
+---
+import CodeTabs from "../../components/CodeTabs.astro";
+import Pager from "../../components/Pager.astro";
+import Page from "../../layouts/Page.astro";
+---
+
+<Page
+  title="Colour utilities — oklch-picker"
+  description="The colour maths is framework-free and exported separately: parsing, conversion, gamut queries, and colour naming, with no UI."
+>
+  <h1>Colour utilities</h1>
+
+  <p class="lede">
+    The maths is framework-free and exported separately — useful for validating
+    stored colours on a server, generating palettes, or naming colours in a
+    table. No DOM, no UI.
+  </p>
+
+  <CodeTabs
+    name="utilities"
+    snippets={[
+      {
+        label: "Example",
+        lang: "ts",
+        code: `import { colourName, maxChroma, clampToGamut, toOklch } from "@oklch-picker/core";
+
+colourName("oklch(0.43 0.19 338)");  // "Dark pink"
+maxChroma(0.7, 255);                 // 0.160 — highest chroma sRGB can show there
+clampToGamut({ l: 0.75, c: 0.35, h: 145 });  // chroma reduced until it fits`,
+      },
+    ]}
+  />
+
+  <h2>What is exported</h2>
+
+  <table>
+    <thead>
+      <tr><th>Function</th><th>Does</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>toOklch</code>, <code>parseOklch</code>, <code>formatOklch</code></td>
+        <td>Parse and format</td>
+      </tr>
+      <tr>
+        <td><code>hexToOklch</code>, <code>oklchToHex</code></td>
+        <td>Convert, exact round-trip within sRGB</td>
+      </tr>
+      <tr>
+        <td><code>inGamut</code>, <code>clampToGamut</code>, <code>maxChroma</code></td>
+        <td>Gamut queries</td>
+      </tr>
+      <tr>
+        <td><code>gamutCurve</code></td>
+        <td>Cross-section data behind the charts</td>
+      </tr>
+      <tr>
+        <td><code>colourName</code></td>
+        <td>"Dark pink", "Muted teal", "Light grey"</td>
+      </tr>
+      <tr>
+        <td><code>isLight</code></td>
+        <td>WCAG luminance, for readable text over a swatch</td>
+      </tr>
+      <tr>
+        <td><code>addRecent</code></td>
+        <td>The recents list rule — dedupe to front, capped</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Gamuts</h2>
+
+  <p>
+    <code>SRGB</code> is in the main entry, since it is the default and always
+    present. The wider spaces are behind their own entry point, so an app that
+    never imports them never ships the matrices:
+  </p>
+
+  <CodeTabs
+    name="gamut-imports"
+    snippets={[
+      {
+        label: "TypeScript",
+        lang: "ts",
+        code: `import { SRGB, inGamut, clampToGamut } from "@oklch-picker/core";
+import { P3, REC2020 } from "@oklch-picker/core/gamuts";
+
+inGamut({ l: 0.7, c: 0.25, h: 145 }, SRGB);   // false
+inGamut({ l: 0.7, c: 0.25, h: 145 }, P3);     // true
+
+// Clamping targets a space too — chroma is reduced until it fits,
+// keeping lightness and hue.
+clampToGamut({ l: 0.7, c: 0.35, h: 145 }, P3);`,
+      },
+    ]}
+  />
+
+  <h2>The headless model</h2>
+
+  <p>
+    <code>pickerModel()</code> returns everything a picker needs for one
+    render — axis ranges, track gradients, chart geometry, and the draft/emit
+    resolution. It is what the five adapters are built on, and it is exported
+    for anyone building a sixth.
+  </p>
+
+  <div class="note">
+    <p>
+      Behaviour lives in the model rather than in any adapter, so a change there
+      reaches all five at once. If you are wiring up your own UI, that is the
+      layer to build against.
+    </p>
+  </div>
+
+  <Pager />
+</Page>

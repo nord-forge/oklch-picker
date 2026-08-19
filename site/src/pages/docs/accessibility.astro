@@ -1,0 +1,81 @@
+---
+import Pager from "../../components/Pager.astro";
+import Picker from "../../components/Picker.astro";
+import Page from "../../layouts/Page.astro";
+---
+
+<Page
+  title="Accessibility — oklch-picker"
+  description="Built on native range inputs, so keyboard, touch, and screen-reader support come from the platform."
+>
+  <h1>Accessibility</h1>
+
+  <p class="lede">
+    Built on native <code>&lt;input type="range"&gt;</code>, so keyboard, touch,
+    and screen-reader support come from the platform rather than from
+    re-implementations of it.
+  </p>
+
+  <h2>What that gives you</h2>
+
+  <ul>
+    <li>
+      <strong>Keyboard.</strong> Arrow keys step, <kbd>Home</kbd> and
+      <kbd>End</kbd> jump to the ends, <kbd>Page Up</kbd> and
+      <kbd>Page Down</kbd> take larger steps — all native behaviour.
+    </li>
+    <li>
+      <strong>Labels.</strong> Each slider carries its own, and the visible
+      label is <code>aria-hidden</code> so controls are not announced twice.
+    </li>
+    <li>
+      <strong>Touch.</strong> Native range inputs, plus pointer events on the
+      draggable chart, so it works the same under a finger as a mouse.
+    </li>
+  </ul>
+
+  <p>
+    Try it below: tab to a slider and use the arrow keys. Nothing here depends
+    on a pointer.
+  </p>
+
+  <Picker caption="Tab into the sliders and drive them from the keyboard." />
+
+  <h2>Charts are decoration</h2>
+
+  <p>
+    The gamut plots are <code>aria-hidden</code>. They are a visual aid, and the
+    sliders reach everything a chart can — including the out-of-gamut regions
+    the hatching marks, which the notice also states in words.
+  </p>
+
+  <p>
+    In the <code>compact</code> layout the visible labels shrink to single
+    letters, but the accessible names stay full — a screen reader hears
+    "Lightness", not "L".
+  </p>
+
+  <Picker layout="compact" caption="Compact: single-letter labels, full accessible names." />
+
+  <h2>Translating it</h2>
+
+  <p>
+    The axis names and the out-of-gamut notices come from <code>labels</code>,
+    so the picker speaks whatever your app speaks. The keys are the three axes
+    — <code>l</code>, <code>c</code>, <code>h</code> — plus
+    <code>outOfGamut</code> and a per-space
+    <code>outOf:&lt;gamut id&gt;</code>.
+  </p>
+
+  <Picker
+    labels={{
+      l: "Helderheid",
+      c: "Chroma",
+      h: "Tint",
+      outOfGamut: "Buiten sRGB — de dichtstbijzijnde sRGB-kleur wordt gebruikt.",
+    }}
+    caption="The same picker with Dutch labels."
+  />
+
+  <Pager />
+</Page>

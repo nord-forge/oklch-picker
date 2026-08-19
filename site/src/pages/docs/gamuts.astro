@@ -1,0 +1,217 @@
+---
+import CodeTabs from "../../components/CodeTabs.astro";
+import Pager from "../../components/Pager.astro";
+import Picker from "../../components/Picker.astro";
+import Page from "../../layouts/Page.astro";
+---
+
+<Page
+  title="Wider gamuts — oklch-picker"
+  description="Display P3 and Rec. 2020 as output spaces, not decoration: the chroma slider reaches further and the value is clamped to the space you chose."
+>
+  <h1>Wider gamuts</h1>
+
+  <p class="lede">
+    The picker works in sRGB by default and ships nothing else. Pass
+    <code>gamut</code> to work in a wider space instead.
+  </p>
+
+  <CodeTabs
+    name="gamut"
+    snippets={[
+      {
+        label: "React",
+        lang: "tsx",
+        code: `import { P3 } from "@oklch-picker/core/gamuts";
+
+<ColourPicker value={colour} onChange={setColour} gamut={P3} />`,
+      },
+      {
+        label: "Vue",
+        lang: "vue",
+        code: `<script setup>
+import { P3 } from "@oklch-picker/core/gamuts";
+<\/script>
+
+<template>
+  <ColourPicker v-model="colour" :gamut="P3" />
+</template>`,
+      },
+      {
+        label: "Svelte",
+        lang: "svelte",
+        code: `<script>
+  import { P3 } from "@oklch-picker/core/gamuts";
+<\/script>
+
+<ColourPicker bind:value={colour} gamut={P3} />`,
+      },
+      {
+        label: "Solid",
+        lang: "tsx",
+        code: `import { P3 } from "@oklch-picker/core/gamuts";
+
+<ColourPicker value={colour()} onChange={setColour} gamut={P3} />`,
+      },
+      {
+        label: "No framework",
+        lang: "js",
+        code: `import { P3 } from "@oklch-picker/core/gamuts";
+
+// A gamut is an object, so it is a property rather than an attribute.
+document.querySelector("oklch-picker").gamut = P3;`,
+      },
+    ]}
+  />
+
+  <p>
+    That is the <strong>output</strong> space, not decoration: the chroma slider
+    reaches further, the value is clamped to P3 rather than sRGB, and the notice
+    only fires once a colour leaves P3 too. Choosing P3 and then still emitting
+    an sRGB colour would defeat the point of choosing it.
+  </p>
+
+  <h2>Compare them</h2>
+
+  <p>
+    The same colour in each space. Drag chroma to the top of its track in each
+    and watch how much further it reaches — and note that sRGB stays outlined on
+    the wider charts as a reference, so the safe region remains visible.
+  </p>
+
+  <Picker value="oklch(0.7 0.2 145)" caption="sRGB — the default." />
+  <Picker value="oklch(0.7 0.2 145)" gamut="p3" caption="Display P3." />
+  <Picker value="oklch(0.7 0.2 145)" gamut="rec2020" caption="Rec. 2020." />
+
+  <p>
+    Override the reference outlines with <code>references</code>, or
+    <code>references=&lbrace;[]&rbrace;</code> for none.
+  </p>
+
+  <div class="note">
+    <p>
+      <code>P3</code> and <code>REC2020</code> live behind their own entry point
+      on purpose. An app that never imports them never ships the matrices — the
+      bundler drops the module statically, so there is no dynamic import and
+      nothing async in the render path. Opting in costs a few hundred bytes.
+    </p>
+  </div>
+
+  <h2>Letting the user switch</h2>
+
+  <p>
+    Off by default. Turn it on and the picker renders a small segmented control:
+  </p>
+
+  <Picker
+    value="oklch(0.7 0.2 145)"
+    gamut="srgb"
+    gamutChoices={["srgb", "p3", "rec2020"]}
+    parts={{ gamutSwitch: true }}
+    caption="Switch the output space, and the chroma range changes with it."
+  />
+
+  <CodeTabs
+    name="switcher"
+    snippets={[
+      {
+        label: "React",
+        lang: "tsx",
+        code: `const [gamut, setGamut] = useState(SRGB);
+
+<ColourPicker
+  value={colour}
+  onChange={setColour}
+  gamut={gamut}
+  onGamutChange={setGamut}
+  gamutChoices={[SRGB, P3, REC2020]}
+  parts={{ gamutSwitch: true }}
+/>`,
+      },
+      {
+        label: "No framework",
+        lang: "js",
+        code: `import { SRGB } from "@oklch-picker/core";
+import { P3, REC2020 } from "@oklch-picker/core/gamuts";
+
+const picker = document.querySelector("oklch-picker");
+picker.gamut = SRGB;
+picker.gamutChoices = [SRGB, P3, REC2020];
+picker.parts = { gamutSwitch: true };
+
+picker.addEventListener("gamutchange", (event) => {
+  picker.gamut = event.detail.gamut;
+});`,
+      },
+    ]}
+  />
+
+  <p>
+    <code>gamutChoices</code> defaults to the output gamut plus its references.
+    The control hides itself when that leaves only one option — one option is
+    not a choice.
+  </p>
+
+  <h2>Notices</h2>
+
+  <p>
+    When a colour falls outside the output gamut the picker says so. The wording
+    comes from <code>labels</code>, and there are two keys:
+  </p>
+
+  <ul>
+    <li>
+      <strong><code>outOfGamut</code></strong> — the sRGB message, and the
+      fallback for any space with no wording of its own. Defaults to
+      <em>"Outside sRGB — the nearest sRGB colour is used."</em>
+    </li>
+    <li>
+      <strong><code>outOf:&lt;gamut id&gt;</code></strong> — the message for one
+      output space. With <code>gamut=&lbrace;P3&rbrace;</code> the default
+      becomes <em>"Outside Display P3 — the nearest Display P3 colour is
+      used."</em>
+    </li>
+  </ul>
+
+  <p>
+    Every message names its own space rather than saying "outside what a screen
+    can display": P3 is a screen too, so that phrasing was only ever true while
+    sRGB was the only option.
+  </p>
+
+  <CodeTabs
+    name="notices"
+    snippets={[
+      {
+        label: "React",
+        lang: "tsx",
+        code: `<ColourPicker
+  labels={{
+    outOfGamut: "Not displayable.",
+    "outOf:p3": "Needs a wide-gamut screen.",
+  }}
+/>`,
+      },
+      {
+        label: "No framework",
+        lang: "html",
+        code: `<oklch-picker
+  labels='{"outOfGamut": "Not displayable.", "outOf:p3": "Needs a wide-gamut screen."}'
+></oklch-picker>`,
+      },
+    ]}
+  />
+
+  <p>
+    Or turn the message off entirely, leaving the maths untouched — the value is
+    still clamped, the hatching still shows, only the text goes:
+  </p>
+
+  <Picker
+    value="oklch(0.7 0.28 145)"
+    parts={{ notice: false }}
+    caption="An out-of-gamut colour with parts.notice off: still clamped, just silent."
+  />
+
+  <Pager />
+</Page>

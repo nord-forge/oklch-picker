@@ -232,6 +232,262 @@ code {
   color: var(--site-text-muted);
 }
 
+/* --- Live demo ------------------------------------------------------------ */
+
+.demo {
+  margin: 1.5rem 0 2rem;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.demo__caption {
+  font-size: 0.85rem;
+  color: var(--site-text-muted);
+}
+
+.demo__frame {
+  padding: 1.5rem;
+  border: 1px solid var(--site-line);
+  border-radius: 0.75rem;
+  background: var(--site-surface);
+}
+
+.demo__readout {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.85rem;
+}
+
+.demo__swatch {
+  width: 1.6rem;
+  height: 1.6rem;
+  flex: none;
+  border-radius: 0.35rem;
+  border: 1px solid var(--site-line);
+}
+
+.demo__value {
+  font-family: var(--site-mono);
+  color: var(--site-text-muted);
+}
+
+/* --- Code tabs ------------------------------------------------------------ */
+
+.tabs {
+  margin: 1.5rem 0;
+  border: 1px solid var(--site-line);
+  border-radius: 0.6rem;
+  overflow: hidden;
+}
+
+/* Off-screen rather than `display:none`: a hidden radio is not focusable, and
+   the tabs are meant to be reachable by keyboard. */
+.tabs__radio {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.tabs__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.15rem;
+  padding: 0.35rem;
+  border-bottom: 1px solid var(--site-line);
+  background: var(--site-surface);
+}
+
+.tabs__tab {
+  padding: 0.3rem 0.7rem;
+  font-size: 0.85rem;
+  color: var(--site-text-muted);
+  border-radius: 0.35rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.tabs__tab:hover {
+  color: var(--site-text);
+  background: var(--site-bg);
+}
+
+.tabs__panel {
+  display: none;
+  overflow-x: auto;
+}
+
+.tabs__panel pre {
+  margin: 0;
+  padding: 1rem;
+  font-size: 0.85rem;
+  line-height: 1.55;
+}
+
+/* Bind radio N to panel N and tab N.
+   The radios are the only <input> children of `.tabs`, so `nth-of-type` on them
+   is unambiguous; panels and tabs are counted with `nth-child` inside their own
+   wrapper, because `nth-of-type` would count `.tabs__list` as a div too and
+   shift every panel by one. Six is more tabs than any example needs — the spare
+   rules cost nothing and mean adding one never silently fails to switch. */
+.tabs__radio:nth-of-type(1):checked ~ .tabs__panels .tabs__panel:nth-child(1),
+.tabs__radio:nth-of-type(2):checked ~ .tabs__panels .tabs__panel:nth-child(2),
+.tabs__radio:nth-of-type(3):checked ~ .tabs__panels .tabs__panel:nth-child(3),
+.tabs__radio:nth-of-type(4):checked ~ .tabs__panels .tabs__panel:nth-child(4),
+.tabs__radio:nth-of-type(5):checked ~ .tabs__panels .tabs__panel:nth-child(5),
+.tabs__radio:nth-of-type(6):checked ~ .tabs__panels .tabs__panel:nth-child(6) {
+  display: block;
+}
+
+.tabs__radio:nth-of-type(1):checked ~ .tabs__list .tabs__tab:nth-child(1),
+.tabs__radio:nth-of-type(2):checked ~ .tabs__list .tabs__tab:nth-child(2),
+.tabs__radio:nth-of-type(3):checked ~ .tabs__list .tabs__tab:nth-child(3),
+.tabs__radio:nth-of-type(4):checked ~ .tabs__list .tabs__tab:nth-child(4),
+.tabs__radio:nth-of-type(5):checked ~ .tabs__list .tabs__tab:nth-child(5),
+.tabs__radio:nth-of-type(6):checked ~ .tabs__list .tabs__tab:nth-child(6) {
+  color: var(--site-text);
+  background: var(--site-bg);
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1px var(--site-line);
+}
+
+.tabs__radio:focus-visible ~ .tabs__list .tabs__tab {
+  outline: 2px solid var(--site-focus);
+  outline-offset: -2px;
+}
+
+/* --- Highlighted code ------------------------------------------------------
+   Shiki renders the light theme inline and carries the dark one as
+   `--shiki-dark-*` custom properties. Swapping to them is what makes a code
+   block follow the page instead of pinning one scheme. Both the system default
+   and the explicit `data-theme` override have to be handled, or the toggle
+   moves the page and leaves the code behind. */
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .astro-code,
+  :root:not([data-theme="light"]) .astro-code span {
+    color: var(--shiki-dark) !important;
+    background-color: var(--shiki-dark-bg) !important;
+    font-style: var(--shiki-dark-font-style) !important;
+    font-weight: var(--shiki-dark-font-weight) !important;
+    text-decoration: var(--shiki-dark-text-decoration) !important;
+  }
+}
+
+:root[data-theme="dark"] .astro-code,
+:root[data-theme="dark"] .astro-code span {
+  color: var(--shiki-dark) !important;
+  background-color: var(--shiki-dark-bg) !important;
+  font-style: var(--shiki-dark-font-style) !important;
+  font-weight: var(--shiki-dark-font-weight) !important;
+  text-decoration: var(--shiki-dark-text-decoration) !important;
+}
+
+/* --- Prose ---------------------------------------------------------------- */
+
+.content p,
+.content ul,
+.content ol {
+  margin: 0 0 1rem;
+}
+
+.content li + li {
+  margin-top: 0.35rem;
+}
+
+.content :not(pre) > code {
+  padding: 0.1em 0.35em;
+  border-radius: 0.25rem;
+  background: var(--site-surface);
+  border: 1px solid var(--site-line);
+}
+
+.content pre {
+  padding: 1rem;
+  border-radius: 0.6rem;
+  border: 1px solid var(--site-line);
+  overflow-x: auto;
+  font-size: 0.85rem;
+  line-height: 1.55;
+}
+
+.content table {
+  width: 100%;
+  margin: 1rem 0 1.5rem;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  display: block;
+  overflow-x: auto;
+}
+
+.content th,
+.content td {
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid var(--site-line);
+  vertical-align: top;
+}
+
+.content th {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--site-text-muted);
+  white-space: nowrap;
+}
+
+.content td code {
+  white-space: nowrap;
+}
+
+/* A callout for the "this changed in 1.1" kind of aside. */
+.note {
+  margin: 1.5rem 0;
+  padding: 0.9rem 1.1rem;
+  border-left: 3px solid var(--site-link);
+  border-radius: 0 0.4rem 0.4rem 0;
+  background: var(--site-surface);
+  font-size: 0.92rem;
+}
+
+.note > :last-child {
+  margin-bottom: 0;
+}
+
+/* Previous/next, at the foot of every guide. */
+.pager {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 3.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--site-line);
+  font-size: 0.9rem;
+}
+
+.pager__link {
+  display: grid;
+  gap: 0.15rem;
+  text-decoration: none;
+  color: var(--site-text);
+}
+
+.pager__link--next {
+  text-align: right;
+  margin-left: auto;
+}
+
+.pager__label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--site-text-muted);
+}
+
+.pager__link:hover .pager__title {
+  color: var(--site-link);
+}
+
 .footer {
   border-top: 1px solid var(--site-line);
   padding: 2rem 1.5rem;

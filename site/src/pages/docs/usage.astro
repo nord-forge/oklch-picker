@@ -1,0 +1,250 @@
+---
+import CodeTabs from "../../components/CodeTabs.astro";
+import Pager from "../../components/Pager.astro";
+import Picker from "../../components/Picker.astro";
+import Page from "../../layouts/Page.astro";
+import { url } from "../../lib/url";
+
+const BASIC = [
+  {
+    label: "React",
+    lang: "tsx" as const,
+    code: `import { useState } from "react";
+import { ColourPicker } from "@oklch-picker/react";
+import "@oklch-picker/core/styles.css";
+
+export function Example() {
+  const [colour, setColour] = useState("oklch(0.7 0.15 255)");
+  return <ColourPicker value={colour} onChange={setColour} />;
+}`,
+  },
+  {
+    label: "Vue",
+    lang: "vue" as const,
+    code: `<script setup>
+import { ref } from "vue";
+import { ColourPicker } from "@oklch-picker/vue";
+import "@oklch-picker/core/styles.css";
+
+const colour = ref("oklch(0.7 0.15 255)");
+<\/script>
+
+<template>
+  <ColourPicker v-model="colour" />
+</template>`,
+  },
+  {
+    label: "Svelte",
+    lang: "svelte" as const,
+    code: `<script>
+  import { ColourPicker } from "@oklch-picker/svelte";
+  import "@oklch-picker/core/styles.css";
+
+  let colour = $state("oklch(0.7 0.15 255)");
+<\/script>
+
+<ColourPicker bind:value={colour} />`,
+  },
+  {
+    label: "Solid",
+    lang: "tsx" as const,
+    code: `import { createSignal } from "solid-js";
+import { ColourPicker } from "@oklch-picker/solid";
+import "@oklch-picker/core/styles.css";
+
+export function Example() {
+  const [colour, setColour] = createSignal("oklch(0.7 0.15 255)");
+  return <ColourPicker value={colour()} onChange={setColour} />;
+}`,
+  },
+  {
+    label: "No framework",
+    lang: "html" as const,
+    code: `<link rel="stylesheet" href="https://esm.sh/@oklch-picker/core/styles.min.css" />
+
+<oklch-picker id="picker" value="oklch(0.7 0.15 255)"></oklch-picker>
+
+<script type="module">
+  import "https://esm.sh/oklch-picker/register";
+
+  document.getElementById("picker").addEventListener("change", (event) => {
+    console.log(event.detail.colour); // "oklch(0.7 0.15 120)"
+  });
+<\/script>`,
+  },
+];
+---
+
+<Page
+  title="Usage — oklch-picker"
+  description="Binding the picker in React, Vue, Svelte, Solid, or with no framework at all. The emitted value is always a canonical, gamut-clamped oklch() string."
+>
+  <h1>Usage</h1>
+
+  <p class="lede">
+    The value semantics follow each framework's idiom, and the emitted value is
+    always a canonical, gamut-clamped <code>oklch(L C H)</code> string. What you
+    pass in accepts either that or hex.
+  </p>
+
+  <Picker caption="Drag anything — the readout shows what would reach your onChange." />
+
+  <CodeTabs name="usage" snippets={BASIC} />
+
+  <h2>No framework</h2>
+
+  <p>
+    <code>oklch-picker</code> is a custom element, so it is just a tag. That
+    covers <strong>plain HTML, HTMX, Alpine, Astro, and any server-rendered
+    page</strong> — Rails, Laravel, Django, PHP, WordPress. No framework, no
+    bundler, and no build step.
+  </p>
+
+  <p>
+    <code>styles.min.css</code> is the same stylesheet at 1.3 kB gzipped instead
+    of 2.3 kB — worth using whenever nothing in front of it will minify. With a
+    bundler, import plain <code>styles.css</code>: your build minifies it
+    anyway, and the readable file is where the <code>--okp-*</code> variables
+    are documented.
+  </p>
+
+  <p>
+    With a bundler the import is <code>import "oklch-picker/register"</code>.
+    Either way that one side-effect import defines the tag — that is the whole
+    client-side cost, and nothing else needs wiring.
+  </p>
+
+  <h3>It works in forms</h3>
+
+  <p>
+    The element is form-associated, so it submits under its <code>name</code>
+    like a built-in input — no hidden field, and no JavaScript to sync one. A
+    server can render the current value and read the new one straight back from
+    the POST body:
+  </p>
+
+  <CodeTabs
+    name="forms"
+    snippets={[
+      {
+        label: "HTML",
+        lang: "html",
+        code: `<form method="post">
+  <oklch-picker name="brand" value="<%= @brand_colour %>"></oklch-picker>
+  <button>Save</button>
+</form>`,
+      },
+    ]}
+  />
+
+  <p>
+    Resetting the form restores the value the server rendered, again like a
+    built-in input.
+  </p>
+
+  <h3>In Astro</h3>
+
+  <p>
+    No <code>client:*</code> directive, because there is no framework to
+    hydrate — the page ships the markup and the element upgrades itself. This
+    site is built that way; every demo here is the custom element.
+  </p>
+
+  <CodeTabs
+    name="astro"
+    snippets={[
+      {
+        label: "Astro",
+        lang: "astro",
+        code: `---
+import "@oklch-picker/core/styles.css";
+---
+
+<oklch-picker value="oklch(0.7 0.15 255)"></oklch-picker>
+
+<script>
+  import "oklch-picker/register";
+<\/script>`,
+      },
+    ]}
+  />
+
+  <h3>Configuring it</h3>
+
+  <p>
+    <code>value</code>, <code>layout</code>, and <code>class-prefix</code> are
+    plain attributes. <code>parts</code>, <code>labels</code>, and
+    <code>presets</code> accept JSON attributes too, so no scripting is needed
+    to configure them:
+  </p>
+
+  <CodeTabs
+    name="configuring"
+    snippets={[
+      {
+        label: "HTML",
+        lang: "html",
+        code: `<oklch-picker
+  layout="compact"
+  presets='["oklch(0.75 0.16 145)", "oklch(0.7 0.15 255)"]'
+  parts='{"charts": false}'
+  labels='{"l": "Helderheid"}'
+></oklch-picker>`,
+      },
+    ]}
+  />
+
+  <p>
+    <code>presets</code> also takes a plain comma-separated list. From script,
+    all of them are settable as properties (<code>picker.presets = [...]</code>),
+    and <code>picker.value</code> reads and writes the current colour.
+  </p>
+
+  <p>
+    The element renders into the light DOM, so the stylesheet and
+    <code>--okp-*</code> overrides apply exactly as they do elsewhere — which
+    also means it is not style-isolated.
+  </p>
+
+  <h2>Presets</h2>
+
+  <p>
+    Swatches shown above the sliders. Clicking one commits it, so it also joins
+    <a href={url("/docs/recents")}>recent colours</a>.
+  </p>
+
+  <Picker
+    presets={[
+      "oklch(0.75 0.16 145)",
+      "oklch(0.7 0.15 255)",
+      "oklch(0.72 0.19 35)",
+      "oklch(0.8 0.17 85)",
+      "oklch(0.65 0.22 305)",
+    ]}
+    caption="Five presets, above the sliders."
+  />
+
+  <CodeTabs
+    name="presets"
+    snippets={[
+      {
+        label: "React",
+        lang: "tsx",
+        code: `<ColourPicker
+  value={colour}
+  onChange={setColour}
+  presets={["oklch(0.75 0.16 145)", "oklch(0.7 0.15 255)"]}
+/>`,
+      },
+      {
+        label: "No framework",
+        lang: "html",
+        code: `<oklch-picker
+  presets='["oklch(0.75 0.16 145)", "oklch(0.7 0.15 255)"]'
+></oklch-picker>`,
+      },
+    ]}
+  />
+
+  <Pager />
+</Page>

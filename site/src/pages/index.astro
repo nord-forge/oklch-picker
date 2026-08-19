@@ -1,42 +1,169 @@
 ---
-// Phase 1 is the scaffold: this page exists to prove the shell, the base path,
-// and the Pages deploy. The hero picker and the ported guides land in the
-// phases after it — see docs/SITE-PLAN.md.
+import CodeTabs from "../components/CodeTabs.astro";
+import Picker from "../components/Picker.astro";
 import Page from "../layouts/Page.astro";
 import { url } from "../lib/url";
 ---
 
 <Page
   title="oklch-picker — an OKLCH colour picker for every framework"
-  description="An OKLCH colour picker published as six packages: one shared core and five framework adapters. Zero runtime dependencies."
+  description="An OKLCH colour picker for React, Vue, Svelte, Solid, and no framework at all. Every axis is a slider over a gamut cross-section. Zero runtime dependencies."
 >
-  <h1>oklch-picker</h1>
+  <h1>An OKLCH colour picker that takes the gamut seriously</h1>
 
   <p class="lede">
-    An OKLCH colour picker for React, Vue, Svelte, Solid, and no framework at
-    all. One shared core, zero runtime dependencies.
+    For React, Preact, Vue, Svelte, Solid — and for no framework at all. Zero
+    runtime dependencies; the component is ~4.8&nbsp;kB gzipped, and the colour
+    maths alone is ~2.5&nbsp;kB.
   </p>
 
+  <Picker
+    presets={[
+      "oklch(0.72 0.19 35)",
+      "oklch(0.8 0.17 85)",
+      "oklch(0.75 0.16 145)",
+      "oklch(0.7 0.15 255)",
+      "oklch(0.65 0.22 305)",
+    ]}
+    caption="Live — drag the plot, or any slider."
+  />
+
   <p>
-    The documentation site is being built. Until it lands, the
-    <a href="https://github.com/nord-forge/oklch-picker#readme">README</a> is the
-    complete reference.
+    Every axis is a slider over a <strong>gamut cross-section</strong>: the
+    filled silhouette is the range that can actually be shown, so the reachable
+    colours are visible instead of something you discover by dragging into a
+    region that does nothing.
+  </p>
+
+  <h2>Why</h2>
+
+  <p>
+    Most pickers work in HSV and convert. If your design tokens are already
+    OKLCH, that round-trip is lossy and the controls do not map onto what you
+    store. This one works in OKLCH directly:
+  </p>
+
+  <ul>
+    <li>
+      <strong>The chroma slider is bounded by what is reachable.</strong> The
+      sRGB gamut is a lopsided solid in OKLCH — peak chroma depends on both
+      lightness and hue. A fixed <code>0..0.37</code> slider is up to
+      <strong>87% dead travel</strong> at low lightness: the thumb moves and the
+      colour does not change. Here the maximum is recomputed as the other axes
+      move, so 95–100% of the track does something.
+    </li>
+    <li>
+      <strong>Out-of-gamut regions are hatched</strong>, on every axis.
+      Lightness is unreachable at <em>both</em> ends at high chroma, and hue can
+      be unreachable in the middle, so a single boundary marker will not do.
+    </li>
+    <li>
+      <strong>Nothing out-of-gamut is ever emitted.</strong> Values are clamped
+      by reducing chroma, keeping lightness and hue.
+    </li>
+  </ul>
+
+  <p>
+    Push chroma up on the picker above and most hues cannot sustain it — the
+    hatching and the notice both say so.
   </p>
 
   <h2>Install</h2>
 
-  <pre><code>npm i oklch-picker</code></pre>
+  <CodeTabs
+    name="home-install"
+    snippets={[
+      { label: "React", lang: "sh", code: "npm install @oklch-picker/react" },
+      { label: "Vue", lang: "sh", code: "npm install @oklch-picker/vue" },
+      { label: "Svelte", lang: "sh", code: "npm install @oklch-picker/svelte" },
+      { label: "Solid", lang: "sh", code: "npm install @oklch-picker/solid" },
+      { label: "No framework", lang: "sh", code: "npm install oklch-picker" },
+    ]}
+  />
+
+  <CodeTabs
+    name="home-usage"
+    snippets={[
+      {
+        label: "React",
+        lang: "tsx",
+        code: `import { useState } from "react";
+import { ColourPicker } from "@oklch-picker/react";
+import "@oklch-picker/core/styles.css";
+
+export function Example() {
+  const [colour, setColour] = useState("oklch(0.7 0.15 255)");
+  return <ColourPicker value={colour} onChange={setColour} />;
+}`,
+      },
+      {
+        label: "Vue",
+        lang: "vue",
+        code: `<script setup>
+import { ref } from "vue";
+import { ColourPicker } from "@oklch-picker/vue";
+import "@oklch-picker/core/styles.css";
+
+const colour = ref("oklch(0.7 0.15 255)");
+<\/script>
+
+<template>
+  <ColourPicker v-model="colour" />
+</template>`,
+      },
+      {
+        label: "Svelte",
+        lang: "svelte",
+        code: `<script>
+  import { ColourPicker } from "@oklch-picker/svelte";
+  import "@oklch-picker/core/styles.css";
+
+  let colour = $state("oklch(0.7 0.15 255)");
+<\/script>
+
+<ColourPicker bind:value={colour} />`,
+      },
+      {
+        label: "Solid",
+        lang: "tsx",
+        code: `import { createSignal } from "solid-js";
+import { ColourPicker } from "@oklch-picker/solid";
+import "@oklch-picker/core/styles.css";
+
+export function Example() {
+  const [colour, setColour] = createSignal("oklch(0.7 0.15 255)");
+  return <ColourPicker value={colour()} onChange={setColour} />;
+}`,
+      },
+      {
+        label: "No framework",
+        lang: "html",
+        code: `<link rel="stylesheet" href="https://esm.sh/@oklch-picker/core/styles.min.css" />
+
+<oklch-picker value="oklch(0.7 0.15 255)"></oklch-picker>
+
+<script type="module">
+  import "https://esm.sh/oklch-picker/register";
+<\/script>`,
+      },
+    ]}
+  />
+
+  <h2>Where next</h2>
+
+  <ul>
+    <li><a href={url("/docs/install")}>Install</a> — every package, and the 0.2 migration</li>
+    <li><a href={url("/docs/layouts")}>Layouts</a> — four arrangements, all live</li>
+    <li><a href={url("/docs/gamuts")}>Wider gamuts</a> — P3 and Rec. 2020 as output spaces</li>
+    <li><a href={url("/playground")}>Playground</a> — every prop, with code you can copy</li>
+    <li><a href={url("/api")}>API</a> — generated from the type declarations</li>
+  </ul>
+
+  <h2>Browser support</h2>
 
   <p>
-    Or a framework adapter: <code>@oklch-picker/react</code>,
-    <code>@oklch-picker/vue</code>, <code>@oklch-picker/svelte</code>,
-    <code>@oklch-picker/solid</code>.
-  </p>
-
-  <h2>Next</h2>
-
-  <p>
-    <a href={url("/playground")}>The playground</a> and the guides in the sidebar
-    are not written yet — those links will 404 until their phase lands.
+    Needs <code>oklch()</code> in CSS for preset swatches — Chrome/Edge 111+,
+    Safari 15.4+, Firefox 113+. The charts, tracks and previews are computed to
+    hex, so they render anywhere.
   </p>
 </Page>
