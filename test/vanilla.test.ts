@@ -508,3 +508,88 @@ describe("<oklch-picker>", () => {
     expect(drawn[1]?.classList.contains("oklch-picker__gamut-boundary--p3")).toBe(true);
   });
 });
+
+describe("<oklch-picker> recent colours", () => {
+  /** Every `recentschange` payload, in order. */
+  function recorded(picker: OklchPickerElement): string[][] {
+    const seen: string[][] = [];
+    picker.addEventListener("recentschange", (e) => seen.push((e as CustomEvent).detail.recents));
+    return seen;
+  }
+
+  test("renders nothing until a colour is committed", () => {
+    const picker = mount({ value: "oklch(0.7 0.15 255)" });
+    // The row is cut up front so a commit can fill it without a rebuild, but
+    // it stays hidden and empty until there is something to show.
+    expect(picker.querySelectorAll(".oklch-picker__recent")).toHaveLength(0);
+    expect(picker.querySelector<HTMLElement>(".oklch-picker__recents")?.hidden).toBe(true);
+  });
+
+  // The whole point of committing on release: a drag emits for every value it
+  // passes through, and recording each would bury the list.
+  test("a drag records once, not once per value", () => {
+    const picker = mount({ value: "oklch(0.7 0.15 255)" });
+    const seen = recorded(picker);
+
+    const hue = slider(picker, "Hue");
+    if (!hue) throw new Error("no hue slider");
+    for (const v of ["100", "150", "200", "250", "300"]) {
+      hue.value = v;
+      hue.dispatchEvent(new Event("input"));
+    }
+    expect(seen).toHaveLength(0); // nothing yet — the gesture is still running
+
+    hue.dispatchEvent(new PointerEvent("pointerup", { bubbles: true }));
+    expect(seen).toHaveLength(1);
+    expect(seen[0]).toHaveLength(1);
+    expect(picker.querySelectorAll(".oklch-picker__recent")).toHaveLength(1);
+  });
+
+  test("a preset is committed on click", () => {
+    const picker = mount({
+      value: "oklch(0.7 0.15 255)",
+      presets: '["oklch(0.75 0.16 145)"]',
+    });
+    const seen = recorded(picker);
+
+    picker.querySelector<HTMLButtonElement>('button[aria-label="Green"]')?.click();
+    expect(seen.at(-1)).toEqual(["oklch(0.75 0.16 145)"]);
+  });
+
+  test("the controlled list is what renders", () => {
+    const picker = mount({ value: "oklch(0.7 0.15 255)" });
+    picker.recents = ["oklch(0.75 0.16 145)", "oklch(0.5 0.1 30)"];
+    expect(picker.querySelectorAll(".oklch-picker__recent")).toHaveLength(2);
+  });
+
+  // The list is a plain array of strings, so it reads from an attribute too —
+  // the no-framework fallback, exactly as `presets` does.
+  test("a JSON attribute controls the list as the property does", () => {
+    const picker = mount({
+      value: "oklch(0.7 0.15 255)",
+      recents: '["oklch(0.75 0.16 145)", "oklch(0.5 0.1 30)"]',
+    });
+    expect(picker.querySelectorAll(".oklch-picker__recent")).toHaveLength(2);
+  });
+
+  test("parts.recents turns the row off", () => {
+    const picker = mount({
+      value: "oklch(0.7 0.15 255)",
+      parts: '{"recents": false}',
+    });
+    picker.recents = ["oklch(0.75 0.16 145)"];
+    expect(picker.querySelector(".oklch-picker__recents")).toBeNull();
+  });
+
+  // A recent is picked through the same path a preset is, so it emits the
+  // colour rather than only marking itself pressed.
+  test("clicking a recent selects that colour", () => {
+    const picker = mount({ value: "oklch(0.7 0.15 255)" });
+    picker.recents = ["oklch(0.75 0.16 145)"];
+    const seen: string[] = [];
+    picker.addEventListener("change", (e) => seen.push((e as CustomEvent).detail.colour));
+
+    picker.querySelector<HTMLButtonElement>(".oklch-picker__recent")?.click();
+    expect(seen).toEqual(["oklch(0.75 0.16 145)"]);
+  });
+});

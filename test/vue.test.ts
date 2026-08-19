@@ -313,3 +313,57 @@ describe("ColourPicker (Vue)", () => {
     expect(w.find(".oklch-picker__notice").text()).toBe("custom");
   });
 });
+
+describe("recent colours (Vue)", () => {
+  /** Each `recentsChange` payload, as the list it carried. */
+  const recorded = (w: ReturnType<typeof mount>) =>
+    (w.emitted("recentsChange") ?? []).map((e) => (e as string[][])[0] as string[]);
+
+  test("renders nothing until a colour is committed", () => {
+    const w = mount(ColourPicker, { props: { modelValue: "oklch(0.7 0.15 255)" } });
+    expect(w.find(".oklch-picker__recents").exists()).toBe(false);
+  });
+
+  // The whole point of committing on release: a drag emits for every value it
+  // passes through, and recording each would bury the list.
+  test("a drag records once, not once per value", async () => {
+    const w = mount(ColourPicker, { props: { modelValue: "oklch(0.7 0.15 255)" } });
+    const hue = slider(w, "Hue");
+    for (const v of ["100", "150", "200", "250", "300"]) {
+      await hue.setValue(v);
+    }
+    expect(recorded(w)).toHaveLength(0); // nothing yet — the gesture is still running
+    await hue.trigger("pointerup");
+    expect(recorded(w)).toHaveLength(1);
+    expect(recorded(w)[0]).toHaveLength(1);
+  });
+
+  test("a preset is committed on click", async () => {
+    const w = mount(ColourPicker, {
+      props: { modelValue: "oklch(0.7 0.15 255)", presets: ["oklch(0.75 0.16 145)"] },
+    });
+    await w.find('button[aria-label="Green"]').trigger("click");
+    expect(recorded(w).at(-1)).toEqual(["oklch(0.75 0.16 145)"]);
+  });
+
+  test("the controlled list is what renders", () => {
+    const w = mount(ColourPicker, {
+      props: {
+        modelValue: "oklch(0.7 0.15 255)",
+        recents: ["oklch(0.75 0.16 145)", "oklch(0.5 0.1 30)"],
+      },
+    });
+    expect(w.findAll(".oklch-picker__recent")).toHaveLength(2);
+  });
+
+  test("parts.recents turns the row off", () => {
+    const w = mount(ColourPicker, {
+      props: {
+        modelValue: "oklch(0.7 0.15 255)",
+        recents: ["oklch(0.75 0.16 145)"],
+        parts: { recents: false },
+      },
+    });
+    expect(w.find(".oklch-picker__recents").exists()).toBe(false);
+  });
+});
