@@ -294,6 +294,40 @@ const [gamut, setGamut] = useState(SRGB);
 `gamutChoices` defaults to the output gamut plus its references. The control
 hides itself when that leaves only one option — one option is not a choice.
 
+### Recently used colours
+
+On by default, and empty until something is committed — so it costs nothing
+until it has something to show:
+
+```tsx
+<ColourPicker value={colour} onChange={setColour} />
+```
+
+That keeps a list for the session, per picker. To store them yourself — in a
+backend, or shared between pickers — pass the list in and take the updates:
+
+```tsx
+const [recents, setRecents] = useState(loadFromServer);
+
+<ColourPicker
+  value={colour}
+  onChange={setColour}
+  recents={recents}
+  onRecentsChange={(next) => {
+    setRecents(next);
+    save(next);
+  }}
+/>
+```
+
+A colour joins the list when it is **committed** — a pointer release, a preset
+click, a hex entry, leaving a slider — not on every value a drag passes
+through. Dragging the hue slider across the spectrum records one colour, not
+forty. Repeats move to the front rather than appearing twice, and the list is
+capped at `maxRecents` (8 by default).
+
+`parts={{ recents: false }}` removes the row.
+
 ### Notices
 
 When a colour falls outside the output gamut the picker says so. The wording
@@ -349,8 +383,11 @@ Everything except the sliders is optional:
 | `value` | `string \| null` | — | `oklch(L C H)` or hex |
 | `onChange` | `(colour: string) => void` | — | Receives a canonical, clamped `oklch(L C H)` |
 | `presets` | `string[]` | — | Swatches shown above the sliders |
+| `recents` | `string[]` | — | Controlled recent colours; omit to keep a session list |
+| `onRecentsChange` | `(recents: string[]) => void` | — | Fired on commit, not during a drag |
+| `maxRecents` | `number` | `8` | How many to keep when uncontrolled |
 | `layout` | `"chart" \| "side-by-side" \| "compact" \| "stacked"` | `"chart"` | See [Layouts](#layouts) |
-| `parts` | `{ charts?, preview?, hexInput?, name?, notice?, gamutSwitch?: boolean }` | all `true` except `gamutSwitch` | Turn parts off, e.g. `{ charts: false }` |
+| `parts` | `{ charts?, preview?, hexInput?, name?, notice?, recents?, gamutSwitch?: boolean }` | all `true` except `gamutSwitch` | Turn parts off, e.g. `{ charts: false }` |
 | `labels` | `Partial<Record<LabelKey, string>>` | English | Translation and custom notices — see [Notices](#notices) |
 | `gamut` | `Gamut` | `SRGB` | The output space — clamped and emitted; see [Wider gamuts](#wider-gamuts) |
 | `references` | `Gamut[]` | `[SRGB]` when wider | Spaces outlined on the chart but never clamped to |
