@@ -190,8 +190,10 @@ describe("gamutCurve", () => {
     for (const c of cols) expect(c.hex).toMatch(/^#[0-9a-f]{6}$/);
   });
 
+  // The h chart sweeps lightness horizontally, so it is the one that shows the
+  // gamut closing to a point at black and at white.
   test("the lightness silhouette rises to a peak and falls away", () => {
-    const cols = gamutCurve({ l: 0.5, c: 0.1, h: 145 }, "l", 64);
+    const cols = gamutCurve({ l: 0.5, c: 0.1, h: 145 }, "h", 64);
     const peak = cols.reduce((a, b) => (b.c > a.c ? b : a));
     // Peak sits mid-to-high, not jammed against either end.
     expect(peak.t).toBeGreaterThan(0.4);
@@ -205,16 +207,38 @@ describe("gamutCurve", () => {
   // producing a false spike (0.18 at L=0.03) that drew a phantom peak.
   test("no phantom chroma spike at the dark end", () => {
     for (const h of [0, 60, 145, 200, 260, 320]) {
-      const cols = gamutCurve({ l: 0.5, c: 0.1, h }, "l", 64);
+      const cols = gamutCurve({ l: 0.5, c: 0.1, h }, "h", 64);
       const peak = cols.reduce((a, b) => (b.c > a.c ? b : a));
       expect(peak.t).toBeGreaterThan(0.4);
     }
   });
 
-  test("the hue silhouette varies with hue", () => {
-    const cols = gamutCurve({ l: 0.7, c: 0.15, h: 0 }, "h", 32);
+  test("the l chart's hue sweep varies with hue", () => {
+    const cols = gamutCurve({ l: 0.7, c: 0.15, h: 0 }, "l", 32);
     const values = cols.map((c) => c.c);
     expect(Math.max(...values)).toBeGreaterThan(Math.min(...values) + 0.05);
+  });
+
+  // The bug this replaced: the c and h charts both swept max chroma against
+  // hue, so they drew byte-identical curves under two different sliders.
+  test("the three charts are genuinely different slices", () => {
+    const base = { l: 0.7, c: 0.15, h: 255 };
+    const [l, c, h] = (["l", "c", "h"] as const).map((axis) =>
+      gamutCurve(base, axis, 32)
+        .map((col) => col.c.toFixed(4))
+        .join(),
+    );
+    expect(l).not.toBe(c);
+    expect(c).not.toBe(h);
+    expect(l).not.toBe(h);
+  });
+
+  // The c chart's vertical axis is lightness, and holding chroma fixed makes
+  // some hues unreachable at every lightness — a column of zero, not a floor.
+  test("the c chart reports zero where the held chroma is unreachable", () => {
+    const cols = gamutCurve({ l: 0.7, c: 0.15, h: 255 }, "c", 32);
+    expect(cols.some((col) => col.c === 0)).toBe(true);
+    expect(cols.some((col) => col.c > 0.5)).toBe(true);
   });
 });
 

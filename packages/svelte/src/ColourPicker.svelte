@@ -5,11 +5,13 @@ import {
   type Oklch,
   type PickerLayout,
   type PickerParts,
+  chartPick,
   colourName,
   emitValue,
   hexToOklch,
   pickerModel,
   resolveCurrent,
+  withSingleChart,
 } from "@oklch-picker/core";
 import GamutChart from "./GamutChart.svelte";
 
@@ -19,9 +21,11 @@ interface Props {
   /** Called with a canonical, gamut-clamped `oklch(L C H)` string. */
   onchange?: (colour: string) => void;
   presets?: string[];
-  /** Visual arrangement. `compact` drops the charts and inlines each label
-   * with its slider; `side-by-side` puts the readout and presets in a right
-   * rail. Default `stacked`. */
+  /** Visual arrangement. `chart` (the default) shows one large
+   * lightness x chroma plot above all three sliders; `side-by-side` adds a right
+   * rail for the readout and presets; `compact` drops the charts entirely and
+   * inlines each label with its slider; `stacked` gives every axis its own
+   * thin chart. */
   layout?: PickerLayout;
   /** Turn parts off, e.g. `{ charts: false, name: false }`. All on by default. */
   parts?: PickerParts;
@@ -48,6 +52,8 @@ let {
 let draft = $state<Oklch | null>(null);
 
 const model = $derived(pickerModel(resolveCurrent(draft, value), { layout, parts, labels }));
+// `chart` renders one plot for the whole picker rather than one per axis.
+const single = $derived(withSingleChart(model.layout) ? model.charts[0] : undefined);
 
 function publish(colour: string) {
   value = colour;
@@ -80,9 +86,21 @@ function pick(colour: string) {
     </div>
   {/if}
 
+  {#if single}
+    <GamutChart
+      axis={single.axis}
+      curveKey={single.key}
+      x={single.x}
+      y={single.y}
+      onpick={(x, y) => dial(chartPick(model.current, single.axis, x, y))}
+      {classPrefix}
+    />
+  {/if}
+
   <div class="{classPrefix}__axes">
     {#each model.axes as axis, i (axis.key)}
-      {@const chart = model.charts[i]}
+      <!-- In the `chart` layout the one chart is hoisted above the axes. -->
+      {@const chart = single ? undefined : model.charts[i]}
       <!-- A div, not a label — the slider has its own aria-label. -->
       <div class="{classPrefix}__axis">
         <span class="{classPrefix}__axis-head">
@@ -94,12 +112,15 @@ function pick(colour: string) {
           </output>
         </span>
 
+        <!-- Read-only here: a 34px strip gives a drag almost no vertical
+             travel, and it would set two axes at once right above the slider
+             that sets one precisely. Only `chart` is big enough. -->
         {#if chart}
           <GamutChart
             axis={chart.axis}
             curveKey={chart.key}
-            position={chart.position}
-            chromaFraction={chart.chromaFraction}
+            x={chart.x}
+            y={chart.y}
             {classPrefix}
           />
         {/if}

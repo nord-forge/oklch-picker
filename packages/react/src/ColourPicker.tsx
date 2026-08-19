@@ -4,11 +4,13 @@ import {
   type Oklch,
   type PickerLayout,
   type PickerParts,
+  chartPick,
   colourName,
   emitValue,
   hexToOklch,
   pickerModel,
   resolveCurrent,
+  withSingleChart,
 } from "@oklch-picker/core";
 import { useState } from "react";
 import { GamutChart } from "./GamutChart.js";
@@ -19,9 +21,11 @@ export interface ColourPickerProps {
   /** Called with a canonical, gamut-clamped `oklch(L C H)` string. */
   onChange: (colour: string) => void;
   presets?: string[];
-  /** Visual arrangement. `compact` drops the charts and inlines each label
-   * with its slider; `side-by-side` puts the readout and presets in a right
-   * rail. Default `stacked`. */
+  /** Visual arrangement. `chart` (the default) shows one large
+   * lightness x chroma plot above all three sliders; `side-by-side` adds a right
+   * rail for the readout and presets; `compact` drops the charts entirely and
+   * inlines each label with its slider; `stacked` gives every axis its own
+   * thin chart. */
   layout?: PickerLayout;
   /** Turn parts off, e.g. `{ charts: false, name: false }`. All on by default. */
   parts?: PickerParts;
@@ -45,8 +49,10 @@ export function ColourPicker(props: ColourPickerProps) {
     parts: props.parts,
     labels: props.labels,
   });
-  const { labels, layout, hex, canonical, clipped, withCharts } = model;
+  const { labels, layout, hex, canonical, clipped } = model;
   const show = model.parts;
+  // `chart` renders one plot for the whole picker rather than one per axis.
+  const single = withSingleChart(layout) ? model.charts[0] : undefined;
 
   const emit = (next: Oklch) => {
     setDraft(next);
@@ -84,10 +90,23 @@ export function ColourPicker(props: ColourPickerProps) {
         </div>
       )}
 
+      {single && (
+        <GamutChart
+          base={current}
+          axis={single.axis}
+          id={single.axis}
+          x={single.x}
+          y={single.y}
+          onPick={(x, y) => emit(chartPick(current, single.axis, x, y))}
+          classPrefix={prefix}
+        />
+      )}
+
       <div className={`${prefix}__axes`}>
         {model.axes.map((a, i) => {
           const spans = model.spans[i] ?? [];
-          const chart = model.charts[i];
+          // In the `chart` layout the one chart is hoisted above the axes.
+          const chart = single ? undefined : model.charts[i];
           const slide = (e: { target: EventTarget | null }) =>
             emit({ ...current, [a.key]: Number((e.target as HTMLInputElement).value) });
           // A div, not a label — the slider has its own aria-label.
@@ -102,13 +121,16 @@ export function ColourPicker(props: ColourPickerProps) {
                 </output>
               </span>
 
+              {/* Read-only here: a 34px strip gives a drag almost no vertical
+                  travel, and it would set two axes at once right above the
+                  slider that sets one precisely. Only `chart` is big enough. */}
               {chart && (
                 <GamutChart
                   base={current}
                   axis={a.key}
                   id={a.key}
-                  position={chart.position}
-                  chromaFraction={chart.chromaFraction}
+                  x={chart.x}
+                  y={chart.y}
                   classPrefix={prefix}
                 />
               )}

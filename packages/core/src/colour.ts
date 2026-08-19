@@ -159,17 +159,70 @@ export interface GamutColumn {
   hex: string;
 }
 
-/** Cross-section of the sRGB gamut along one axis — the silhouette above each slider. */
-export function gamutCurve(base: Oklch, axis: Axis, columns = 64): GamutColumn[] {
+/** The 2D slice a chart shows: which axis is held fixed, and what the screen's
+ * horizontal and vertical axes sweep. Each chart varies the two components it
+ * does not itself control, so the three are genuinely different views rather
+ * than the same curve drawn twice. */
+export const CHART_PLANES: Record<Axis, { x: Axis; y: Axis }> = {
+  l: { x: "h", y: "c" },
+  c: { x: "h", y: "l" },
+  h: { x: "l", y: "c" },
+};
+
+/** The full-scale value of an axis, for mapping 0..1 screen positions onto it. */
+export function axisMax(axis: Axis): number {
+  if (axis === "h") return 360;
+  if (axis === "c") return MAX_CHROMA;
+  return 1;
+}
+
+/** The colour at a point in a chart's slice plane, with `fixed` held from
+ * `base`. `x` and `y` are 0..1 across the plot, y measured bottom-up. */
+export function chartColour(base: Oklch, fixed: Axis, x: number, y: number): Oklch {
+  const { x: xAxis, y: yAxis } = CHART_PLANES[fixed];
+  return {
+    ...base,
+    [xAxis]: x * axisMax(xAxis),
+    [yAxis]: y * axisMax(yAxis),
+  } as Oklch;
+}
+
+/** Cross-section of the sRGB gamut in a chart's slice plane. Each column is the
+ * highest in-gamut point of the vertical axis, as a 0..1 fraction of that axis.
+ *
+ * For a chroma-vertical plane that is `maxChroma` directly. For the C card the
+ * vertical axis is lightness, where the in-gamut run is a band with both a
+ * floor and a ceiling, so the column reports the ceiling and the fill is read
+ * from the gradient beneath it. */
+export function gamutCurve(base: Oklch, fixed: Axis, columns = 64): GamutColumn[] {
+  const { x: xAxis, y: yAxis } = CHART_PLANES[fixed];
   const out: GamutColumn[] = [];
+  const yScale = axisMax(yAxis);
+
   for (let i = 0; i <= columns; i++) {
     const t = i / columns;
-    // Chroma swept against itself is a flat block, so plot it against hue.
-    const l = axis === "l" ? t : base.l;
-    const h = axis === "l" ? base.h : t * 360;
-    const c = maxChroma(l, h);
+    const at = (y: number) => chartColour(base, fixed, t, y);
+
+    let c: number;
+    if (yAxis === "c") {
+      // Chroma vertical: the boundary is the reachable chroma at this column.
+      const probe = at(0);
+      c = maxChroma(probe.l, probe.h) / yScale;
+    } else {
+      // Lightness vertical at fixed chroma: scan for the highest lightness that
+      // still fits. Below some lightness the chroma is unreachable too, so this
+      // is a band, not a region anchored at zero.
+      c = 0;
+      for (let j = columns; j >= 0; j--) {
+        if (inGamut(at(j / columns))) {
+          c = j / columns;
+          break;
+        }
+      }
+    }
+
     // Each column takes its own most-saturated in-gamut colour.
-    out.push({ t, c, hex: oklchToHex({ l, c, h }) });
+    out.push({ t, c, hex: oklchToHex(clampToGamut(at(c))) });
   }
   return out;
 }

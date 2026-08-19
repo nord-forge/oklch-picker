@@ -14,14 +14,7 @@ function svg(container: Element) {
 describe("GamutChart", () => {
   test("renders a filled silhouette and an outline", () => {
     const { container } = render(
-      <GamutChart
-        base={BASE}
-        axis="l"
-        id="l"
-        position={0.7}
-        chromaFraction={0.5}
-        classPrefix="oklch-picker"
-      />,
+      <GamutChart base={BASE} axis="l" id="l" x={0.7} y={0.5} classPrefix="oklch-picker" />,
     );
     const paths = container.querySelectorAll("path");
     expect(paths).toHaveLength(2);
@@ -32,14 +25,7 @@ describe("GamutChart", () => {
 
   test("is hidden from assistive tech — it duplicates the slider", () => {
     const { container } = render(
-      <GamutChart
-        base={BASE}
-        axis="l"
-        id="l"
-        position={0.5}
-        chromaFraction={0.5}
-        classPrefix="oklch-picker"
-      />,
+      <GamutChart base={BASE} axis="l" id="l" x={0.5} y={0.5} classPrefix="oklch-picker" />,
     );
     expect(svg(container).getAttribute("aria-hidden")).toBe("true");
   });
@@ -47,22 +33,8 @@ describe("GamutChart", () => {
   test("gradient id is namespaced per instance so two charts cannot collide", () => {
     const { container } = render(
       <>
-        <GamutChart
-          base={BASE}
-          axis="l"
-          id="l"
-          position={0.5}
-          chromaFraction={0.5}
-          classPrefix="oklch-picker"
-        />
-        <GamutChart
-          base={BASE}
-          axis="h"
-          id="h"
-          position={0.5}
-          chromaFraction={0.5}
-          classPrefix="oklch-picker"
-        />
+        <GamutChart base={BASE} axis="l" id="l" x={0.5} y={0.5} classPrefix="oklch-picker" />
+        <GamutChart base={BASE} axis="h" id="h" x={0.5} y={0.5} classPrefix="oklch-picker" />
       </>,
     );
     const ids = Array.from(container.querySelectorAll("linearGradient")).map((g) => g.id);
@@ -70,16 +42,9 @@ describe("GamutChart", () => {
     expect(new Set(ids).size).toBe(2);
   });
 
-  test("crosshairs follow position and chroma", () => {
+  test("crosshairs follow the point in the slice plane", () => {
     const { container } = render(
-      <GamutChart
-        base={BASE}
-        axis="l"
-        id="l"
-        position={0.25}
-        chromaFraction={0}
-        classPrefix="oklch-picker"
-      />,
+      <GamutChart base={BASE} axis="l" id="l" x={0.25} y={0} classPrefix="oklch-picker" />,
     );
     const lines = container.querySelectorAll("line");
     // Vertical crosshair sits a quarter along a 100-unit viewBox.
@@ -88,16 +53,9 @@ describe("GamutChart", () => {
     expect(Number(lines[1]?.getAttribute("y1"))).toBeCloseTo(34, 5);
   });
 
-  test("clamps an out-of-range chromaFraction instead of drawing off-canvas", () => {
+  test("clamps an out-of-range y instead of drawing off-canvas", () => {
     const { container } = render(
-      <GamutChart
-        base={BASE}
-        axis="l"
-        id="l"
-        position={0.5}
-        chromaFraction={5}
-        classPrefix="oklch-picker"
-      />,
+      <GamutChart base={BASE} axis="l" id="l" x={0.5} y={5} classPrefix="oklch-picker" />,
     );
     const y = Number(container.querySelectorAll("line")[1]?.getAttribute("y1"));
     expect(y).toBeGreaterThanOrEqual(0);
@@ -106,14 +64,7 @@ describe("GamutChart", () => {
 
   test("honours the class prefix", () => {
     const { container } = render(
-      <GamutChart
-        base={BASE}
-        axis="l"
-        id="l"
-        position={0.5}
-        chromaFraction={0.5}
-        classPrefix="custom"
-      />,
+      <GamutChart base={BASE} axis="l" id="l" x={0.5} y={0.5} classPrefix="custom" />,
     );
     expect(container.querySelector(".custom__chart")).not.toBeNull();
   });
@@ -124,12 +75,92 @@ describe("GamutChart", () => {
         base={BASE}
         axis="l"
         id="l"
-        position={0.5}
-        chromaFraction={0.5}
+        x={0.5}
+        y={0.5}
         classPrefix="oklch-picker"
         resolution={8}
       />,
     );
     expect(container.querySelectorAll("stop")).toHaveLength(9); // inclusive of both ends
+  });
+
+  test("is inert without onPick, and marked interactive with it", () => {
+    const plain = render(
+      <GamutChart base={BASE} axis="l" id="l" x={0.5} y={0.5} classPrefix="oklch-picker" />,
+    );
+    expect(svg(plain.container).classList.contains("oklch-picker__chart--interactive")).toBe(false);
+    cleanup();
+
+    const live = render(
+      <GamutChart
+        base={BASE}
+        axis="l"
+        id="l"
+        x={0.5}
+        y={0.5}
+        onPick={() => {}}
+        classPrefix="oklch-picker"
+      />,
+    );
+    expect(svg(live.container).classList.contains("oklch-picker__chart--interactive")).toBe(true);
+  });
+
+  test("a drag reports plot coordinates, with y measured bottom-up", () => {
+    const picks: [number, number][] = [];
+    const { container } = render(
+      <GamutChart
+        base={BASE}
+        axis="h"
+        id="h"
+        x={0.5}
+        y={0.5}
+        onPick={(x, y) => picks.push([x, y])}
+        classPrefix="oklch-picker"
+      />,
+    );
+    const el = svg(container);
+    // happy-dom lays nothing out, so the rect is stubbed to a known box.
+    el.getBoundingClientRect = () =>
+      ({ left: 0, top: 0, right: 200, bottom: 100, width: 200, height: 100 }) as DOMRect;
+    el.setPointerCapture = () => {};
+    el.hasPointerCapture = () => true;
+
+    el.dispatchEvent(
+      new PointerEvent("pointerdown", { clientX: 50, clientY: 25, bubbles: true, pointerId: 1 }),
+    );
+    // A quarter across, and three quarters up from the bottom edge.
+    expect(picks[0]?.[0]).toBeCloseTo(0.25, 5);
+    expect(picks[0]?.[1]).toBeCloseTo(0.75, 5);
+
+    el.dispatchEvent(
+      new PointerEvent("pointermove", { clientX: 150, clientY: 90, bubbles: true, pointerId: 1 }),
+    );
+    expect(picks).toHaveLength(2);
+    expect(picks[1]?.[0]).toBeCloseTo(0.75, 5);
+    expect(picks[1]?.[1]).toBeCloseTo(0.1, 5);
+  });
+
+  test("ignores a move that is not part of a captured drag", () => {
+    const picks: [number, number][] = [];
+    const { container } = render(
+      <GamutChart
+        base={BASE}
+        axis="h"
+        id="h"
+        x={0.5}
+        y={0.5}
+        onPick={(x, y) => picks.push([x, y])}
+        classPrefix="oklch-picker"
+      />,
+    );
+    const el = svg(container);
+    el.getBoundingClientRect = () =>
+      ({ left: 0, top: 0, right: 200, bottom: 100, width: 200, height: 100 }) as DOMRect;
+    el.hasPointerCapture = () => false;
+
+    el.dispatchEvent(
+      new PointerEvent("pointermove", { clientX: 50, clientY: 25, bubbles: true, pointerId: 1 }),
+    );
+    expect(picks).toHaveLength(0);
   });
 });

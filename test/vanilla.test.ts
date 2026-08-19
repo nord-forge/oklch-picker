@@ -79,6 +79,30 @@ describe("<oklch-picker>", () => {
     expect(Number(chroma?.value)).toBeCloseTo(0.2, 1);
   });
 
+  // Regression: the listeners are bound once for the life of the node, so
+  // reading the colour from the build-time model reset every other axis to
+  // whatever it held when the picker was built.
+  test("moving one slider keeps what the others were already dragged to", () => {
+    const picker = mount({ value: "oklch(0.7 0.15 255)" });
+    const l = slider(picker, "Lightness");
+    const hue = slider(picker, "Hue");
+    const chroma = slider(picker, "Chroma");
+    if (!l || !hue || !chroma) throw new Error("missing sliders");
+
+    l.value = "0.35";
+    l.dispatchEvent(new Event("input"));
+    expect(Number(slider(picker, "Lightness")?.value)).toBeCloseTo(0.35, 2);
+
+    hue.value = "300";
+    hue.dispatchEvent(new Event("input"));
+    expect(Number(slider(picker, "Lightness")?.value)).toBeCloseTo(0.35, 2);
+
+    chroma.value = "0.05";
+    chroma.dispatchEvent(new Event("input"));
+    expect(Number(slider(picker, "Lightness")?.value)).toBeCloseTo(0.35, 2);
+    expect(Number(slider(picker, "Hue")?.value)).toBeCloseTo(300, 0);
+  });
+
   test("the value property reflects and resets the draft", () => {
     const picker = mount({ value: "oklch(0.7 0.15 255)" });
     picker.value = "oklch(0.5 0.1 30)";
@@ -162,6 +186,124 @@ describe("<oklch-picker>", () => {
     expect(slider(picker, "Lightness")).not.toBeNull();
   });
 
+  test("the chart layout shows one plot for all three sliders", () => {
+    const picker = mount({ value: "oklch(0.7 0.15 255)", layout: "chart" });
+    expect(picker.classList.contains("oklch-picker--chart")).toBe(true);
+    // One chart, and it sits above the axes rather than inside one of them.
+    expect(picker.querySelectorAll(".oklch-picker__chart")).toHaveLength(1);
+    expect(picker.querySelector(".oklch-picker__axis .oklch-picker__chart")).toBeNull();
+    // All three sliders remain.
+    expect(picker.querySelectorAll(".oklch-picker__slider")).toHaveLength(3);
+  });
+
+  test("stacked gives every axis its own chart", () => {
+    const picker = mount({ value: "oklch(0.7 0.15 255)", layout: "stacked" });
+    expect(picker.querySelectorAll(".oklch-picker__chart")).toHaveLength(3);
+  });
+
+  test("no layout attribute means the chart layout", () => {
+    const picker = mount({ value: "oklch(0.7 0.15 255)" });
+    expect(picker.classList.contains("oklch-picker--chart")).toBe(true);
+    expect(picker.querySelectorAll(".oklch-picker__chart")).toHaveLength(1);
+  });
+
+  test("side-by-side shows the same single interactive plot", () => {
+    const picker = mount({ value: "oklch(0.7 0.15 255)", layout: "side-by-side" });
+    const charts = picker.querySelectorAll(".oklch-picker__chart");
+    expect(charts).toHaveLength(1);
+    expect(charts[0]?.classList.contains("oklch-picker__chart--interactive")).toBe(true);
+    // Hoisted above the axes, as in `chart`, not tucked inside one of them.
+    expect(picker.querySelector(".oklch-picker__axis .oklch-picker__chart")).toBeNull();
+  });
+
+  test("parts.charts drops the chart in the chart layout too", () => {
+    const picker = mount({
+      value: "oklch(0.7 0.15 255)",
+      layout: "chart",
+      parts: '{"charts":false}',
+    });
+    expect(picker.querySelector(".oklch-picker__chart")).toBeNull();
+    expect(picker.querySelectorAll(".oklch-picker__slider")).toHaveLength(3);
+  });
+
+  test("dragging the chart emits a clamped colour", () => {
+    const picker = mount({ value: "oklch(0.7 0.15 255)", layout: "chart" });
+    const seen: string[] = [];
+    picker.addEventListener("change", (e) => seen.push((e as CustomEvent).detail.colour));
+
+    const chart = picker.querySelector<SVGSVGElement>(".oklch-picker__chart");
+    if (!chart) throw new Error("no chart");
+    // happy-dom lays nothing out, so the rect is stubbed to a known box.
+    chart.getBoundingClientRect = () =>
+      ({ left: 0, top: 0, right: 200, bottom: 100, width: 200, height: 100 }) as DOMRect;
+    chart.setPointerCapture = () => {};
+    chart.hasPointerCapture = () => true;
+
+    chart.dispatchEvent(
+      new PointerEvent("pointerdown", { clientX: 100, clientY: 50, bubbles: true, pointerId: 1 }),
+    );
+
+    expect(seen).toHaveLength(1);
+    // Mid-plot: half the lightness range, and whatever chroma that allows.
+    expect(parseOklch(seen[0] as string)?.l).toBeCloseTo(0.5, 2);
+  });
+
+  // Regression, the chart half of the same staleness: the pointer handlers are
+  // bound once too, so a build-time colour would drop the dialled hue.
+  test("a chart drag keeps the hue the slider was already moved to", () => {
+    const picker = mount({ value: "oklch(0.7 0.15 255)", layout: "chart" });
+    const seen: string[] = [];
+    picker.addEventListener("change", (e) => seen.push((e as CustomEvent).detail.colour));
+
+    const hue = slider(picker, "Hue");
+    if (!hue) throw new Error("no hue slider");
+    hue.value = "300";
+    hue.dispatchEvent(new Event("input"));
+
+    const chart = picker.querySelector<SVGSVGElement>(".oklch-picker__chart");
+    if (!chart) throw new Error("no chart");
+    // happy-dom lays nothing out, so the rect is stubbed to a known box.
+    chart.getBoundingClientRect = () =>
+      ({ left: 0, top: 0, right: 200, bottom: 100, width: 200, height: 100 }) as DOMRect;
+    chart.setPointerCapture = () => {};
+    chart.hasPointerCapture = () => true;
+
+    chart.dispatchEvent(
+      new PointerEvent("pointerdown", { clientX: 100, clientY: 50, bubbles: true, pointerId: 1 }),
+    );
+
+    // The chart holds hue fixed and sweeps the other two, so the pick must
+    // land on the dialled hue rather than reverting to the mounted one.
+    expect(parseOklch(seen.at(-1) as string)?.h).toBeCloseTo(300, 0);
+  });
+
+  test("the stacked strips are read-only; only the chart layout's plot drags", () => {
+    const picker = mount({ value: "oklch(0.7 0.15 255)", layout: "stacked" });
+    const seen: string[] = [];
+    picker.addEventListener("change", (e) => seen.push((e as CustomEvent).detail.colour));
+
+    const charts = picker.querySelectorAll(".oklch-picker__chart");
+    expect(charts).toHaveLength(3);
+    for (const c of charts) {
+      expect(c.classList.contains("oklch-picker__chart--interactive")).toBe(false);
+    }
+
+    // A pointerdown on a strip must not move the colour.
+    const strip = charts[0] as SVGSVGElement;
+    strip.getBoundingClientRect = () =>
+      ({ left: 0, top: 0, right: 200, bottom: 100, width: 200, height: 100 }) as DOMRect;
+    strip.setPointerCapture = () => {};
+    strip.hasPointerCapture = () => true;
+    strip.dispatchEvent(
+      new PointerEvent("pointerdown", { clientX: 100, clientY: 50, bubbles: true, pointerId: 1 }),
+    );
+    expect(seen).toHaveLength(0);
+
+    picker.setAttribute("layout", "chart");
+    const plot = picker.querySelector(".oklch-picker__chart");
+    expect(plot?.classList.contains("oklch-picker__chart--interactive")).toBe(true);
+  });
+
   test("labels can be translated", () => {
     const picker = mount({ value: "oklch(0.7 0.15 255)", labels: '{"l":"Helderheid"}' });
     expect(slider(picker, "Helderheid")).not.toBeNull();
@@ -193,8 +335,9 @@ describe("<oklch-picker>", () => {
     expect(Number(slider(picker, "Hue")?.value)).toBeCloseTo(30, 0);
   });
 
+  // Stacked, so all three per-axis curves are on screen to check at once.
   test("the chart curve is reused while its input is unchanged", () => {
-    const picker = mount({ value: "oklch(0.7 0.15 255)" });
+    const picker = mount({ value: "oklch(0.7 0.15 255)", layout: "stacked" });
     const chart = picker.querySelector(".oklch-picker__chart");
     const area = chart?.querySelector("path");
     const before = area?.getAttribute("d");

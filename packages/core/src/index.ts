@@ -7,6 +7,9 @@
  * generating palettes, or naming colours in a table.
  */
 export {
+  axisMax,
+  CHART_PLANES,
+  chartColour,
   clampToGamut,
   colourName,
   formatOklch,
@@ -27,9 +30,13 @@ export {
   axisModels,
   CHART_H,
   CHART_W,
+  chartAxes,
   chartBase,
   chartKey,
+  chartPick,
+  chartSlot,
   DEFAULT_LABELS,
+  DEFAULT_LAYOUT,
   DEFAULT_PARTS,
   emitValue,
   FALLBACK,
@@ -38,6 +45,7 @@ export {
   pickerModel,
   resolveCurrent,
   trackGradient,
+  withSingleChart,
 } from "./model.js";
 export type {
   AxisModel,

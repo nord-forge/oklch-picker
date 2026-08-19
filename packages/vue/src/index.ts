@@ -11,26 +11,36 @@ import {
   type PickerLayout,
   type PickerParts,
   chartBase,
+  chartPick,
   colourName,
   emitValue,
   gamutChartModel,
   hexToOklch,
   pickerModel,
   resolveCurrent,
+  withSingleChart,
 } from "@oklch-picker/core";
 import { computed, defineComponent, h, ref } from "vue";
 import type { PropType, VNode } from "vue";
 
-/** One gamut chart. Split out so `computed` memoises each curve separately —
- * dragging an axis that does not feed a given curve reuses its ~65 stops. */
+/** One gamut chart: a 2D slice of the sRGB gamut, holding one axis fixed and
+ * sweeping the other two, so under the curve is displayable and above it is
+ * not. Split out so `computed` memoises each curve separately — dragging an
+ * axis that does not feed a given curve reuses its ~65 stops. */
 const GamutChart = defineComponent({
   name: "GamutChart",
   props: {
+    /** The axis held fixed; the chart sweeps the other two. */
     axis: { type: String as PropType<Axis>, required: true },
     /** Memo key: the single input this curve depends on. */
     curveKey: { type: Number, required: true },
-    position: { type: Number, required: true },
-    chromaFraction: { type: Number, required: true },
+    /** 0..1 across the plot; drives the vertical crosshair. */
+    x: { type: Number, required: true },
+    /** 0..1 up the plot, bottom-up; drives the horizontal crosshair. */
+    y: { type: Number, required: true },
+    /** Called with 0..1 plot coordinates as the pointer moves. Omit for a
+     * display-only chart. */
+    onPick: { type: Function as PropType<(x: number, y: number) => void>, default: undefined },
     classPrefix: { type: String, required: true },
     resolution: { type: Number, default: 64 },
   },
@@ -39,20 +49,42 @@ const GamutChart = defineComponent({
       gamutChartModel(chartBase(props.curveKey, props.axis), props.axis, props.resolution),
     );
 
+    // Pointer capture keeps a drag alive once it leaves the chart, so the value
+    // still tracks rather than sticking at the edge.
+    const pick = (e: PointerEvent) => {
+      const onPick = props.onPick;
+      if (!onPick) return;
+      const r = (e.currentTarget as SVGSVGElement).getBoundingClientRect();
+      if (!r.width || !r.height) return;
+      onPick((e.clientX - r.left) / r.width, (r.bottom - e.clientY) / r.height);
+    };
+
     return () => {
       const gradId = `${props.classPrefix}-gamut-${props.axis}`;
-      const x = props.position * CHART_W;
-      const y = CHART_H - Math.min(1, Math.max(0, props.chromaFraction)) * CHART_H;
+      const interactive = Boolean(props.onPick);
+      const x = props.x * CHART_W;
+      const y = CHART_H - Math.min(1, Math.max(0, props.y)) * CHART_H;
       const { path, stops } = curve.value;
 
       return h(
         "svg",
         {
-          class: `${props.classPrefix}__chart`,
+          class: `${props.classPrefix}__chart${interactive ? ` ${props.classPrefix}__chart--interactive` : ""}`,
           viewBox: `0 0 ${CHART_W} ${CHART_H}`,
           preserveAspectRatio: "none",
           "aria-hidden": "true",
           focusable: "false",
+          onPointerdown: interactive
+            ? (e: PointerEvent) => {
+                (e.currentTarget as SVGSVGElement).setPointerCapture(e.pointerId);
+                pick(e);
+              }
+            : undefined,
+          onPointermove: interactive
+            ? (e: PointerEvent) => {
+                if ((e.currentTarget as SVGSVGElement).hasPointerCapture(e.pointerId)) pick(e);
+              }
+            : undefined,
         },
         [
           h("defs", [
@@ -83,9 +115,11 @@ export const ColourPicker = defineComponent({
     /** `oklch(L C H)` or hex. Named for `v-model`. */
     modelValue: { type: String as PropType<string | null>, default: null },
     presets: { type: Array as PropType<string[]>, default: undefined },
-    /** Visual arrangement. `compact` drops the charts and inlines each label
-     * with its slider; `side-by-side` puts the readout and presets in a right
-     * rail. Default `stacked`. */
+    /** Visual arrangement. `chart` (the default) shows one large
+     * lightness x chroma plot above all three sliders; `side-by-side` adds a right
+     * rail for the readout and presets; `compact` drops the charts entirely and
+     * inlines each label with its slider; `stacked` gives every axis its own
+     * thin chart. */
     layout: { type: String as PropType<PickerLayout>, default: undefined },
     /** Turn parts off, e.g. `{ charts: false, name: false }`. All on by default. */
     parts: { type: Object as PropType<PickerParts>, default: undefined },
@@ -131,6 +165,8 @@ export const ColourPicker = defineComponent({
       const p = props.classPrefix;
       const m = model.value;
       const children: VNode[] = [];
+      // `chart` renders one plot for the whole picker rather than one per axis.
+      const single: ChartSlot | undefined = withSingleChart(m.layout) ? m.charts[0] : undefined;
 
       if (props.presets && props.presets.length > 0) {
         children.push(
@@ -153,12 +189,26 @@ export const ColourPicker = defineComponent({
         );
       }
 
+      if (single) {
+        children.push(
+          h(GamutChart, {
+            axis: single.axis,
+            curveKey: single.key,
+            x: single.x,
+            y: single.y,
+            onPick: (x: number, y: number) => dial(chartPick(m.current, single.axis, x, y)),
+            classPrefix: p,
+          }),
+        );
+      }
+
       children.push(
         h(
           "div",
           { class: `${p}__axes` },
           m.axes.map((a, i) => {
-            const chart: ChartSlot | undefined = m.charts[i];
+            // In the `chart` layout the one chart is hoisted above the axes.
+            const chart: ChartSlot | undefined = single ? undefined : m.charts[i];
             // A div, not a label — the slider has its own aria-label.
             return h("div", { key: a.key, class: `${p}__axis` }, [
               h("span", { class: `${p}__axis-head` }, [
@@ -170,12 +220,15 @@ export const ColourPicker = defineComponent({
                 ]),
               ]),
 
+              // Read-only here: a 34px strip gives a drag almost no vertical
+              // travel, and it would set two axes at once right above the
+              // slider that sets one precisely. Only `chart` is big enough.
               chart
                 ? h(GamutChart, {
                     axis: chart.axis,
                     curveKey: chart.key,
-                    position: chart.position,
-                    chromaFraction: chart.chromaFraction,
+                    x: chart.x,
+                    y: chart.y,
                     classPrefix: p,
                   })
                 : null,

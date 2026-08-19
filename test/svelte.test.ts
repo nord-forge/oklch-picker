@@ -43,6 +43,83 @@ describe("ColourPicker (Svelte)", () => {
     expect(Number(hue.value)).toBeCloseTo(145, 0);
   });
 
+  // The vanilla element regressed here by reading the colour from a build-time
+  // closure. Svelte writes back into its bindable `value` and re-renders from
+  // it, so no feeding is needed — this pins that it stays true.
+  test("moving one slider keeps what the others were already dragged to", async () => {
+    const onchange = vi.fn();
+    render(ColourPicker, { props: { value: "oklch(0.7 0.15 255)", onchange } });
+    const latest = () => onchange.mock.calls.at(-1)?.[0] as string;
+
+    await fireEvent.input(screen.getByLabelText("Lightness"), { target: { value: "0.35" } });
+    expect(parseOklch(latest())?.l).toBeCloseTo(0.35, 2);
+
+    await fireEvent.input(screen.getByLabelText("Hue"), { target: { value: "300" } });
+    expect(parseOklch(latest())?.l).toBeCloseTo(0.35, 2);
+
+    await fireEvent.input(screen.getByLabelText("Chroma"), { target: { value: "0.05" } });
+    expect(parseOklch(latest())?.l).toBeCloseTo(0.35, 2);
+    expect(parseOklch(latest())?.h).toBeCloseTo(300, 0);
+  });
+
+  test("a chart drag keeps the hue the slider was already moved to", async () => {
+    const onchange = vi.fn();
+    const { container } = render(ColourPicker, {
+      props: { value: "oklch(0.7 0.15 255)", onchange, layout: "chart" },
+    });
+    const latest = () => onchange.mock.calls.at(-1)?.[0] as string;
+
+    await fireEvent.input(screen.getByLabelText("Hue"), { target: { value: "300" } });
+
+    const chart = container.querySelector(".oklch-picker__chart") as SVGSVGElement;
+    // happy-dom lays nothing out, so the rect is stubbed to a known box.
+    chart.getBoundingClientRect = () =>
+      ({ left: 0, top: 0, right: 200, bottom: 100, width: 200, height: 100 }) as DOMRect;
+    chart.setPointerCapture = () => {};
+    chart.hasPointerCapture = () => true;
+
+    chart.dispatchEvent(
+      new PointerEvent("pointerdown", { clientX: 100, clientY: 50, bubbles: true, pointerId: 1 }),
+    );
+
+    // The chart holds hue fixed and sweeps the other two, so the pick must
+    // land on the dialled hue rather than reverting to the mounted one.
+    expect(parseOklch(latest())?.h).toBeCloseTo(300, 0);
+  });
+
+  test("the stacked strips are read-only; only the chart layout's plot drags", () => {
+    const onchange = vi.fn();
+    const { container } = render(ColourPicker, {
+      props: { value: "oklch(0.7 0.15 255)", onchange, layout: "stacked" },
+    });
+    const charts = container.querySelectorAll(".oklch-picker__chart");
+    expect(charts).toHaveLength(3);
+    for (const c of charts) {
+      expect(c.classList.contains("oklch-picker__chart--interactive")).toBe(false);
+    }
+
+    // A pointerdown on a strip must not move the colour.
+    const strip = charts[0] as SVGSVGElement;
+    strip.getBoundingClientRect = () =>
+      ({ left: 0, top: 0, right: 200, bottom: 100, width: 200, height: 100 }) as DOMRect;
+    strip.setPointerCapture = () => {};
+    strip.hasPointerCapture = () => true;
+    strip.dispatchEvent(
+      new PointerEvent("pointerdown", { clientX: 100, clientY: 50, bubbles: true, pointerId: 1 }),
+    );
+    expect(onchange).not.toHaveBeenCalled();
+
+    cleanup();
+    const { container: big } = render(ColourPicker, {
+      props: { value: "oklch(0.7 0.15 255)", layout: "chart" },
+    });
+    expect(
+      big
+        .querySelector(".oklch-picker__chart")
+        ?.classList.contains("oklch-picker__chart--interactive"),
+    ).toBe(true);
+  });
+
   test("renders presets and selects one on click", async () => {
     const onchange = vi.fn();
     render(ColourPicker, {
@@ -110,6 +187,71 @@ describe("ColourPicker (Svelte)", () => {
     });
     expect(wide.querySelector(".oklch-picker--side-by-side")).not.toBeNull();
     expect(wide.querySelector(".oklch-picker__chart")).not.toBeNull();
+  });
+
+  test("the chart layout shows one plot for all three sliders", () => {
+    const { container } = render(ColourPicker, {
+      props: { value: "oklch(0.7 0.15 255)", layout: "chart" },
+    });
+    expect(container.querySelector(".oklch-picker--chart")).not.toBeNull();
+    // One chart, and it sits above the axes rather than inside one of them.
+    expect(container.querySelectorAll(".oklch-picker__chart")).toHaveLength(1);
+    expect(container.querySelector(".oklch-picker__axis .oklch-picker__chart")).toBeNull();
+    // All three sliders remain.
+    expect(container.querySelectorAll(".oklch-picker__slider")).toHaveLength(3);
+  });
+
+  test("stacked gives every axis its own chart", () => {
+    const { container } = render(ColourPicker, {
+      props: { value: "oklch(0.7 0.15 255)", layout: "stacked" },
+    });
+    expect(container.querySelectorAll(".oklch-picker__chart")).toHaveLength(3);
+  });
+
+  test("no layout means the chart layout", () => {
+    const { container } = render(ColourPicker, { props: { value: "oklch(0.7 0.15 255)" } });
+    expect(container.querySelector(".oklch-picker--chart")).not.toBeNull();
+    expect(container.querySelectorAll(".oklch-picker__chart")).toHaveLength(1);
+  });
+
+  test("side-by-side shows the same single interactive plot", () => {
+    const { container } = render(ColourPicker, {
+      props: { value: "oklch(0.7 0.15 255)", layout: "side-by-side" },
+    });
+    const charts = container.querySelectorAll(".oklch-picker__chart");
+    expect(charts).toHaveLength(1);
+    expect(charts[0]?.classList.contains("oklch-picker__chart--interactive")).toBe(true);
+    // Hoisted above the axes, as in `chart`, not tucked inside one of them.
+    expect(container.querySelector(".oklch-picker__axis .oklch-picker__chart")).toBeNull();
+  });
+
+  test("parts.charts drops the chart in the chart layout too", () => {
+    const { container } = render(ColourPicker, {
+      props: { value: "oklch(0.7 0.15 255)", layout: "chart", parts: { charts: false } },
+    });
+    expect(container.querySelector(".oklch-picker__chart")).toBeNull();
+    expect(container.querySelectorAll(".oklch-picker__slider")).toHaveLength(3);
+  });
+
+  test("dragging the chart emits a clamped colour", () => {
+    const onchange = vi.fn();
+    const { container } = render(ColourPicker, {
+      props: { value: "oklch(0.7 0.15 255)", onchange, layout: "chart" },
+    });
+    const chart = container.querySelector(".oklch-picker__chart") as SVGSVGElement;
+    // happy-dom lays nothing out, so the rect is stubbed to a known box.
+    chart.getBoundingClientRect = () =>
+      ({ left: 0, top: 0, right: 200, bottom: 100, width: 200, height: 100 }) as DOMRect;
+    chart.setPointerCapture = () => {};
+    chart.hasPointerCapture = () => true;
+
+    chart.dispatchEvent(
+      new PointerEvent("pointerdown", { clientX: 100, clientY: 50, bubbles: true, pointerId: 1 }),
+    );
+
+    expect(onchange).toHaveBeenCalledTimes(1);
+    // Mid-plot: half the lightness range, and whatever chroma that allows.
+    expect(parseOklch(onchange.mock.calls[0]?.[0] as string)?.l).toBeCloseTo(0.5, 2);
   });
 
   test("labels can be translated", () => {

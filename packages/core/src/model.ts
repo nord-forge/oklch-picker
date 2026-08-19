@@ -5,8 +5,10 @@
  */
 import {
   type Axis,
-  MAX_CHROMA,
+  CHART_PLANES,
   type Oklch,
+  axisMax,
+  chartColour,
   clampToGamut,
   colourName,
   formatOklch,
@@ -19,7 +21,12 @@ import {
 } from "./colour.js";
 
 /** Visual arrangements a picker can take; purely presentational. */
-export type PickerLayout = "stacked" | "compact" | "side-by-side";
+export type PickerLayout = "stacked" | "compact" | "side-by-side" | "chart";
+
+/** The arrangement a picker takes when none is asked for. `chart` leads with
+ * the one plot that shows what the sliders cannot — where the gamut actually
+ * ends — rather than three strips restating what each track already hatches. */
+export const DEFAULT_LAYOUT: PickerLayout = "chart";
 
 /** Optional parts of the picker; each renders unless turned off. */
 export interface PickerParts {
@@ -122,17 +129,47 @@ export function emitValue(next: Oklch): string {
   return formatOklch(clampToGamut(next));
 }
 
-/** The single input a chart's curve depends on, for memoisation. The curve
- * never reads chroma, and only one of the other two axes: the lightness
- * silhouette depends on hue alone, the chroma and hue silhouettes on lightness
- * alone. Keying on that means dragging any other slider reuses the curve. */
+/** The single input a chart's curve depends on, for memoisation. A chart sweeps
+ * the two axes it does not control, so its silhouette depends only on the one
+ * it holds fixed. Keying on that means dragging either swept axis moves the
+ * crosshair over a reused curve and its ~65 gradient stops. */
 export function chartKey(base: Oklch, axis: Axis): number {
-  return axis === "l" ? base.h : base.l;
+  return base[axis];
 }
 
-/** The base colour a chart's curve is computed from, given its key. */
+/** The base colour a chart's curve is computed from, given its key. The two
+ * swept axes are supplied per column, so only the fixed one matters here. */
 export function chartBase(key: number, axis: Axis): Oklch {
-  return axis === "l" ? { l: 0, c: 0, h: key } : { l: key, c: 0, h: 0 };
+  return { l: 0, c: 0, h: 0, [axis]: key } as Oklch;
+}
+
+/** Whether a layout leads with one large plot rather than a strip per axis.
+ * `side-by-side` has the width to carry it and the room beside it for the
+ * readout, so it shows the same single chart `chart` does. */
+export function withSingleChart(layout: PickerLayout): boolean {
+  return layout === "chart" || layout === "side-by-side";
+}
+
+/** Which charts a layout renders. The single-chart layouts show the hue slice
+ * alone — one plot of lightness against chroma, reshaped as the hue slider
+ * moves — where the others give every axis its own. */
+export function chartAxes(layout: PickerLayout): Axis[] {
+  return withSingleChart(layout) ? ["h"] : ["l", "c", "h"];
+}
+
+/** Where the current colour sits in one chart's slice plane, 0..1 on each
+ * screen axis with y measured bottom-up. */
+export function chartSlot(current: Oklch, axis: Axis): ChartSlot {
+  const { x, y } = CHART_PLANES[axis];
+  const at = (a: Axis) => Math.min(1, Math.max(0, current[a] / axisMax(a)));
+  return { axis, key: chartKey(current, axis), x: at(x), y: at(y) };
+}
+
+/** The colour a point in a chart maps to, for click and drag. `x` and `y` are
+ * 0..1 across the plot with y bottom-up; the fixed axis is held from `base`. */
+export function chartPick(base: Oklch, axis: Axis, x: number, y: number): Oklch {
+  const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
+  return chartColour(base, axis, clamp01(x), clamp01(y));
 }
 
 /** Everything a picker derives from its current colour, in one place, so an
@@ -167,13 +204,14 @@ export interface PickerModel {
 }
 
 export interface ChartSlot {
+  /** The axis this chart holds fixed; it sweeps the other two. */
   axis: Axis;
   /** Memo key: rebuild the curve only when this changes. */
   key: number;
-  /** 0..1 along the axis; drives the vertical crosshair. */
-  position: number;
-  /** 0..1 of chart height; drives the horizontal crosshair. */
-  chromaFraction: number;
+  /** 0..1 across the plot; drives the vertical crosshair. */
+  x: number;
+  /** 0..1 up the plot, measured bottom-up; drives the horizontal crosshair. */
+  y: number;
 }
 
 export interface PickerOptions {
@@ -186,7 +224,7 @@ export interface PickerOptions {
 export function pickerModel(current: Oklch, options: PickerOptions = {}): PickerModel {
   const labels = { ...DEFAULT_LABELS, ...options.labels };
   const parts = { ...DEFAULT_PARTS, ...options.parts };
-  const layout = options.layout ?? "stacked";
+  const layout = options.layout ?? DEFAULT_LAYOUT;
   // Compact has no room for charts; skip computing them, not just hiding them.
   const withCharts = parts.charts && layout !== "compact";
 
@@ -202,15 +240,7 @@ export function pickerModel(current: Oklch, options: PickerOptions = {}): Picker
     name: colourName(emitValue(current)),
     reachable,
     axes,
-    charts: withCharts
-      ? axes.map((a) => ({
-          axis: a.key,
-          key: chartKey(current, a.key),
-          // The chroma chart is plotted against hue.
-          position: a.key === "l" ? current.l : current.h / 360,
-          chromaFraction: current.c / Math.max(reachable, 1e-6),
-        }))
-      : [],
+    charts: withCharts ? chartAxes(layout).map((axis) => chartSlot(current, axis)) : [],
     spans: axes.map((a) => outOfGamutSpans(current, a.key, a.max)),
     gradients: axes.map((a) => trackGradient(current, a.key, a.max)),
     labels,
@@ -232,14 +262,14 @@ export interface GamutChartModel {
   stops: { offset: number; hex: string }[];
 }
 
-/** The curve and gradient of one gamut chart, in CHART_W x CHART_H viewBox units. */
+/** The curve and gradient of one gamut chart, in CHART_W x CHART_H viewBox
+ * units. The curve is plotted on the vertical axis' own scale, not normalised
+ * to its peak: the crosshair is positioned on that same scale, so rescaling
+ * here would drift the two apart. */
 export function gamutChartModel(base: Oklch, axis: Axis, resolution = 64): GamutChartModel {
   const cols = gamutCurve(base, axis, resolution);
-  // Floor the scale so a flat curve does not blow up to full height.
-  const peak = Math.max(...cols.map((c) => c.c));
-  const yMax = Math.max(peak, MAX_CHROMA * 0.35);
   const path = cols
-    .map((c) => `${(c.t * CHART_W).toFixed(2)},${(CHART_H - (c.c / yMax) * CHART_H).toFixed(2)}`)
+    .map((c) => `${(c.t * CHART_W).toFixed(2)},${(CHART_H - c.c * CHART_H).toFixed(2)}`)
     .join(" L");
   return { path, stops: cols.map((c) => ({ offset: c.t * 100, hex: c.hex })) };
 }

@@ -11,16 +11,20 @@ import {
   type Axis,
   CHART_H,
   CHART_W,
+  type ChartSlot,
+  DEFAULT_LAYOUT,
   type Oklch,
   type PickerLayout,
   type PickerParts,
   chartBase,
+  chartPick,
   colourName,
   emitValue,
   gamutChartModel,
   hexToOklch,
   pickerModel,
   resolveCurrent,
+  withSingleChart,
 } from "@oklch-picker/core";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -114,6 +118,8 @@ export class OklchPickerElement extends HTMLElement {
   // from the slider mid-drag.
   #presetButtons: { button: HTMLButtonElement; colour: string }[] = [];
   #rows: AxisRow[] = [];
+  /** The `chart` layout's single plot, above the axes rather than inside one. */
+  #chart: ChartNodes | undefined;
   #preview: HTMLElement | undefined;
   #hex: HTMLInputElement | undefined;
   #name: HTMLElement | undefined;
@@ -172,7 +178,7 @@ export class OklchPickerElement extends HTMLElement {
   }
 
   get layout(): PickerLayout {
-    return (this.getAttribute("layout") as PickerLayout | null) ?? "stacked";
+    return (this.getAttribute("layout") as PickerLayout | null) ?? DEFAULT_LAYOUT;
   }
   set layout(next: PickerLayout) {
     this.setAttribute("layout", next);
@@ -259,6 +265,12 @@ export class OklchPickerElement extends HTMLElement {
     }
   }
 
+  /** The colour showing right now. Handlers bound once at build time cannot
+   * close over a model, so they read it back through here. */
+  #currentColour(): Oklch {
+    return resolveCurrent(this.#draft, this.#value);
+  }
+
   /** Emit a dialled colour: keep it as the draft, publish the clamped form. */
   #emit(next: Oklch): void {
     this.#draft = next;
@@ -302,6 +314,7 @@ export class OklchPickerElement extends HTMLElement {
     this.replaceChildren();
     this.#presetButtons = [];
     this.#rows = [];
+    this.#chart = undefined;
     this.#preview = undefined;
     this.#hex = undefined;
     this.#name = undefined;
@@ -339,6 +352,15 @@ export class OklchPickerElement extends HTMLElement {
       this.append(row);
     }
 
+    // `chart` renders one plot for the whole picker rather than one per axis.
+    // The layout is fixed until the attribute changes, and a change rebuilds,
+    // so deciding here keeps #update to mutating attributes.
+    const single = withSingleChart(model.layout) ? model.charts[0] : undefined;
+    if (single) {
+      this.#chart = this.#buildChart(single.axis, true);
+      this.append(this.#chart.root);
+    }
+
     const axes = el("div", `${p}__axes`);
     for (const [i, a] of model.axes.entries()) {
       const root = el("div", `${p}__axis`);
@@ -349,9 +371,12 @@ export class OklchPickerElement extends HTMLElement {
       head.append(label, output);
       root.append(head);
 
+      // Read-only here: a 34px strip gives a drag almost no vertical travel,
+      // and it would set two axes at once right above the slider that sets one
+      // precisely. Only the `chart` layout's plot is big enough to drag.
       let chart: ChartNodes | undefined;
-      if (model.charts[i]) {
-        chart = this.#buildChart(a.key);
+      if (!single && model.charts[i]) {
+        chart = this.#buildChart(a.key, false);
         root.append(chart.root);
       }
 
@@ -362,8 +387,12 @@ export class OklchPickerElement extends HTMLElement {
       // `input` alone: every browser with custom elements fires it for pointer
       // and keyboard alike, and also binding `change` would emit twice per
       // commit. The stray native `change` is contained in #contain.
+      //
+      // The colour is read at event time, not closed over: this listener is
+      // bound once for the life of the node, so a build-time `model.current`
+      // would reset every other axis to what it held when the picker was built.
       slider.addEventListener("input", () =>
-        this.#emit({ ...model.current, [a.key]: Number(slider.value) }),
+        this.#emit({ ...this.#currentColour(), [a.key]: Number(slider.value) }),
       );
       this.#contain(slider);
       track.append(fill, slider);
@@ -415,13 +444,40 @@ export class OklchPickerElement extends HTMLElement {
     this.#built = true;
   }
 
-  #buildChart(axis: Axis): ChartNodes {
+  #buildChart(axis: Axis, interactive: boolean): ChartNodes {
     const p = this.#prefix;
-    const root = svg("svg", `${p}__chart`);
+    const root = svg("svg", `${p}__chart${interactive ? ` ${p}__chart--interactive` : ""}`);
     root.setAttribute("viewBox", `0 0 ${CHART_W} ${CHART_H}`);
     root.setAttribute("preserveAspectRatio", "none");
+    // The sliders stay the accessible path; dragging here is a shortcut.
     root.setAttribute("aria-hidden", "true");
     root.setAttribute("focusable", "false");
+
+    if (interactive) {
+      // Pointer, not mouse, so a touch drag works. Pointer capture keeps the
+      // drag alive once it leaves the chart, so the value still tracks rather
+      // than sticking at the edge. These are our own events, not an inner
+      // input's, so nothing needs containing — #emit dispatches once.
+      const pick = (event: PointerEvent) => {
+        const r = root.getBoundingClientRect();
+        if (!r.width || !r.height) return;
+        this.#emit(
+          chartPick(
+            this.#currentColour(),
+            axis,
+            (event.clientX - r.left) / r.width,
+            (r.bottom - event.clientY) / r.height,
+          ),
+        );
+      };
+      root.addEventListener("pointerdown", (event) => {
+        root.setPointerCapture(event.pointerId);
+        pick(event);
+      });
+      root.addEventListener("pointermove", (event) => {
+        if (root.hasPointerCapture(event.pointerId)) pick(event);
+      });
+    }
 
     const defs = svg("defs");
     const gradient = svg("linearGradient");
@@ -459,6 +515,10 @@ export class OklchPickerElement extends HTMLElement {
       button.setAttribute("aria-pressed", String(selected));
     }
 
+    // The hoisted `chart` layout plot; the per-axis charts follow below.
+    const single = model.charts[0];
+    if (this.#chart && single) this.#updateChart(this.#chart, single);
+
     for (const [i, a] of model.axes.entries()) {
       const row = this.#rows[i];
       if (!row) continue;
@@ -467,7 +527,7 @@ export class OklchPickerElement extends HTMLElement {
       row.output.textContent = a.key === "h" ? String(Math.round(a.value)) : a.value.toFixed(2);
 
       const chart = model.charts[i];
-      if (chart && row.chart) this.#updateChart(row.chart, chart.axis, chart);
+      if (chart && row.chart) this.#updateChart(row.chart, chart);
 
       row.fill.style.background = model.gradients[i] ?? "";
       this.#updateSpans(row, model.spans[i] ?? []);
@@ -495,11 +555,8 @@ export class OklchPickerElement extends HTMLElement {
     }
   }
 
-  #updateChart(
-    nodes: ChartNodes,
-    axis: Axis,
-    slot: { key: number; position: number; chromaFraction: number },
-  ): void {
+  #updateChart(nodes: ChartNodes, slot: ChartSlot): void {
+    const axis = slot.axis;
     // The curve and its stops depend on one input; rebuild only when it moves.
     if (nodes.key !== slot.key) {
       const m = gamutChartModel(chartBase(slot.key, axis), axis);
@@ -515,10 +572,10 @@ export class OklchPickerElement extends HTMLElement {
       );
       nodes.key = slot.key;
     }
-    const x = String(slot.position * CHART_W);
+    const x = String(slot.x * CHART_W);
     attr(nodes.vertical, "x1", x);
     attr(nodes.vertical, "x2", x);
-    const y = String(CHART_H - Math.min(1, Math.max(0, slot.chromaFraction)) * CHART_H);
+    const y = String(CHART_H - Math.min(1, Math.max(0, slot.y)) * CHART_H);
     attr(nodes.horizontal, "y1", y);
     attr(nodes.horizontal, "y2", y);
   }
