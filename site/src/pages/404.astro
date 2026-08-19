@@ -1,0 +1,17 @@
+---
+import Page from "../layouts/Page.astro";
+import { url } from "../lib/url";
+---
+
+<Page title="Not found — oklch-picker" description="That page does not exist.">
+  <h1>Not found</h1>
+
+  <p class="lede">That page does not exist.</p>
+
+  <p>
+    The site is mid-build, so some links in the sidebar point at pages that have
+    not landed yet. <a href={url("/")}>Start from the beginning</a>, or read the
+    <a href="https://github.com/nord-forge/oklch-picker#readme">README</a>, which
+    is complete.
+  </p>
+</Page>

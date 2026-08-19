@@ -1,0 +1,147 @@
+---
+import { NAV } from "../lib/nav";
+import { url, isCurrent } from "../lib/url";
+import "../styles/site.css";
+
+interface Props {
+  title: string;
+  description: string;
+  /** Set on the home page, which runs full-width without the sidebar. */
+  wide?: boolean;
+}
+
+const { title, description, wide = false } = Astro.props;
+
+// Canonical URLs need the deployed origin, which `site` in the config supplies.
+const canonical = new URL(Astro.url.pathname, Astro.site).href;
+const pathname = Astro.url.pathname;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={canonical} />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    {/* Pin the stored theme before first paint. Doing this in the body would
+        show a flash of the system scheme first. */}
+    <script is:inline>
+      const stored = localStorage.getItem("okp-theme");
+      if (stored === "light" || stored === "dark") {
+        document.documentElement.dataset.theme = stored;
+      }
+    </script>
+  </head>
+
+  <body>
+    <a class="skip" href="#content">Skip to content</a>
+
+    <header class="header">
+      <a class="header__brand" href={url("/")}>
+        {/* Inline, so the mark is not a second request and can swap with the
+            colour scheme via CSS rather than a media query on <img>. */}
+        <picture>
+          <source srcset={url("/mark-dark.svg")} media="(prefers-color-scheme: dark)" />
+          <img class="header__mark" src={url("/mark-light.svg")} alt="" width="28" height="28" />
+        </picture>
+        oklch-picker
+      </a>
+
+      <span class="header__spacer"></span>
+
+      <a class="header__link" href={url("/playground")}>Playground</a>
+      <a class="header__link" href="https://github.com/nord-forge/oklch-picker">GitHub</a>
+
+      <button class="theme" type="button" data-theme-toggle aria-live="polite">
+        <span data-theme-label>Theme</span>
+      </button>
+    </header>
+
+    {
+      wide ? (
+        <main id="content">
+          <slot />
+        </main>
+      ) : (
+        <div class="layout">
+          <nav class="sidebar" aria-label="Documentation">
+            {NAV.map((section) => (
+              <div class="sidebar__section">
+                <h2 class="sidebar__title">{section.title}</h2>
+                <ul class="sidebar__list">
+                  {section.items.map((item) => (
+                    <li>
+                      <a
+                        class="sidebar__link"
+                        href={url(item.path)}
+                        aria-current={isCurrent(pathname, item.path) ? "page" : undefined}
+                      >
+                        {item.title}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </nav>
+
+          <main class="content" id="content">
+            <slot />
+          </main>
+        </div>
+      )
+    }
+
+    <footer class="footer">
+      <div class="footer__inner">
+        <span>MIT licensed</span>
+        <a href="https://github.com/nord-forge/oklch-picker">Source</a>
+        <a href="https://www.npmjs.com/package/oklch-picker">npm</a>
+        <a href="https://github.com/nord-forge/oklch-picker/blob/main/CHANGELOG.md">Changelog</a>
+      </div>
+    </footer>
+
+    <script>
+      // Three states, not two: "system" is the default and is stored as the
+      // absence of a key, so a visitor who never chooses follows their OS.
+      const root = document.documentElement;
+      const button = document.querySelector("[data-theme-toggle]");
+      const label = document.querySelector("[data-theme-label]");
+      const ORDER = ["system", "light", "dark"] as const;
+
+      function current(): (typeof ORDER)[number] {
+        const t = root.dataset.theme;
+        return t === "light" || t === "dark" ? t : "system";
+      }
+
+      function paint() {
+        const now = current();
+        if (label) label.textContent = now[0].toUpperCase() + now.slice(1);
+        button?.setAttribute("aria-label", `Theme: ${now}. Click to change.`);
+      }
+
+      button?.addEventListener("click", () => {
+        const next = ORDER[(ORDER.indexOf(current()) + 1) % ORDER.length];
+        if (next === "system") {
+          delete root.dataset.theme;
+          localStorage.removeItem("okp-theme");
+        } else {
+          root.dataset.theme = next;
+          localStorage.setItem("okp-theme", next);
+        }
+        paint();
+      });
+
+      paint();
+    </script>
+  </body>
+</html>

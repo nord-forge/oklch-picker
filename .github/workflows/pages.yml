@@ -1,0 +1,65 @@
+name: Pages
+
+on:
+  push:
+    branches: [main]
+  # So the site can be redeployed without a commit — useful after changing the
+  # Pages settings or the custom domain.
+  workflow_dispatch:
+
+# One deploy at a time, and never cancel one midway: a half-finished deploy
+# would leave the live site in whatever state it reached.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Node 24 here, while ci.yml stays on 22. The site is a leaf nothing
+      # depends on, so its toolchain moves independently of what verifies and
+      # publishes the packages.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      # The site resolves the packages by `file:` path, so it reads their dist
+      # rather than their source — without this it would document the previous
+      # build, silently and without failing.
+      - run: npm run build
+
+      - uses: actions/configure-pages@v5
+        id: pages
+
+      # `base` and `site` come from the environment, so the same source builds
+      # for a project path today and a domain later. configure-pages reports
+      # both, so neither is written down twice.
+      - run: npm run build --workspace=@oklch-picker/site
+        env:
+          SITE_BASE: ${{ steps.pages.outputs.base_path }}
+          SITE_URL: ${{ steps.pages.outputs.origin }}
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/deploy-pages@v4
+        id: deployment

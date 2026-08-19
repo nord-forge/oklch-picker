@@ -6,12 +6,12 @@
   "license": "MIT",
   "author": "Nick Bevers <hello@nickbevers.dev>",
   "type": "module",
-  "workspaces": ["packages/*"],
+  "workspaces": ["packages/*", "site"],
   "engines": {
     "node": "^22.18.0 || >=24.11.0"
   },
   "scripts": {
-    "build": "npm run build --workspaces --if-present",
+    "build": "npm run build --workspace=packages --if-present",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit && tsc --noEmit -p packages/solid && svelte-check --threshold error",
@@ -29,7 +29,10 @@
     "dev:vue": "npm --prefix examples/vue run dev -- --port 5274 --strictPort",
     "dev:svelte": "npm --prefix examples/svelte run dev -- --port 5275 --strictPort",
     "dev:solid": "npm --prefix examples/solid run dev -- --port 5276 --strictPort",
-    "examples:build": "npm run build && npm --prefix examples/react run build && npm --prefix examples/vue run build && npm --prefix examples/svelte run build && npm --prefix examples/solid run build && npm --prefix examples/astro run build"
+    "examples:build": "npm run build && npm --prefix examples/react run build && npm --prefix examples/vue run build && npm --prefix examples/svelte run build && npm --prefix examples/solid run build && npm --prefix examples/astro run build",
+    "site:dev": "npm run build && npm run dev --workspace=@oklch-picker/site",
+    "site:build": "npm run build && npm run build --workspace=@oklch-picker/site",
+    "site:check": "npm run check --workspace=@oklch-picker/site"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",

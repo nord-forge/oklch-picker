@@ -1,0 +1,42 @@
+---
+// Phase 1 is the scaffold: this page exists to prove the shell, the base path,
+// and the Pages deploy. The hero picker and the ported guides land in the
+// phases after it — see docs/SITE-PLAN.md.
+import Page from "../layouts/Page.astro";
+import { url } from "../lib/url";
+---
+
+<Page
+  title="oklch-picker — an OKLCH colour picker for every framework"
+  description="An OKLCH colour picker published as six packages: one shared core and five framework adapters. Zero runtime dependencies."
+>
+  <h1>oklch-picker</h1>
+
+  <p class="lede">
+    An OKLCH colour picker for React, Vue, Svelte, Solid, and no framework at
+    all. One shared core, zero runtime dependencies.
+  </p>
+
+  <p>
+    The documentation site is being built. Until it lands, the
+    <a href="https://github.com/nord-forge/oklch-picker#readme">README</a> is the
+    complete reference.
+  </p>
+
+  <h2>Install</h2>
+
+  <pre><code>npm i oklch-picker</code></pre>
+
+  <p>
+    Or a framework adapter: <code>@oklch-picker/react</code>,
+    <code>@oklch-picker/vue</code>, <code>@oklch-picker/svelte</code>,
+    <code>@oklch-picker/solid</code>.
+  </p>
+
+  <h2>Next</h2>
+
+  <p>
+    <a href={url("/playground")}>The playground</a> and the guides in the sidebar
+    are not written yet — those links will 404 until their phase lands.
+  </p>
+</Page>
