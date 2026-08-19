@@ -1,0 +1,262 @@
+/* The docs site's own chrome.
+   The picker brings its own stylesheet; this is the page around it. The
+   palette deliberately echoes `--okp-*` so the component does not look pasted
+   onto a foreign page, but the names are `--site-*` — overriding `--okp-*`
+   here would restyle every demo and misrepresent the defaults. */
+
+:root {
+  color-scheme: light dark;
+
+  --site-text: light-dark(#1a1a1a, #f2f1ef);
+  --site-text-muted: light-dark(#6b6b6b, #a0a0a0);
+  --site-line: light-dark(#e4e2df, #2c2c30);
+  --site-bg: light-dark(#ffffff, #0e0e10);
+  --site-surface: light-dark(#faf9f7, #17171a);
+  --site-link: light-dark(#1f5fb8, #7fb0ee);
+  --site-focus: light-dark(#2f6fd0, #7fb0ee);
+
+  --site-sidebar-width: 15rem;
+  --site-measure: 46rem;
+
+  --site-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --site-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+/* `data-theme` pins a scheme; without it the system decides. The picker's own
+   stylesheet honours the same attribute, so one toggle drives both. */
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  /* An in-page anchor should not land under the sticky header. */
+  scroll-padding-top: 5rem;
+}
+
+body {
+  margin: 0;
+  font-family: var(--site-sans);
+  line-height: 1.6;
+  color: var(--site-text);
+  background: var(--site-bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--site-link);
+  text-underline-offset: 0.2em;
+}
+
+:where(a, button, input, summary):focus-visible {
+  outline: 2px solid var(--site-focus);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+code {
+  font-family: var(--site-mono);
+  font-size: 0.9em;
+}
+
+/* Keyboard users get to the content without walking the whole sidebar. */
+.skip {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  padding: 0.6rem 1rem;
+  background: var(--site-bg);
+  border: 1px solid var(--site-line);
+  border-radius: 0 0 0.5rem 0;
+  z-index: 10;
+}
+
+.skip:focus {
+  left: 0;
+}
+
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1.5rem;
+  border-bottom: 1px solid var(--site-line);
+  background: color-mix(in srgb, var(--site-bg) 88%, transparent);
+  backdrop-filter: blur(8px);
+}
+
+.header__brand {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: inherit;
+  text-decoration: none;
+}
+
+.header__mark {
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 0.4rem;
+}
+
+.header__spacer {
+  flex: 1;
+}
+
+.header__link {
+  font-size: 0.9rem;
+  color: var(--site-text-muted);
+  text-decoration: none;
+}
+
+.header__link:hover {
+  color: var(--site-text);
+}
+
+.theme {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.35rem 0.6rem;
+  font: inherit;
+  font-size: 0.85rem;
+  color: inherit;
+  background: transparent;
+  border: 1px solid var(--site-line);
+  border-radius: 0.4rem;
+  cursor: pointer;
+}
+
+.theme:hover {
+  background: var(--site-surface);
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: var(--site-sidebar-width) minmax(0, 1fr);
+  gap: 2.5rem;
+  max-width: 78rem;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 5rem;
+}
+
+.sidebar {
+  position: sticky;
+  top: 5rem;
+  align-self: start;
+  max-height: calc(100vh - 7rem);
+  overflow-y: auto;
+  font-size: 0.9rem;
+}
+
+.sidebar__section + .sidebar__section {
+  margin-top: 1.5rem;
+}
+
+.sidebar__title {
+  margin: 0 0 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--site-text-muted);
+}
+
+.sidebar__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.15rem;
+}
+
+.sidebar__link {
+  display: block;
+  padding: 0.3rem 0.6rem;
+  margin-left: -0.6rem;
+  border-radius: 0.35rem;
+  color: var(--site-text-muted);
+  text-decoration: none;
+}
+
+.sidebar__link:hover {
+  color: var(--site-text);
+  background: var(--site-surface);
+}
+
+.sidebar__link[aria-current="page"] {
+  color: var(--site-text);
+  background: var(--site-surface);
+  font-weight: 600;
+}
+
+.content {
+  min-width: 0;
+  max-width: var(--site-measure);
+}
+
+.content h1 {
+  margin: 0 0 0.5rem;
+  font-size: clamp(1.9rem, 1.4rem + 1.6vw, 2.6rem);
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+}
+
+.content h2 {
+  margin: 2.5rem 0 0.75rem;
+  font-size: 1.35rem;
+  letter-spacing: -0.015em;
+}
+
+.content h3 {
+  margin: 2rem 0 0.5rem;
+  font-size: 1.05rem;
+}
+
+.content .lede {
+  margin: 0 0 2rem;
+  font-size: 1.1rem;
+  color: var(--site-text-muted);
+}
+
+.footer {
+  border-top: 1px solid var(--site-line);
+  padding: 2rem 1.5rem;
+  font-size: 0.85rem;
+  color: var(--site-text-muted);
+}
+
+.footer__inner {
+  max-width: 78rem;
+  margin: 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+@media (max-width: 60rem) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.5rem;
+  }
+
+  .sidebar {
+    position: static;
+    max-height: none;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--site-line);
+  }
+}
