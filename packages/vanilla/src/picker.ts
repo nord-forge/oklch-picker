@@ -19,6 +19,7 @@ import {
   type PickerLayout,
   type PickerParts,
   SRGB,
+  addRecent,
   chartBase,
   chartPick,
   colourName,
@@ -66,6 +67,20 @@ function json<T>(raw: string | null): T | undefined {
   }
 }
 
+/** A list-of-colours attribute, as either a JSON array or a plain
+ * comma-separated list — hand-written markup should not have to quote. */
+function colourList(raw: string | null): string[] | null {
+  return (
+    json<string[]>(raw) ??
+    (raw
+      ? raw
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
+      : null)
+  );
+}
+
 /** One axis row: the nodes are built once and mutated in place thereafter. */
 interface AxisRow {
   root: HTMLElement;
@@ -93,7 +108,15 @@ interface ChartNodes {
 }
 
 export class OklchPickerElement extends HTMLElement {
-  static observedAttributes = ["value", "layout", "class-prefix", "parts", "labels", "presets"];
+  static observedAttributes = [
+    "value",
+    "layout",
+    "class-prefix",
+    "parts",
+    "labels",
+    "presets",
+    "recents",
+  ];
 
   /** Submit with a surrounding form, like any built-in input, so a
    * server-rendered page can round-trip the colour through a plain POST. */
@@ -116,6 +139,12 @@ export class OklchPickerElement extends HTMLElement {
   #draft: Oklch | null = null;
   #value: string | null = null;
   #presets: string[] | null = null;
+  /** The controlled list, or null while the element keeps its own. */
+  #recents: string[] | null = null;
+  /** Kept regardless of `recents`, so handing control over mid-session does
+   * not lose what the user has already picked. */
+  #ownRecents: string[] = [];
+  #maxRecents: number | undefined;
   #parts: PickerParts | undefined;
   #labels: Partial<Record<LabelKey, string>> | undefined;
   #gamut: Gamut | undefined;
@@ -130,6 +159,11 @@ export class OklchPickerElement extends HTMLElement {
   // Built once, then mutated. Rebuilding the tree per input would drop focus
   // from the slider mid-drag.
   #presetButtons: { button: HTMLButtonElement; colour: string }[] = [];
+  /** The recents row and the buttons in it. Unlike every other row here the
+   * list grows, so #updateRecents rebuilds these children — but only these,
+   * because rebuilding the tree would drop focus from the slider mid-drag. */
+  #recentsRow: HTMLElement | undefined;
+  #recentButtons: { button: HTMLButtonElement; colour: string }[] = [];
   #rows: AxisRow[] = [];
   /** The `chart` layout's single plot, above the axes rather than inside one. */
   #chart: ChartNodes | undefined;
@@ -173,6 +207,29 @@ export class OklchPickerElement extends HTMLElement {
   set presets(next: string[] | null) {
     this.#presets = next;
     this.#rebuild();
+  }
+
+  /** Recently committed colours, most recent first. Null — the default —
+   * leaves the element keeping its own list for the session; assigning one
+   * makes it controlled, exactly as `value` is. */
+  get recents(): string[] | null {
+    return this.#recents;
+  }
+  set recents(next: string[] | null) {
+    this.#recents = next;
+    // Only the row's children change, so this is a render rather than a
+    // rebuild — the sliders keep their nodes and their focus.
+    this.#render();
+  }
+
+  /** How many recents to keep. Ignored while `recents` is controlled: the list
+   * assigned is the list that renders. */
+  get maxRecents(): number | undefined {
+    return this.#maxRecents;
+  }
+  set maxRecents(next: number | undefined) {
+    this.#maxRecents = next;
+    this.#render();
   }
 
   get parts(): PickerParts | undefined {
@@ -247,6 +304,8 @@ export class OklchPickerElement extends HTMLElement {
     for (const name of [
       "value",
       "presets",
+      "recents",
+      "maxRecents",
       "parts",
       "labels",
       "gamut",
@@ -297,6 +356,8 @@ export class OklchPickerElement extends HTMLElement {
     name:
       | "value"
       | "presets"
+      | "recents"
+      | "maxRecents"
       | "parts"
       | "labels"
       | "gamut"
@@ -317,18 +378,10 @@ export class OklchPickerElement extends HTMLElement {
     // fallback, not an override of what script has already set.
     this.#parts ??= json<PickerParts>(this.getAttribute("parts"));
     this.#labels ??= json<Partial<Record<LabelKey, string>>>(this.getAttribute("labels"));
-    if (this.#presets === null) {
-      const raw = this.getAttribute("presets");
-      // Accept both a JSON array and a plain comma-separated list.
-      this.#presets =
-        json<string[]>(raw) ??
-        (raw
-          ? raw
-              .split(",")
-              .map((s) => s.trim())
-              .filter(Boolean)
-          : null);
-    }
+    if (this.#presets === null) this.#presets = colourList(this.getAttribute("presets"));
+    // An attribute makes the list controlled just as the property does: markup
+    // that names the recents is markup that owns them.
+    if (this.#recents === null) this.#recents = colourList(this.getAttribute("recents"));
   }
 
   /** The colour showing right now. Handlers bound once at build time cannot
@@ -368,7 +421,27 @@ export class OklchPickerElement extends HTMLElement {
   #pick(colour: string): void {
     this.#draft = null;
     this.#publish(colour);
+    this.#commit(colour);
   }
+
+  /** Record a committed colour. A drag emits for every value it passes
+   * through, so recording there would bury the list in near-identical colours
+   * from one gesture; only a commit — a pointer release, a preset, leaving the
+   * hex field — reaches here. */
+  #commit(colour: string): void {
+    const recents = addRecent(this.#recents ?? this.#ownRecents, colour, this.#maxRecents);
+    this.#ownRecents = recents;
+    // A controlled list stays the caller's to set, as `value` would be were
+    // this element not driving its own; the event is how they hear about it.
+    if (this.#recents === null) this.#render();
+    this.dispatchEvent(
+      new CustomEvent("recentschange", { detail: { recents }, bubbles: true, composed: true }),
+    );
+  }
+
+  /** The colour showing right now, committed. Bound once at build time, so the
+   * colour is read back rather than closed over. */
+  #commitCurrent = () => this.#commit(emitValue(this.#currentColour(), this.#gamut));
 
   #publish(colour: string): void {
     this.#value = colour;
@@ -400,6 +473,8 @@ export class OklchPickerElement extends HTMLElement {
     if (!this.isConnected) return;
     this.replaceChildren();
     this.#presetButtons = [];
+    this.#recentsRow = undefined;
+    this.#recentButtons = [];
     this.#gamutButtons = [];
     this.#rows = [];
     this.#chart = undefined;
@@ -447,6 +522,15 @@ export class OklchPickerElement extends HTMLElement {
       this.append(row);
     }
 
+    // Cut the row even when the list is empty: it fills in as colours are
+    // committed, and #updateRecents hides it until then. Building it here
+    // rather than on first commit keeps it in document order without a
+    // rebuild, which would drop focus from the slider that just committed.
+    if (model.parts.recents) {
+      this.#recentsRow = el("div", `${p}__recents`);
+      this.append(this.#recentsRow);
+    }
+
     // `chart` renders one plot for the whole picker rather than one per axis.
     // The layout is fixed until the attribute changes, and a change rebuilds,
     // so deciding here keeps #update to mutating attributes.
@@ -489,6 +573,11 @@ export class OklchPickerElement extends HTMLElement {
       slider.addEventListener("input", () =>
         this.#emit({ ...this.#currentColour(), [a.key]: Number(slider.value) }),
       );
+      // The gesture ending is the commit, not each value it passed through.
+      // `blur` catches the keyboard: arrowing along a slider should record once
+      // the user moves on, not per step.
+      slider.addEventListener("pointerup", this.#commitCurrent);
+      slider.addEventListener("blur", this.#commitCurrent);
       this.#contain(slider);
       track.append(fill, slider);
       root.append(track);
@@ -536,6 +625,9 @@ export class OklchPickerElement extends HTMLElement {
           const parsed = hexToOklch(hex.value);
           if (parsed) this.#emit(parsed);
         });
+        // Typing a hex passes through half-entered colours, so the commit is
+        // leaving the field rather than each keystroke.
+        hex.addEventListener("blur", this.#commitCurrent);
         this.#contain(hex);
         footer.append(hex);
         this.#hex = hex;
@@ -588,6 +680,8 @@ export class OklchPickerElement extends HTMLElement {
       root.addEventListener("pointermove", (event) => {
         if (root.hasPointerCapture(event.pointerId)) pick(event);
       });
+      // The release is the commit; the drag itself is a continuous preview.
+      root.addEventListener("pointerup", this.#commitCurrent);
     }
 
     const defs = svg("defs");
@@ -632,6 +726,8 @@ export class OklchPickerElement extends HTMLElement {
       button.className = `${p}__preset${selected ? ` ${p}__preset--selected` : ""}`;
       button.setAttribute("aria-pressed", String(selected));
     }
+
+    this.#updateRecents(model.canonical);
 
     for (const { button, gamut } of this.#gamutButtons) {
       attr(button, "aria-pressed", String(gamut.id === model.gamut.id));
@@ -707,6 +803,45 @@ export class OklchPickerElement extends HTMLElement {
     attr(nodes.horizontal, "y2", y);
   }
 
+  /** The one row here whose length changes: a colour joins the front on every
+   * commit. Rebuilding just these children is cheap and, unlike a rebuild of
+   * the tree, leaves the slider that raised the commit still focused. */
+  #updateRecents(canonical: string): void {
+    const row = this.#recentsRow;
+    if (!row) return;
+    const p = this.#prefix;
+    const recents = this.#recents ?? this.#ownRecents;
+
+    // The list grows and reorders, so a pooled button would have to be re-bound
+    // to a different colour anyway. Cutting the children afresh is simpler and
+    // costs nothing next to how rarely a commit happens.
+    const stale =
+      this.#recentButtons.length !== recents.length ||
+      this.#recentButtons.some((b, i) => b.colour !== recents[i]);
+    if (stale) {
+      this.#recentButtons = recents.map((colour) => {
+        const button = el("button", `${p}__recent`);
+        button.type = "button";
+        button.style.background = colour;
+        button.setAttribute("aria-label", `Recent: ${colourName(colour)}`);
+        button.addEventListener("click", () => this.#pick(colour));
+        return { button, colour };
+      });
+      row.replaceChildren(...this.#recentButtons.map((b) => b.button));
+    }
+    // Empty is not "no row" but "a row with nothing in it"; hide it so the
+    // layout gap goes with it.
+    row.hidden = recents.length === 0;
+
+    // Selection follows the colour, not the list, so it is written every
+    // render rather than only when the buttons are cut.
+    for (const { button, colour } of this.#recentButtons) {
+      const selected = colour === canonical;
+      button.className = `${p}__recent${selected ? ` ${p}__recent--selected` : ""}`;
+      attr(button, "aria-pressed", String(selected));
+    }
+  }
+
   /** Hatched runs come and go as the colour moves, so this pools the nodes. */
   #updateSpans(row: AxisRow, spans: { start: number; end: number }[]): void {
     while (row.spans.length > spans.length) row.spans.pop()?.remove();
@@ -740,6 +875,11 @@ export type OklchPickerChangeEvent = CustomEvent<{ colour: string }>;
  * applied the choice; a `change` with the re-clamped colour follows. */
 export type OklchPickerGamutChangeEvent = CustomEvent<{ gamut: Gamut }>;
 
+/** The `recentschange` event raised when a colour is committed — a pointer
+ * release, a preset, leaving the hex field — not on every value a drag passes
+ * through. `detail.recents` is the whole list, most recent first. */
+export type OklchPickerRecentsChangeEvent = CustomEvent<{ recents: string[] }>;
+
 declare global {
   interface HTMLElementTagNameMap {
     "oklch-picker": OklchPickerElement;
@@ -749,6 +889,7 @@ declare global {
   interface OklchPickerElementEventMap extends HTMLElementEventMap {
     change: OklchPickerChangeEvent;
     gamutchange: OklchPickerGamutChangeEvent;
+    recentschange: OklchPickerRecentsChangeEvent;
   }
 }
 

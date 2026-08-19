@@ -41,6 +41,9 @@ export interface PickerParts {
    * target one space, and offering the choice only makes sense when the app
    * has said which spaces are on offer. */
   gamutSwitch?: boolean;
+  /** A row of recently committed colours. On by default, but it renders
+   * nothing until a colour has actually been committed. */
+  recents?: boolean;
 }
 
 export const DEFAULT_PARTS: Required<PickerParts> = {
@@ -50,6 +53,7 @@ export const DEFAULT_PARTS: Required<PickerParts> = {
   name: true,
   notice: true,
   gamutSwitch: false,
+  recents: true,
 };
 
 /** Label keys: the three axes, plus one notice per gamut the colour can land
@@ -81,6 +85,22 @@ export function defaultOutOfGamutNotice(gamut: Gamut, fallback: string): string 
   // one key still wins; every other space words itself from its own label.
   if (gamut.id === SRGB.id) return fallback;
   return `Outside ${gamut.label} — the nearest ${gamut.label} colour is used.`;
+}
+
+/** How many recent colours are kept when no limit is given. Enough to be
+ * useful, few enough to stay one row beside a preset palette. */
+export const DEFAULT_MAX_RECENTS = 8;
+
+/** Add a committed colour to the recents list, most recent first.
+ *
+ * Pure, so the caller owns the storage — component state for the session, or a
+ * backend for something durable. Deduplicated by the canonical string rather
+ * than by object identity: re-picking a colour should move it to the front
+ * rather than appear twice, and two dials of the same colour are the same
+ * colour however they were reached. */
+export function addRecent(recents: string[], colour: string, max = DEFAULT_MAX_RECENTS): string[] {
+  if (max <= 0) return [];
+  return [colour, ...recents.filter((c) => c !== colour)].slice(0, max);
 }
 
 /** The colour at fraction t along one axis, the other axes held. */

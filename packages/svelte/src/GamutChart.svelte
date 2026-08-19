@@ -18,13 +18,26 @@ interface Props {
   /** Called with 0..1 plot coordinates as the pointer moves. Omit for a
    * display-only chart. */
   onpick?: (x: number, y: number) => void;
+  /** Called when a drag ends, so the caller can record the settled colour
+   * rather than every value the gesture passed through. */
+  onpicked?: () => void;
   /** Reference spaces to outline over the filled region. Omit for none. */
   references?: Gamut[] | undefined;
   classPrefix: string;
   resolution?: number;
 }
 
-const { axis, curveKey, x, y, onpick, references, classPrefix, resolution = 64 }: Props = $props();
+const {
+  axis,
+  curveKey,
+  x,
+  y,
+  onpick,
+  onpicked,
+  references,
+  classPrefix,
+  resolution = 64,
+}: Props = $props();
 
 // The boundaries ride along in this memo rather than taking their own: they
 // come from the same sweep, so a second `$derived` would walk the axis twice.
@@ -57,6 +70,7 @@ function pick(event: PointerEvent & { currentTarget: SVGSVGElement }) {
   onpointermove={onpick
     ? (event) => event.currentTarget.hasPointerCapture(event.pointerId) && pick(event)
     : undefined}
+  onpointerup={onpick ? () => onpicked?.() : undefined}
 >
   <defs>
     <linearGradient id={gradId} x1="0" x2="1" y1="0" y2="0">

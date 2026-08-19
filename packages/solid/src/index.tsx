@@ -12,6 +12,7 @@ import {
   type Oklch,
   type PickerLayout,
   type PickerParts,
+  addRecent,
   chartBase,
   chartPick,
   colourName,
@@ -36,6 +37,9 @@ interface GamutChartProps {
   /** Called with 0..1 plot coordinates as the pointer moves. Omit for a
    * display-only chart. */
   onPick?: (x: number, y: number) => void;
+  /** Called when a drag ends, so the caller can record the settled colour
+   * rather than every value the gesture passed through. */
+  onPicked?: () => void;
   /** Reference spaces to outline over the filled region. Omit for none. */
   references?: Gamut[] | undefined;
   classPrefix: string;
@@ -87,6 +91,8 @@ function GamutChart(props: GamutChartProps) {
       onPointerMove={(e) => {
         if (props.onPick && e.currentTarget.hasPointerCapture(e.pointerId)) pick(e);
       }}
+      // The release is the commit; the drag itself is a continuous preview.
+      onPointerUp={() => props.onPick && props.onPicked?.()}
     >
       <defs>
         <linearGradient id={gradId()} x1="0" x2="1" y1="0" y2="0">
@@ -135,6 +141,17 @@ export interface ColourPickerProps {
   /** Called with a canonical, gamut-clamped `oklch(L C H)` string. */
   onChange: (colour: string) => void;
   presets?: string[];
+  /** Recently used colours, most recent first. Omit to let the picker keep its
+   * own list for the session; pass one to store them yourself — in a backend,
+   * or shared between pickers. */
+  recents?: string[];
+  /** Called with the new list when a colour is committed, for the controlled
+   * form above. Fires on commit — a pointer release, a preset, a hex entry —
+   * not on every value a drag passes through. */
+  onRecentsChange?: (recents: string[]) => void;
+  /** How many recents to keep. Ignored when `recents` is controlled: the list
+   * you pass is the list that renders. */
+  maxRecents?: number;
   /** Visual arrangement. `chart` (the default) shows one large
    * lightness x chroma plot above all three sliders; `side-by-side` adds a right
    * rail for the readout and presets; `compact` drops the charts entirely and
@@ -191,9 +208,27 @@ export function ColourPicker(props: ColourPickerProps) {
     setDraft(next);
     props.onChange(emitValue(next, model().gamut));
   };
+
+  // Recents are uncontrolled until `recents` is passed, mirroring how `value`
+  // works. The internal list is kept regardless so switching to controlled
+  // mid-session does not lose it.
+  const [ownRecents, setOwnRecents] = createSignal<string[]>([]);
+  const recents = () => props.recents ?? ownRecents();
+
+  // A drag calls `onChange` for every value it passes through, so recording
+  // there would bury the list in near-identical colours from one gesture.
+  // Only a commit — a pointer release, a preset, a hex entry — lands here.
+  const commit = (colour: string) => {
+    const next = addRecent(recents(), colour, props.maxRecents);
+    setOwnRecents(next);
+    props.onRecentsChange?.(next);
+  };
+  const commitCurrent = () => commit(emitValue(model().current, model().gamut));
+
   const pick = (colour: string) => {
     setDraft(null);
     props.onChange(colour);
+    commit(colour);
   };
 
   return (
@@ -220,6 +255,26 @@ export function ColourPicker(props: ColourPickerProps) {
         </div>
       </Show>
 
+      <Show when={model().parts.recents && recents().length > 0}>
+        <div class={`${prefix()}__recents`}>
+          <For each={recents()}>
+            {(colour) => {
+              const selected = () => colour === model().canonical;
+              return (
+                <button
+                  type="button"
+                  class={`${prefix()}__recent${selected() ? ` ${prefix()}__recent--selected` : ""}`}
+                  style={{ background: colour }}
+                  aria-label={`Recent: ${colourName(colour)}`}
+                  aria-pressed={selected()}
+                  onClick={() => pick(colour)}
+                />
+              );
+            }}
+          </For>
+        </div>
+      </Show>
+
       <Show when={single()}>
         {(slot) => (
           <GamutChart
@@ -229,6 +284,7 @@ export function ColourPicker(props: ColourPickerProps) {
             y={slot().y}
             references={model().references}
             onPick={(x, y) => dial(chartPick(model().current, slot().axis, x, y))}
+            onPicked={commitCurrent}
             classPrefix={prefix()}
           />
         )}
@@ -295,6 +351,12 @@ export function ColourPicker(props: ColourPickerProps) {
                     onInput={(e) =>
                       dial({ ...model().current, [a.key]: Number(e.currentTarget.value) })
                     }
+                    // The gesture ending is the commit, not each value it
+                    // passed through. `blur` catches the keyboard: arrowing
+                    // along a slider should record once the user moves on,
+                    // not per step.
+                    onPointerUp={commitCurrent}
+                    onBlur={commitCurrent}
                   />
                 </span>
               </div>
@@ -343,6 +405,9 @@ export function ColourPicker(props: ColourPickerProps) {
                 const parsed = hexToOklch(e.currentTarget.value);
                 if (parsed) dial(parsed);
               }}
+              // Typing a hex passes through half-entered colours, so the commit
+              // is leaving the field rather than each keystroke.
+              onBlur={commitCurrent}
             />
           </Show>
           <Show when={model().parts.name}>

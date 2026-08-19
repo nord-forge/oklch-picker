@@ -5,6 +5,7 @@ import {
   type Oklch,
   type PickerLayout,
   type PickerParts,
+  addRecent,
   chartPick,
   colourName,
   emitValue,
@@ -22,6 +23,17 @@ export interface ColourPickerProps {
   /** Called with a canonical, gamut-clamped `oklch(L C H)` string. */
   onChange: (colour: string) => void;
   presets?: string[];
+  /** Recently used colours, most recent first. Omit to let the picker keep its
+   * own list for the session; pass one to store them yourself — in a backend,
+   * or shared between pickers. */
+  recents?: string[];
+  /** Called with the new list when a colour is committed, for the controlled
+   * form above. Fires on commit — a pointer release, a preset, a hex entry —
+   * not on every value a drag passes through. */
+  onRecentsChange?: (recents: string[]) => void;
+  /** How many recents to keep. Ignored when `recents` is controlled: the list
+   * you pass is the list that renders. */
+  maxRecents?: number;
   /** Visual arrangement. `chart` (the default) shows one large
    * lightness x chroma plot above all three sliders; `side-by-side` adds a right
    * rail for the readout and presets; `compact` drops the charts entirely and
@@ -74,6 +86,22 @@ export function ColourPicker(props: ColourPickerProps) {
   // `chart` renders one plot for the whole picker rather than one per axis.
   const single = withSingleChart(layout) ? model.charts[0] : undefined;
 
+  // Recents are uncontrolled until `recents` is passed, mirroring how `value`
+  // works. The internal list is kept regardless so switching to controlled
+  // mid-session does not lose it.
+  const [ownRecents, setOwnRecents] = useState<string[]>([]);
+  const recents = props.recents ?? ownRecents;
+
+  // A drag calls `onChange` for every value it passes through, so recording
+  // there would bury the list in near-identical colours from one gesture.
+  // Only a commit — a pointer release, a preset, a hex entry — lands here.
+  const commit = (colour: string) => {
+    const next = addRecent(recents, colour, props.maxRecents);
+    setOwnRecents(next);
+    props.onRecentsChange?.(next);
+  };
+  const commitCurrent = () => commit(emitValue(current, model.gamut));
+
   const emit = (next: Oklch) => {
     setDraft(next);
     props.onChange(emitValue(next, model.gamut));
@@ -81,6 +109,7 @@ export function ColourPicker(props: ColourPickerProps) {
   const pick = (colour: string) => {
     setDraft(null);
     props.onChange(colour);
+    commit(colour);
   };
   // Handlers are bound to both onInput and onChange — React fires the latter,
   // Preact the former. Each pair shares one function.
@@ -110,6 +139,22 @@ export function ColourPicker(props: ColourPickerProps) {
         </div>
       )}
 
+      {show.recents && recents.length > 0 && (
+        <div className={`${prefix}__recents`}>
+          {recents.map((r) => (
+            <button
+              key={r}
+              type="button"
+              className={`${prefix}__recent${r === canonical ? ` ${prefix}__recent--selected` : ""}`}
+              style={{ background: r }}
+              onClick={() => pick(r)}
+              aria-label={`Recent: ${colourName(r)}`}
+              aria-pressed={r === canonical}
+            />
+          ))}
+        </div>
+      )}
+
       {single && (
         <GamutChart
           base={current}
@@ -119,6 +164,7 @@ export function ColourPicker(props: ColourPickerProps) {
           y={single.y}
           references={model.references}
           onPick={(x, y) => emit(chartPick(current, single.axis, x, y))}
+          onPicked={commitCurrent}
           classPrefix={prefix}
         />
       )}
@@ -180,6 +226,11 @@ export function ColourPicker(props: ColourPickerProps) {
                   aria-label={labels[a.key]}
                   onInput={slide}
                   onChange={slide}
+                  // The gesture ending is the commit, not each value it passed
+                  // through. `blur` catches the keyboard: arrowing along a
+                  // slider should record once the user moves on, not per step.
+                  onPointerUp={commitCurrent}
+                  onBlur={commitCurrent}
                 />
               </span>
             </div>
@@ -227,6 +278,9 @@ export function ColourPicker(props: ColourPickerProps) {
               aria-label="Hex colour"
               onInput={editHex}
               onChange={editHex}
+              // Typing a hex passes through half-entered colours, so the commit
+              // is leaving the field rather than each keystroke.
+              onBlur={commitCurrent}
             />
           )}
           {show.name && <span className={`${prefix}__name`}>{model.name}</span>}

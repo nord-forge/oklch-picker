@@ -12,6 +12,7 @@ import {
   type Oklch,
   type PickerLayout,
   type PickerParts,
+  addRecent,
   chartBase,
   chartPick,
   colourName,
@@ -43,6 +44,9 @@ const GamutChart = defineComponent({
     /** Called with 0..1 plot coordinates as the pointer moves. Omit for a
      * display-only chart. */
     onPick: { type: Function as PropType<(x: number, y: number) => void>, default: undefined },
+    /** Called when a drag ends, so the caller can record the settled colour
+     * rather than every value the gesture passed through. */
+    onPicked: { type: Function as PropType<() => void>, default: undefined },
     /** Reference spaces to outline over the filled region. Omit for none. */
     references: { type: Array as PropType<Gamut[] | undefined>, default: undefined },
     classPrefix: { type: String, required: true },
@@ -96,6 +100,8 @@ const GamutChart = defineComponent({
                 if ((e.currentTarget as SVGSVGElement).hasPointerCapture(e.pointerId)) pick(e);
               }
             : undefined,
+          // The release is the commit; the drag itself is a continuous preview.
+          onPointerup: interactive ? () => props.onPicked?.() : undefined,
         },
         [
           h("defs", [
@@ -134,6 +140,13 @@ export const ColourPicker = defineComponent({
     /** `oklch(L C H)` or hex. Named for `v-model`. */
     modelValue: { type: String as PropType<string | null>, default: null },
     presets: { type: Array as PropType<string[]>, default: undefined },
+    /** Recently used colours, most recent first. Omit to let the picker keep
+     * its own list for the session; pass one to store them yourself — in a
+     * backend, or shared between pickers. */
+    recents: { type: Array as PropType<string[]>, default: undefined },
+    /** How many recents to keep. Ignored when `recents` is controlled: the
+     * list you pass is the list that renders. */
+    maxRecents: { type: Number, default: undefined },
     /** Visual arrangement. `chart` (the default) shows one large
      * lightness x chroma plot above all three sliders; `side-by-side` adds a right
      * rail for the readout and presets; `compact` drops the charts entirely and
@@ -168,6 +181,10 @@ export const ColourPicker = defineComponent({
     /** A switcher button was pressed. The app owns `gamut`, so it decides
      * whether to act on this. */
     gamutChange: (gamut: Gamut) => typeof gamut === "object",
+    /** The new recents list, for the controlled form. Fires on commit — a
+     * pointer release, a preset, a hex entry — not on every value a drag
+     * passes through. */
+    recentsChange: (recents: string[]) => Array.isArray(recents),
   },
   setup(props, { emit }) {
     // What was dialled, not what was emitted: dragging through an out-of-gamut
@@ -194,9 +211,26 @@ export const ColourPicker = defineComponent({
       draft.value = next;
       publish(emitValue(next, model.value.gamut));
     };
+    // Recents are uncontrolled until `recents` is passed, mirroring how
+    // `modelValue` works. The internal list is kept regardless so switching to
+    // controlled mid-session does not lose it.
+    const ownRecents = ref<string[]>([]);
+    const recents = computed(() => props.recents ?? ownRecents.value);
+
+    // A drag emits for every value it passes through, so recording there would
+    // bury the list in near-identical colours from one gesture. Only a commit —
+    // a pointer release, a preset, a hex entry — lands here.
+    const commit = (colour: string) => {
+      const next = addRecent(recents.value, colour, props.maxRecents);
+      ownRecents.value = next;
+      emit("recentsChange", next);
+    };
+    const commitCurrent = () => commit(emitValue(model.value.current, model.value.gamut));
+
     const pick = (colour: string) => {
       draft.value = null;
       publish(colour);
+      commit(colour);
     };
 
     return () => {
@@ -227,6 +261,27 @@ export const ColourPicker = defineComponent({
         );
       }
 
+      if (m.parts.recents && recents.value.length > 0) {
+        children.push(
+          h(
+            "div",
+            { class: `${p}__recents` },
+            recents.value.map((colour) => {
+              const selected = colour === m.canonical;
+              return h("button", {
+                key: colour,
+                type: "button",
+                class: `${p}__recent${selected ? ` ${p}__recent--selected` : ""}`,
+                style: { background: colour },
+                "aria-label": `Recent: ${colourName(colour)}`,
+                "aria-pressed": selected,
+                onClick: () => pick(colour),
+              });
+            }),
+          ),
+        );
+      }
+
       if (single) {
         children.push(
           h(GamutChart, {
@@ -236,6 +291,7 @@ export const ColourPicker = defineComponent({
             y: single.y,
             references: m.references,
             onPick: (x: number, y: number) => dial(chartPick(m.current, single.axis, x, y)),
+            onPicked: commitCurrent,
             classPrefix: p,
           }),
         );
@@ -295,6 +351,11 @@ export const ColourPicker = defineComponent({
                   "aria-label": m.labels[a.key],
                   onInput: (e: Event) =>
                     dial({ ...m.current, [a.key]: Number((e.target as HTMLInputElement).value) }),
+                  // The gesture ending is the commit, not each value it passed
+                  // through. `blur` catches the keyboard: arrowing along a
+                  // slider should record once the user moves on, not per step.
+                  onPointerup: commitCurrent,
+                  onBlur: commitCurrent,
                 }),
               ]),
             ]);
@@ -347,6 +408,9 @@ export const ColourPicker = defineComponent({
                 const parsed = hexToOklch((e.target as HTMLInputElement).value);
                 if (parsed) dial(parsed);
               },
+              // Typing a hex passes through half-entered colours, so the commit
+              // is leaving the field rather than each keystroke.
+              onBlur: commitCurrent,
             }),
           );
         }

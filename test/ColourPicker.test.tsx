@@ -353,3 +353,68 @@ describe("ColourPicker (rendered with Preact)", () => {
     expect(container.querySelector(".oklch-picker__notice")?.textContent).toBe("custom");
   });
 });
+
+describe("recent colours", () => {
+  test("renders nothing until a colour is committed", () => {
+    const { container } = render(<ColourPicker value="oklch(0.7 0.15 255)" onChange={() => {}} />);
+    expect(container.querySelector(".oklch-picker__recents")).toBeNull();
+  });
+
+  // The whole point of committing on release: a drag fires onChange for every
+  // value it passes through, and recording each would bury the list.
+  test("a drag records once, not once per value", () => {
+    const seen: string[][] = [];
+    render(
+      <ColourPicker
+        value="oklch(0.7 0.15 255)"
+        onChange={() => {}}
+        onRecentsChange={(r) => seen.push(r)}
+      />,
+    );
+    const hue = screen.getByLabelText("Hue");
+    for (const v of ["100", "150", "200", "250", "300"]) {
+      fireEvent.input(hue, { target: { value: v } });
+    }
+    expect(seen).toHaveLength(0); // nothing yet — the gesture is still running
+    fireEvent.pointerUp(hue);
+    expect(seen).toHaveLength(1);
+    expect(seen[0]).toHaveLength(1);
+  });
+
+  test("a preset is committed on click", () => {
+    const seen: string[][] = [];
+    render(
+      <ColourPicker
+        value="oklch(0.7 0.15 255)"
+        onChange={() => {}}
+        presets={["oklch(0.75 0.16 145)"]}
+        onRecentsChange={(r) => seen.push(r)}
+      />,
+    );
+    fireEvent.click(screen.getByLabelText("Green"));
+    expect(seen.at(-1)).toEqual(["oklch(0.75 0.16 145)"]);
+  });
+
+  test("the controlled list is what renders", () => {
+    const { container } = render(
+      <ColourPicker
+        value="oklch(0.7 0.15 255)"
+        onChange={() => {}}
+        recents={["oklch(0.75 0.16 145)", "oklch(0.5 0.1 30)"]}
+      />,
+    );
+    expect(container.querySelectorAll(".oklch-picker__recent")).toHaveLength(2);
+  });
+
+  test("parts.recents turns the row off", () => {
+    const { container } = render(
+      <ColourPicker
+        value="oklch(0.7 0.15 255)"
+        onChange={() => {}}
+        recents={["oklch(0.75 0.16 145)"]}
+        parts={{ recents: false }}
+      />,
+    );
+    expect(container.querySelector(".oklch-picker__recents")).toBeNull();
+  });
+});

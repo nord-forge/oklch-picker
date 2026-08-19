@@ -21,11 +21,14 @@ export interface GamutChartProps {
   /** Called with 0..1 plot coordinates as the pointer moves. Omit for a
    * display-only chart. */
   onPick?: (x: number, y: number) => void;
+  /** Called when a drag ends, so the caller can record the settled colour
+   * rather than every value the gesture passed through. */
+  onPicked?: () => void;
   classPrefix: string;
 }
 
 export function GamutChart(props: GamutChartProps) {
-  const { axis, onPick } = props;
+  const { axis, onPick, onPicked } = props;
   const resolution = props.resolution ?? 64;
   const svg = useRef<SVGSVGElement>(null);
   // Keying the memo on the axis the chart holds fixed means dragging either
@@ -74,6 +77,8 @@ export function GamutChart(props: GamutChartProps) {
       onPointerMove={
         onPick ? (e) => e.currentTarget.hasPointerCapture(e.pointerId) && pick(e) : undefined
       }
+      // The release is the commit; the drag itself is a continuous preview.
+      onPointerUp={onPick ? () => onPicked?.() : undefined}
     >
       <defs>
         <linearGradient id={gradId} x1="0" x2="1" y1="0" y2="0">

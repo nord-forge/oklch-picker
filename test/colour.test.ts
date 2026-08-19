@@ -15,7 +15,12 @@ import {
   toOklch,
 } from "../packages/core/src/colour.js";
 import { P3, REC2020 } from "../packages/core/src/gamuts.js";
-import { DEFAULT_LABELS, pickerModel } from "../packages/core/src/model.js";
+import {
+  DEFAULT_LABELS,
+  DEFAULT_MAX_RECENTS,
+  addRecent,
+  pickerModel,
+} from "../packages/core/src/model.js";
 
 describe("parse / format", () => {
   test("parses the stored form", () => {
@@ -450,5 +455,35 @@ describe("the gamut switcher", () => {
       parts: { gamutSwitch: true },
     });
     expect(m.gamutChoices.map((g) => g.id)).toEqual(["srgb", "p3", "rec2020"]);
+  });
+});
+
+describe("recent colours", () => {
+  test("keeps the most recent first", () => {
+    expect(addRecent(["b", "c"], "a")).toEqual(["a", "b", "c"]);
+  });
+
+  // Re-picking a colour should move it up, not stack a duplicate: two dials of
+  // the same colour are the same colour however they were reached.
+  test("moves a repeat to the front rather than duplicating it", () => {
+    expect(addRecent(["a", "b", "c"], "b")).toEqual(["b", "a", "c"]);
+    expect(addRecent(["a"], "a")).toEqual(["a"]);
+  });
+
+  test("drops the oldest past the limit", () => {
+    const full = ["1", "2", "3", "4", "5", "6", "7", "8"];
+    expect(addRecent(full, "9")).toEqual(["9", "1", "2", "3", "4", "5", "6", "7"]);
+    expect(addRecent(full, "9")).toHaveLength(DEFAULT_MAX_RECENTS);
+  });
+
+  test("honours a custom limit, and zero disables it", () => {
+    expect(addRecent(["a", "b"], "c", 2)).toEqual(["c", "a"]);
+    expect(addRecent(["a", "b"], "c", 0)).toEqual([]);
+  });
+
+  test("does not mutate the list it was given", () => {
+    const before = ["a", "b"];
+    addRecent(before, "c");
+    expect(before).toEqual(["a", "b"]);
   });
 });

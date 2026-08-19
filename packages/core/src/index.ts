@@ -28,6 +28,7 @@ export {
 export type { Axis, Gamut, GamutColumn, Oklch } from "./colour.js";
 
 export {
+  addRecent,
   atPosition,
   axisModels,
   CHART_H,
@@ -41,6 +42,7 @@ export {
   gamutNoticeKey,
   DEFAULT_LABELS,
   DEFAULT_LAYOUT,
+  DEFAULT_MAX_RECENTS,
   DEFAULT_PARTS,
   emitValue,
   FALLBACK,

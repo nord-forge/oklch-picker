@@ -6,6 +6,7 @@ import {
   type Oklch,
   type PickerLayout,
   type PickerParts,
+  addRecent,
   chartPick,
   colourName,
   emitValue,
@@ -22,6 +23,17 @@ interface Props {
   /** Called with a canonical, gamut-clamped `oklch(L C H)` string. */
   onchange?: (colour: string) => void;
   presets?: string[];
+  /** Recently used colours, most recent first. Omit to let the picker keep its
+   * own list for the session; pass one to store them yourself — in a backend,
+   * or shared between pickers. */
+  recents?: string[];
+  /** Called with the new list when a colour is committed, for the controlled
+   * form above. Fires on commit — a pointer release, a preset, a hex entry —
+   * not on every value a drag passes through. */
+  onrecentschange?: (recents: string[]) => void;
+  /** How many recents to keep. Ignored when `recents` is controlled: the list
+   * you pass is the list that renders. */
+  maxRecents?: number;
   /** Visual arrangement. `chart` (the default) shows one large
    * lightness x chroma plot above all three sliders; `side-by-side` adds a right
    * rail for the readout and presets; `compact` drops the charts entirely and
@@ -55,6 +67,9 @@ let {
   value = $bindable(null),
   onchange,
   presets,
+  recents: controlledRecents,
+  onrecentschange,
+  maxRecents,
   layout,
   parts,
   labels,
@@ -93,9 +108,27 @@ function dial(next: Oklch) {
   draft = next;
   publish(emitValue(next, model.gamut));
 }
+// Recents are uncontrolled until `recents` is passed, mirroring how `value`
+// works. The internal list is kept regardless so switching to controlled
+// mid-session does not lose it.
+let ownRecents = $state<string[]>([]);
+const recents = $derived(controlledRecents ?? ownRecents);
+
+// A drag calls `onchange` for every value it passes through, so recording
+// there would bury the list in near-identical colours from one gesture. Only a
+// commit — a pointer release, a preset, a hex entry — lands here.
+function commit(colour: string) {
+  const next = addRecent(recents, colour, maxRecents);
+  ownRecents = next;
+  onrecentschange?.(next);
+}
+function commitCurrent() {
+  commit(emitValue(model.current, model.gamut));
+}
 function pick(colour: string) {
   draft = null;
   publish(colour);
+  commit(colour);
 }
 </script>
 
@@ -116,6 +149,22 @@ function pick(colour: string) {
     </div>
   {/if}
 
+  {#if model.parts.recents && recents.length > 0}
+    <div class="{classPrefix}__recents">
+      {#each recents as recent (recent)}
+        {@const selected = recent === model.canonical}
+        <button
+          type="button"
+          class="{classPrefix}__recent{selected ? ` ${classPrefix}__recent--selected` : ''}"
+          style:background={recent}
+          aria-label="Recent: {colourName(recent)}"
+          aria-pressed={selected}
+          onclick={() => pick(recent)}
+        ></button>
+      {/each}
+    </div>
+  {/if}
+
   {#if single}
     <GamutChart
       axis={single.axis}
@@ -124,6 +173,7 @@ function pick(colour: string) {
       y={single.y}
       references={model.references}
       onpick={(x, y) => dial(chartPick(model.current, single.axis, x, y))}
+      onpicked={commitCurrent}
       {classPrefix}
     />
   {/if}
@@ -167,6 +217,9 @@ function pick(colour: string) {
               ></span>
             {/each}
           </span>
+          <!-- The gesture ending is the commit, not each value it passed
+               through. `blur` catches the keyboard: arrowing along a slider
+               should record once the user moves on, not per step. -->
           <input
             type="range"
             class="{classPrefix}__slider"
@@ -176,6 +229,8 @@ function pick(colour: string) {
             value={axis.value}
             aria-label={model.labels[axis.key]}
             oninput={(e) => dial({ ...model.current, [axis.key]: Number(e.currentTarget.value) })}
+            onpointerup={commitCurrent}
+            onblur={commitCurrent}
           />
         </span>
       </div>
@@ -209,6 +264,8 @@ function pick(colour: string) {
         ></span>
       {/if}
       {#if model.parts.hexInput}
+        <!-- Typing a hex passes through half-entered colours, so the commit is
+             leaving the field rather than each keystroke. -->
         <input
           class="{classPrefix}__hex"
           value={model.hex}
@@ -218,6 +275,7 @@ function pick(colour: string) {
             const parsed = hexToOklch(e.currentTarget.value);
             if (parsed) dial(parsed);
           }}
+          onblur={commitCurrent}
         />
       {/if}
       {#if model.parts.name}
