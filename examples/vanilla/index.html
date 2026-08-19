@@ -33,15 +33,20 @@
         </p>
       </header>
 
+      <!-- `chart` leads and starts pressed: the element below is given no
+           `layout`, so it renders the default, and the two must agree. -->
       <div class="demo__layouts">
-        <button type="button" class="demo__layout" data-layout="stacked" aria-pressed="true">
-          stacked
+        <button type="button" class="demo__layout" data-layout="chart" aria-pressed="true">
+          chart
+        </button>
+        <button type="button" class="demo__layout" data-layout="side-by-side" aria-pressed="false">
+          side-by-side
         </button>
         <button type="button" class="demo__layout" data-layout="compact" aria-pressed="false">
           compact
         </button>
-        <button type="button" class="demo__layout" data-layout="side-by-side" aria-pressed="false">
-          side-by-side
+        <button type="button" class="demo__layout" data-layout="stacked" aria-pressed="false">
+          stacked
         </button>
       </div>
 

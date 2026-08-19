@@ -2,7 +2,7 @@
 import { ColourPicker } from "@oklch-picker/vue";
 import { ref } from "vue";
 
-const LAYOUTS = ["stacked", "compact", "side-by-side"];
+const LAYOUTS = ["chart", "side-by-side", "compact", "stacked"];
 const PRESETS = [
   "oklch(0.72 0.19 35)",
   "oklch(0.8 0.17 85)",
@@ -13,7 +13,7 @@ const PRESETS = [
 
 // `v-model` writes straight back into this ref.
 const colour = ref("oklch(0.7 0.15 255)");
-const layout = ref("stacked");
+const layout = ref("chart");
 </script>
 
 <template>

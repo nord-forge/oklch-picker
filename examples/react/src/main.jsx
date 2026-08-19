@@ -4,7 +4,7 @@ import { useState } from "react";
 import { createRoot } from "react-dom/client";
 import "../../demo.css";
 
-const LAYOUTS = ["stacked", "compact", "side-by-side"];
+const LAYOUTS = ["chart", "side-by-side", "compact", "stacked"];
 const PRESETS = [
   "oklch(0.72 0.19 35)",
   "oklch(0.8 0.17 85)",
@@ -16,7 +16,7 @@ const PRESETS = [
 function App() {
   // The picker is controlled: it never holds the colour, it only reports one.
   const [colour, setColour] = useState("oklch(0.7 0.15 255)");
-  const [layout, setLayout] = useState("stacked");
+  const [layout, setLayout] = useState("chart");
 
   return (
     <main className="demo">

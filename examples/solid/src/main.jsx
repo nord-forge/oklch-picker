@@ -4,7 +4,7 @@ import { For, createSignal } from "solid-js";
 import { render } from "solid-js/web";
 import "../../demo.css";
 
-const LAYOUTS = ["stacked", "compact", "side-by-side"];
+const LAYOUTS = ["chart", "side-by-side", "compact", "stacked"];
 const PRESETS = [
   "oklch(0.72 0.19 35)",
   "oklch(0.8 0.17 85)",
@@ -15,7 +15,7 @@ const PRESETS = [
 
 function App() {
   const [colour, setColour] = createSignal("oklch(0.7 0.15 255)");
-  const [layout, setLayout] = createSignal("stacked");
+  const [layout, setLayout] = createSignal("chart");
 
   return (
     <main class="demo">

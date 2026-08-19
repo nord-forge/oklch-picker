@@ -1,7 +1,7 @@
 <script>
   import { ColourPicker } from "@oklch-picker/svelte";
 
-  const LAYOUTS = ["stacked", "compact", "side-by-side"];
+  const LAYOUTS = ["chart", "side-by-side", "compact", "stacked"];
   const PRESETS = [
     "oklch(0.72 0.19 35)",
     "oklch(0.8 0.17 85)",
@@ -12,7 +12,7 @@
 
   // `bind:value` writes straight back into this rune.
   let colour = $state("oklch(0.7 0.15 255)");
-  let layout = $state("stacked");
+  let layout = $state("chart");
 </script>
 
 <main class="demo">
