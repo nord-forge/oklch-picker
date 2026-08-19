@@ -29,7 +29,7 @@ on Node 20.
 
 ```sh
 npm run build       # all packages, in dependency order
-npm test            # 113 tests across 5 vitest projects
+npm test            # 163 tests across 5 vitest projects
 npm run typecheck   # tsc + a second pass for Solid + svelte-check
 npm run lint        # biome; lint:fix to write
 npm run dev         # all six examples at once, ports 5272-5277
@@ -37,6 +37,16 @@ npm run dev         # all six examples at once, ports 5272-5277
 
 Run `npm run build` before the examples — they resolve each package's `dist/`,
 not its source, so edits under `packages/*/src` need a rebuild to show up.
+
+Two other places resolve `dist/` rather than source, and both fail silently by
+testing the *previous* build rather than erroring:
+
+- **`vanilla`'s tests** import through its published `exports` map, so a change
+  under `packages/vanilla/src` needs `npm run build --workspace=oklch-picker`
+  before `npm test` reflects it.
+- **`typecheck`'s Solid pass** reads `packages/core/dist/*.d.mts`, so a core API
+  change needs `npm run build --workspace=@oklch-picker/core` first, or it
+  reports errors against the old types.
 
 ## Architecture
 

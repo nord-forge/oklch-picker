@@ -214,9 +214,14 @@ Whatever you use, the emitted value is always a canonical, gamut-clamped `oklch(
 
 ### Layouts
 
-- **`stacked`** (default) — presets, then each axis with its gamut chart, then the footer.
+- **`chart`** (default) — one large lightness × chroma plot above all three sliders, reshaping as the hue slider moves. Drag it to set lightness and chroma at once.
+- **`side-by-side`** — the same large plot and sliders, with preview, hex, name, and presets in a right rail. For wide settings panels.
 - **`compact`** — no charts, tighter spacing, single-letter labels inline with each slider. For popovers and toolbars. (Screen readers still get the full labels.)
-- **`side-by-side`** — sliders on the left; preview, hex, name, and presets in a right rail. For wide settings panels.
+- **`stacked`** — a thin gamut chart above each axis instead of one large one. Each sweeps the two axes it does not control, so all three show a different slice. This is what 1.0 rendered by default.
+
+> [!NOTE]
+> The default changed in 1.1: it was `stacked`. Pass `layout="stacked"` to keep
+> the previous arrangement.
 
 ```tsx
 <ColourPicker value={colour} onChange={setColour} layout="compact" />
@@ -230,6 +235,19 @@ Whatever you use, the emitted value is always a canonical, gamut-clamped `oklch(
   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/nord-forge/oklch-picker/main/docs/media/side-by-side-dark.png">
   <img src="https://raw.githubusercontent.com/nord-forge/oklch-picker/main/docs/media/side-by-side-light.png" alt="The side-by-side layout: sliders on the left, preview and presets in a right rail" width="468">
 </picture>
+
+### Dragging the chart
+
+In the `chart` layout the plot is a control, not a picture: dragging it sets
+lightness and chroma at once, using pointer events so it works under touch as
+well as a mouse.
+
+The thin per-axis charts in the other layouts are read-only. They are 34px tall,
+so a drag would have almost no vertical travel, and it would set two axes at
+once directly above the slider that sets one precisely.
+
+Charts are hidden from assistive tech either way — the sliders are the
+accessible route, and they reach everything a chart can.
 
 ### Hiding parts
 
@@ -252,7 +270,7 @@ Everything except the sliders is optional:
 | `value` | `string \| null` | — | `oklch(L C H)` or hex |
 | `onChange` | `(colour: string) => void` | — | Receives a canonical, clamped `oklch(L C H)` |
 | `presets` | `string[]` | — | Swatches shown above the sliders |
-| `layout` | `"stacked" \| "compact" \| "side-by-side"` | `"stacked"` | See [Layouts](#layouts) |
+| `layout` | `"stacked" \| "compact" \| "side-by-side" \| "chart"` | `"stacked"` | See [Layouts](#layouts) |
 | `parts` | `{ charts?, preview?, hexInput?, name?, notice?: boolean }` | all `true` | Turn parts off, e.g. `{ charts: false }` |
 | `labels` | `Partial<Record<"l"\|"c"\|"h"\|"outOfGamut", string>>` | English | For translation |
 | `classPrefix` | `string` | `"oklch-picker"` | Prefix for every class name |
@@ -278,6 +296,7 @@ If you do use it, the palette is custom properties on the root:
   --okp-radius: 6px;
   --okp-track-height: 12px;
   --okp-chart-height: 34px;
+  --okp-chart-large-height: 180px;
   --okp-thumb-size: 16px;
 }
 ```
