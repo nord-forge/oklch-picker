@@ -58,10 +58,30 @@ function oklchToLinearRgb({ l, c, h }: Oklch): [number, number, number] {
   ];
 }
 
-/** True when the colour is representable in sRGB (within a small tolerance). */
+/** True when the colour is representable in sRGB (within a small tolerance).
+ *
+ * The tolerance is applied to the *encoded* channel, not the linear one. A
+ * linear epsilon is wildly asymmetric — 0.0005 of linear light is about 1.6/255
+ * near black but 0.06/255 near white — so it used to admit a band of
+ * unrepresentable near-black colours. An encoded epsilon means the same thing
+ * at both ends: a tenth of an 8-bit step, enough to absorb bisection error
+ * without letting a visibly different colour through.
+ *
+ * Fitting inside the cube is necessary but not sufficient. Near black the cube
+ * still holds chroma that quantises away — at L=0 every chroma below ~0.039 is
+ * `#000000`, indistinguishable from the achromatic colour. Requiring a
+ * distinguishable channel is what makes the gamut close to a point at black
+ * rather than reporting a width that no screen can show. */
 export function inGamut(colour: Oklch): boolean {
-  const eps = 0.0005;
-  return oklchToLinearRgb(colour).every((v) => v >= -eps && v <= 1 + eps);
+  const eps = 0.1 / 255;
+  const rgb = oklchToLinearRgb(colour);
+  if (!rgb.every((v) => linearToSrgb(v) >= -eps && linearToSrgb(v) <= 1 + eps)) return false;
+  if (colour.c === 0) return true;
+
+  // Distinguishable from grey at the same lightness once quantised to 8 bits?
+  const to255 = (v: number) => Math.round(clamp(linearToSrgb(v), 0, 1) * 255);
+  const grey = oklchToLinearRgb({ ...colour, c: 0 }).map(to255);
+  return rgb.map(to255).some((v, i) => v !== grey[i]);
 }
 
 /** Highest chroma <= hi that fits sRGB at this lightness and hue. Chroma is
@@ -126,9 +146,6 @@ export function toOklch(value: string | null | undefined): Oklch | null {
 
 /** Highest chroma that fits in sRGB here. Peaks mid-lightness, collapses to white and black. */
 export function maxChroma(l: number, h: number): number {
-  // Near black, inGamut's tolerance accepts chroma that is not representable,
-  // which drew a phantom peak on the chart. The true limit here is ~0.
-  if (l <= 0.06) return 0;
   return bisectChroma(l, h, MAX_CHROMA);
 }
 

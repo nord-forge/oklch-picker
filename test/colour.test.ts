@@ -90,6 +90,20 @@ describe("gamut", () => {
     expect(inGamut({ l: 0.75, c: 0.35, h: 145 })).toBe(false);
   });
 
+  // Regression: these two disagreed near black — maxChroma returned 0 while
+  // inGamut still said true, so the picker drew a crosshair above the curve and
+  // showed no out-of-gamut notice for a colour it could not display.
+  test("inGamut and maxChroma agree everywhere, near black included", () => {
+    for (const h of [0, 60, 145, 200, 263, 320]) {
+      for (let l = 0; l <= 1.0001; l += 0.02) {
+        const limit = maxChroma(l, h);
+        // Anything past the reported limit must be reported as out of gamut.
+        expect(inGamut({ l, c: limit + 0.01, h })).toBe(false);
+        if (limit > 0) expect(inGamut({ l, c: limit, h })).toBe(true);
+      }
+    }
+  });
+
   test("clamping keeps lightness and hue, reduces chroma", () => {
     const wanted = { l: 0.75, c: 0.35, h: 145 };
     const got = clampToGamut(wanted);
@@ -137,6 +151,33 @@ describe("maxChroma", () => {
 
   test("is zero at pure black", () => {
     expect(maxChroma(0, 145)).toBe(0);
+  });
+
+  // Regression: inGamut applied its tolerance to linear light, which near black
+  // is worth ~1.6/255 and admitted chroma no screen can show. maxChroma papered
+  // over it by returning 0 below L=0.06, which zeroed a real region instead.
+  test("the near-black gamut is small but not flat-zeroed", () => {
+    for (const h of [0, 145, 263]) {
+      // It opens up gradually rather than switching on at a threshold. How
+      // early depends on the hue — green needs more lightness than blue before
+      // any chroma survives quantisation — so this only pins the ordering.
+      expect(maxChroma(0.08, h)).toBeGreaterThan(0);
+      expect(maxChroma(0.08, h)).toBeGreaterThan(maxChroma(0.03, h));
+      // And stays narrow — this is near black, not a phantom peak.
+      expect(maxChroma(0.08, h)).toBeLessThan(0.1);
+    }
+    // Blue reaches furthest at a given low lightness; the old L<=0.06 cutoff
+    // reported zero for all of it.
+    expect(maxChroma(0.04, 263)).toBeGreaterThan(0);
+  });
+
+  test("reports only chroma that survives 8-bit quantisation", () => {
+    // Every chroma inside the reported limit is a different pixel from grey.
+    for (const l of [0.02, 0.05, 0.1, 0.5]) {
+      const limit = maxChroma(l, 263);
+      if (limit === 0) continue;
+      expect(oklchToHex({ l, c: limit, h: 263 })).not.toBe(oklchToHex({ l, c: 0, h: 263 }));
+    }
   });
 });
 
