@@ -13,6 +13,13 @@
   --okp-radius: 6px;
   --okp-track-height: 12px;
   --okp-chart-height: 34px;
+  /* The `chart` layout's single plot, where the chart is the main control. */
+  --okp-chart-large-height: 180px;
+  /* `side-by-side` only: the left column needs room for a chart worth reading,
+     and the rail a fixed width so it does not resize as the colour name
+     changes length. Both are overridable; the width is a max, not a floor. */
+  --okp-side-by-side-width: 560px;
+  --okp-rail-width: 152px;
   --okp-thumb-size: 16px;
   /* A native range thumb is inset by half its width at each end, so its centre
      travels less than the full track. Everything positioned by value — the
@@ -71,6 +78,31 @@
   outline-offset: 2px;
 }
 
+/* ---- Recents ---- */
+/* Its own row rather than appended to the presets: a curated palette and the
+   colours someone happened to use are different things, and merging them makes
+   neither readable. Slightly smaller, because it is history, not the offer. */
+.oklch-picker__recents {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.oklch-picker__recent {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  border: 2px solid transparent;
+  padding: 0;
+  cursor: pointer;
+}
+.oklch-picker__recent--selected {
+  border-color: var(--okp-text);
+}
+.oklch-picker__recent:focus-visible {
+  outline: 2px solid var(--okp-focus);
+  outline-offset: 2px;
+}
+
 /* ---- Axis block ---- */
 .oklch-picker__axes {
   display: flex;
@@ -113,11 +145,47 @@
   stroke-width: 0.6;
   vector-effect: non-scaling-stroke;
 }
-.oklch-picker__crosshair {
-  stroke: rgb(255 255 255 / 0.5);
+/* Where a reference space ends. Dashed, so it reads as a landmark rather than
+   as another edge of the filled region, and drawn after the fill so it sits
+   above it. */
+.oklch-picker__gamut-boundary {
+  fill: none;
+  /* The fallback covers a gamut with no modifier rule of its own. */
+  stroke: rgb(255 255 255 / var(--okp-boundary-opacity, 0.6));
   stroke-width: 1;
-  stroke-dasharray: 2 2;
+  stroke-dasharray: 3 2;
   vector-effect: non-scaling-stroke;
+}
+/* Distinguishable by weight rather than hue: two of these can run close
+   together over part of the sweep, and the outer one is always the more
+   speculative. sRGB is the firmest line — it is the space the reader can be
+   sure of — so it carries the most contrast. */
+.oklch-picker__gamut-boundary--srgb {
+  --okp-boundary-opacity: 0.85;
+}
+.oklch-picker__gamut-boundary--p3 {
+  --okp-boundary-opacity: 0.75;
+}
+.oklch-picker__gamut-boundary--rec2020 {
+  --okp-boundary-opacity: 0.45;
+}
+
+/* Difference blending rather than a fixed colour: the crosshair crosses the
+   full spread of the gamut, and no one stroke reads against all of it. */
+.oklch-picker__crosshair {
+  stroke: #fff;
+  stroke-width: 1;
+  mix-blend-mode: difference;
+  vector-effect: non-scaling-stroke;
+}
+/* Dragging sets two axes at once, so the chart is a control, not a picture. */
+.oklch-picker__chart--interactive {
+  cursor: crosshair;
+  touch-action: none;
+}
+.oklch-picker__chart--interactive:focus-visible {
+  outline: 2px solid var(--okp-text);
+  outline-offset: 2px;
 }
 
 /* ---- Slider ---- */
@@ -186,6 +254,47 @@
   cursor: grab;
 }
 
+/* ---- Gamut switch ---- */
+/* A segmented control: one bordered box split by dividers, rather than a row
+   of separate buttons, because the choices are exclusive. The container owns
+   the border and clips the corners, so each segment stays a plain rectangle. */
+.oklch-picker__gamut-switch {
+  --okp-segment-selected: light-dark(#ededed, #2a2a2e);
+  display: flex;
+  align-self: start;
+  border: 1px solid var(--okp-line);
+  border-radius: var(--okp-radius);
+  background: var(--okp-surface);
+  overflow: hidden;
+}
+.oklch-picker__gamut-choice {
+  padding: 0 10px;
+  height: 24px;
+  border: none;
+  /* A divider between segments rather than a border on each, so neighbours do
+     not stack two lines where they meet. */
+  border-left: 1px solid var(--okp-line);
+  background: none;
+  color: var(--okp-text-muted);
+  font-family: inherit;
+  font-size: 11.5px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.oklch-picker__gamut-choice:first-child {
+  border-left: none;
+}
+.oklch-picker__gamut-choice[aria-pressed="true"] {
+  background: var(--okp-segment-selected);
+  color: var(--okp-text);
+}
+.oklch-picker__gamut-choice:focus-visible {
+  outline: 2px solid var(--okp-focus);
+  /* Inset, not offset: an outline outside the segment would be clipped by the
+     container that rounds the control's corners. */
+  outline-offset: -2px;
+}
+
 /* ---- Footer ---- */
 .oklch-picker__footer {
   display: flex;
@@ -248,32 +357,87 @@
   grid-column: 3;
 }
 
-/* Side-by-side: sliders left, readout and presets in a right rail. The grid
-   places areas regardless of DOM order, and collapses any part turned off. */
+/* Side-by-side: the chart and sliders on the left, readout and presets in a
+   right rail. The grid places areas regardless of DOM order, and collapses any
+   part turned off — including the chart, which `parts.charts` can remove.
+
+   The rail is a fixed column rather than `auto`: sized to content it grew and
+   shrank as the colour name changed length, which moved the chart under the
+   pointer mid-drag. The picker is given a width here because the left column
+   has to be wide enough for a chart to be worth reading — but it is a
+   `max-width`, so a narrower container still wins. */
 .oklch-picker--side-by-side {
   display: grid;
-  grid-template-columns: 1fr auto;
-  grid-template-rows: auto 1fr auto;
+  max-width: var(--okp-side-by-side-width);
+  grid-template-columns: minmax(0, 1fr) var(--okp-rail-width);
   grid-template-areas:
-    "axes footer"
-    "axes presets"
+    "chart  footer"
+    "axes   presets"
+    "switch switch"
     "notice notice";
+  grid-template-rows: min-content min-content min-content auto;
   align-items: start;
   column-gap: calc(var(--okp-gap) * 1.6);
+  row-gap: var(--okp-gap);
+}
+.oklch-picker--side-by-side .oklch-picker__chart {
+  grid-area: chart;
 }
 .oklch-picker--side-by-side .oklch-picker__axes {
   grid-area: axes;
+  align-self: start;
 }
+/* The readout becomes a column in the rail: preview, hex, then name. */
 .oklch-picker--side-by-side .oklch-picker__footer {
   grid-area: footer;
+  align-self: start;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: stretch;
+  gap: var(--okp-gap);
 }
+/* The preview fills the rail's width instead of sitting as a 34px chip beside
+   a hex field it no longer shares a row with. */
+.oklch-picker--side-by-side .oklch-picker__preview {
+  width: auto;
+  height: 44px;
+}
+.oklch-picker--side-by-side .oklch-picker__hex {
+  width: auto;
+}
+/* Presets fill the rail as a grid rather than wrapping inside a 96px cap,
+   which used to stack five swatches into a thin column. Fixed 24px cells, not
+   `1fr`: stretched swatches on a short last row would be wider than the ones
+   above whenever the count does not divide evenly.
+
+   They sit in the sliders' row, so the rail reads readout-then-swatches down
+   the side. `start` keeps them at the top of that row rather than floating. */
 .oklch-picker--side-by-side .oklch-picker__presets {
   grid-area: presets;
-  max-width: 96px;
-  align-content: start;
+  align-self: start;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 24px);
+  justify-content: start;
+  gap: 8px;
+}
+/* Full width under both columns: the switch names the space everything above
+   it is measured in, so it belongs to the whole picker rather than the rail. */
+.oklch-picker--side-by-side .oklch-picker__gamut-switch {
+  grid-area: switch;
 }
 .oklch-picker--side-by-side .oklch-picker__notice {
   grid-area: notice;
+}
+
+/* Chart: one large lightness x chroma plot at the current hue, with all three
+   sliders stacked below it. The chart is the primary control here, so it gets
+   real height rather than the strip the per-axis charts use. */
+.oklch-picker--chart .oklch-picker__chart,
+.oklch-picker--side-by-side .oklch-picker__chart {
+  height: var(--okp-chart-large-height);
+  border-radius: var(--okp-radius);
+}
+/* The single chart belongs to the picker, not to the hue axis it is nested in,
+   so the axis it sits in keeps no extra gap above its own slider. */
+.oklch-picker--chart .oklch-picker__axis {
+  gap: var(--okp-gap);
 }

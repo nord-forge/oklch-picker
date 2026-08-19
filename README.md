@@ -214,9 +214,14 @@ Whatever you use, the emitted value is always a canonical, gamut-clamped `oklch(
 
 ### Layouts
 
-- **`stacked`** (default) — presets, then each axis with its gamut chart, then the footer.
+- **`chart`** (default) — one large lightness × chroma plot above all three sliders, reshaping as the hue slider moves. Drag it to set lightness and chroma at once.
+- **`side-by-side`** — the same large plot and sliders, with preview, hex, name, and presets in a right rail. For wide settings panels. It caps itself at `--okp-side-by-side-width` (560px) so the chart has room to be worth reading; override that and `--okp-rail-width` to resize it.
 - **`compact`** — no charts, tighter spacing, single-letter labels inline with each slider. For popovers and toolbars. (Screen readers still get the full labels.)
-- **`side-by-side`** — sliders on the left; preview, hex, name, and presets in a right rail. For wide settings panels.
+- **`stacked`** — a thin gamut chart above each axis instead of one large one. Each sweeps the two axes it does not control, so all three show a different slice. This is what 1.0 rendered by default.
+
+> [!NOTE]
+> The default changed in 1.1: it was `stacked`. Pass `layout="stacked"` to keep
+> the previous arrangement.
 
 ```tsx
 <ColourPicker value={colour} onChange={setColour} layout="compact" />
@@ -230,6 +235,132 @@ Whatever you use, the emitted value is always a canonical, gamut-clamped `oklch(
   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/nord-forge/oklch-picker/main/docs/media/side-by-side-dark.png">
   <img src="https://raw.githubusercontent.com/nord-forge/oklch-picker/main/docs/media/side-by-side-light.png" alt="The side-by-side layout: sliders on the left, preview and presets in a right rail" width="468">
 </picture>
+
+### Dragging the chart
+
+In the `chart` layout the plot is a control, not a picture: dragging it sets
+lightness and chroma at once, using pointer events so it works under touch as
+well as a mouse.
+
+The thin per-axis charts in the other layouts are read-only. They are 34px tall,
+so a drag would have almost no vertical travel, and it would set two axes at
+once directly above the slider that sets one precisely.
+
+Charts are hidden from assistive tech either way — the sliders are the
+accessible route, and they reach everything a chart can.
+
+### Wider gamuts
+
+The picker works in sRGB by default and ships nothing else. Pass `gamut` to
+work in a wider space instead:
+
+```tsx
+import { P3 } from "@oklch-picker/core/gamuts";
+
+<ColourPicker value={colour} onChange={setColour} gamut={P3} />
+```
+
+That is the **output** space, not decoration: the chroma slider reaches
+further, the value is clamped to P3 rather than sRGB, and the notice only fires
+once a colour leaves P3 too. Choosing P3 and then still emitting an sRGB colour
+would defeat the point of choosing it.
+
+sRGB is outlined on the chart as a reference whenever it is not the output, so
+the safe region stays visible. Override with `references` to draw others, or
+`references={[]}` for none.
+
+`P3` and `REC2020` live behind their own entry point on purpose. An app that
+never imports them never ships the matrices — the bundler drops the module
+statically, so there is no dynamic import and nothing async in the render path.
+Opting in costs a few hundred bytes.
+
+### Letting the user switch
+
+Off by default. Turn it on and the picker renders a small segmented control:
+
+```tsx
+const [gamut, setGamut] = useState(SRGB);
+
+<ColourPicker
+  value={colour}
+  onChange={setColour}
+  gamut={gamut}
+  onGamutChange={setGamut}
+  gamutChoices={[SRGB, P3, REC2020]}
+  parts={{ gamutSwitch: true }}
+/>
+```
+
+`gamutChoices` defaults to the output gamut plus its references. The control
+hides itself when that leaves only one option — one option is not a choice.
+
+### Recently used colours
+
+On by default, and empty until something is committed — so it costs nothing
+until it has something to show:
+
+```tsx
+<ColourPicker value={colour} onChange={setColour} />
+```
+
+That keeps a list for the session, per picker. To store them yourself — in a
+backend, or shared between pickers — pass the list in and take the updates:
+
+```tsx
+const [recents, setRecents] = useState(loadFromServer);
+
+<ColourPicker
+  value={colour}
+  onChange={setColour}
+  recents={recents}
+  onRecentsChange={(next) => {
+    setRecents(next);
+    save(next);
+  }}
+/>
+```
+
+A colour joins the list when it is **committed** — a pointer release, a preset
+click, a hex entry, leaving a slider — not on every value a drag passes
+through. Dragging the hue slider across the spectrum records one colour, not
+forty. Repeats move to the front rather than appearing twice, and the list is
+capped at `maxRecents` (8 by default).
+
+`parts={{ recents: false }}` removes the row.
+
+### Notices
+
+When a colour falls outside the output gamut the picker says so. The wording
+comes from `labels`, and there are two keys:
+
+- **`outOfGamut`** — the sRGB message, and the fallback for any space with no
+  wording of its own. Defaults to *"Outside sRGB — the nearest sRGB colour is
+  used."*
+- **`outOf:<gamut id>`** — the message for one output space. With `gamut={P3}`
+  the default becomes *"Outside Display P3 — the nearest Display P3 colour is
+  used."*
+
+Every message names its own space rather than saying "outside what a screen can
+display": P3 is a screen too, so that phrasing was only ever true while sRGB
+was the only option.
+
+Override either:
+
+```tsx
+<ColourPicker
+  labels={{
+    outOfGamut: "Not displayable.",
+    "outOf:p3": "Needs a wide-gamut screen.",
+  }}
+/>
+```
+
+Or turn the message off entirely, leaving the maths untouched — the value is
+still clamped, the hatching still shows, only the text goes:
+
+```tsx
+<ColourPicker parts={{ notice: false }} />
+```
 
 ### Hiding parts
 
@@ -252,9 +383,16 @@ Everything except the sliders is optional:
 | `value` | `string \| null` | — | `oklch(L C H)` or hex |
 | `onChange` | `(colour: string) => void` | — | Receives a canonical, clamped `oklch(L C H)` |
 | `presets` | `string[]` | — | Swatches shown above the sliders |
-| `layout` | `"stacked" \| "compact" \| "side-by-side"` | `"stacked"` | See [Layouts](#layouts) |
-| `parts` | `{ charts?, preview?, hexInput?, name?, notice?: boolean }` | all `true` | Turn parts off, e.g. `{ charts: false }` |
-| `labels` | `Partial<Record<"l"\|"c"\|"h"\|"outOfGamut", string>>` | English | For translation |
+| `recents` | `string[]` | — | Controlled recent colours; omit to keep a session list |
+| `onRecentsChange` | `(recents: string[]) => void` | — | Fired on commit, not during a drag |
+| `maxRecents` | `number` | `8` | How many to keep when uncontrolled |
+| `layout` | `"chart" \| "side-by-side" \| "compact" \| "stacked"` | `"chart"` | See [Layouts](#layouts) |
+| `parts` | `{ charts?, preview?, hexInput?, name?, notice?, recents?, gamutSwitch?: boolean }` | all `true` except `gamutSwitch` | Turn parts off, e.g. `{ charts: false }` |
+| `labels` | `Partial<Record<LabelKey, string>>` | English | Translation and custom notices — see [Notices](#notices) |
+| `gamut` | `Gamut` | `SRGB` | The output space — clamped and emitted; see [Wider gamuts](#wider-gamuts) |
+| `references` | `Gamut[]` | `[SRGB]` when wider | Spaces outlined on the chart but never clamped to |
+| `gamutChoices` | `Gamut[]` | output + references | What the switcher offers |
+| `onGamutChange` | `(gamut: Gamut) => void` | — | Fired by the built-in switcher |
 | `classPrefix` | `string` | `"oklch-picker"` | Prefix for every class name |
 | `className` | `string` | — | Added to the root element |
 
@@ -278,6 +416,9 @@ If you do use it, the palette is custom properties on the root:
   --okp-radius: 6px;
   --okp-track-height: 12px;
   --okp-chart-height: 34px;
+  --okp-chart-large-height: 180px;
+  --okp-side-by-side-width: 560px;
+  --okp-rail-width: 152px;
   --okp-thumb-size: 16px;
 }
 ```

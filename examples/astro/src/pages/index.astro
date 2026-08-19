@@ -30,37 +30,55 @@ const PRESETS = [
         </p>
       </header>
 
+      {/* `chart` leads and starts pressed: the element below is given no
+          `layout`, so it renders the default, and the two must agree. */}
       <div class="demo__layouts">
-        <button type="button" class="demo__layout" data-layout="stacked" aria-pressed="true">
-          stacked
-        </button>
-        <button type="button" class="demo__layout" data-layout="compact" aria-pressed="false">
-          compact
+        <button type="button" class="demo__layout" data-layout="chart" aria-pressed="true">
+          chart
         </button>
         <button type="button" class="demo__layout" data-layout="side-by-side" aria-pressed="false">
           side-by-side
         </button>
+        <button type="button" class="demo__layout" data-layout="compact" aria-pressed="false">
+          compact
+        </button>
+        <button type="button" class="demo__layout" data-layout="stacked" aria-pressed="false">
+          stacked
+        </button>
       </div>
 
+      {/* `parts` turns the gamut switcher on — it is off by default, because
+          most pickers target one space. The gamuts themselves are set as a
+          property in the script below: a colour space cannot be an attribute. */}
       <div class="demo__panel">
         <oklch-picker
           id="picker"
           value="oklch(0.7 0.15 255)"
           presets={JSON.stringify(PRESETS)}
+          parts='{"gamutSwitch": true}'
         ></oklch-picker>
       </div>
 
       <p class="demo__value">
         <span class="demo__swatch" id="swatch" style="background: oklch(0.7 0.15 255)"></span>
         <code class="demo__code" id="readout">oklch(0.7 0.15 255)</code>
+        <span class="demo__note">in <span id="gamut">sRGB</span></span>
       </p>
     </main>
 
     <script>
       // Registering the tag is the whole client-side cost.
       import "oklch-picker/register";
+      // Importing the gamuts is what pulls their matrices into the bundle —
+      // a page that never mentions them never ships them.
+      import { SRGB } from "@oklch-picker/core";
+      import { P3, REC2020 } from "@oklch-picker/core/gamuts";
 
       const picker = document.querySelector("oklch-picker");
+      // Property, not attribute: a Gamut is an object with a transform on it.
+      // sRGB is listed explicitly because it is the starting output — a switcher
+      // whose current space is not among its buttons has nothing pressed.
+      if (picker) picker.gamutChoices = [SRGB, P3, REC2020];
       const swatch = document.querySelector<HTMLElement>("#swatch");
       const readout = document.querySelector<HTMLElement>("#readout");
 
@@ -69,6 +87,13 @@ const PRESETS = [
         const { colour } = event.detail;
         if (readout) readout.textContent = colour;
         if (swatch) swatch.style.background = colour;
+      });
+
+      // Switching the output space widens what the picker can emit, so the
+      // readout says which space the value above belongs to.
+      picker?.addEventListener("gamutchange", (event) => {
+        const label = document.querySelector<HTMLElement>("#gamut");
+        if (label) label.textContent = event.detail.gamut.label;
       });
 
       for (const button of document.querySelectorAll<HTMLButtonElement>("[data-layout]")) {

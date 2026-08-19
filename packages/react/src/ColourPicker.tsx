@@ -1,14 +1,18 @@
 /** An OKLCH colour picker: one slider per axis, each over a gamut cross-section. */
 import {
-  type Axis,
+  type Gamut,
+  type LabelKey,
   type Oklch,
   type PickerLayout,
   type PickerParts,
+  addRecent,
+  chartPick,
   colourName,
   emitValue,
   hexToOklch,
   pickerModel,
   resolveCurrent,
+  withSingleChart,
 } from "@oklch-picker/core";
 import { useState } from "react";
 import { GamutChart } from "./GamutChart.js";
@@ -19,14 +23,41 @@ export interface ColourPickerProps {
   /** Called with a canonical, gamut-clamped `oklch(L C H)` string. */
   onChange: (colour: string) => void;
   presets?: string[];
-  /** Visual arrangement. `compact` drops the charts and inlines each label
-   * with its slider; `side-by-side` puts the readout and presets in a right
-   * rail. Default `stacked`. */
+  /** Recently used colours, most recent first. Omit to let the picker keep its
+   * own list for the session; pass one to store them yourself — in a backend,
+   * or shared between pickers. */
+  recents?: string[];
+  /** Called with the new list when a colour is committed, for the controlled
+   * form above. Fires on commit — a pointer release, a preset, a hex entry —
+   * not on every value a drag passes through. */
+  onRecentsChange?: (recents: string[]) => void;
+  /** How many recents to keep. Ignored when `recents` is controlled: the list
+   * you pass is the list that renders. */
+  maxRecents?: number;
+  /** Visual arrangement. `chart` (the default) shows one large
+   * lightness x chroma plot above all three sliders; `side-by-side` adds a right
+   * rail for the readout and presets; `compact` drops the charts entirely and
+   * inlines each label with its slider; `stacked` gives every axis its own
+   * thin chart. */
   layout?: PickerLayout;
   /** Turn parts off, e.g. `{ charts: false, name: false }`. All on by default. */
   parts?: PickerParts;
-  /** Override for translation. */
-  labels?: Partial<Record<Axis | "outOfGamut", string>>;
+  /** Override for translation. Keys are the three axes, `outOfGamut`, and
+   * `outOf:<gamut id>` for a wider space's own notice. */
+  labels?: Partial<Record<LabelKey, string>>;
+  /** The output space: what the sliders reach, what is clamped, and what is
+   * emitted. Defaults to sRGB. Import wider spaces from
+   * `@oklch-picker/core/gamuts`; omitting this ships none of that code. */
+  gamut?: Gamut;
+  /** Spaces to outline on the charts without clamping to them. Defaults to
+   * sRGB whenever `gamut` is wider, so the safe region stays visible. */
+  references?: Gamut[];
+  /** What the switcher offers, when `parts.gamutSwitch` is on. Defaults to the
+   * output gamut plus its references. */
+  gamutChoices?: Gamut[];
+  /** Called when a switcher button is pressed. Omit to leave the buttons inert
+   * — the app is driving `gamut` as a prop either way. */
+  onGamutChange?: (gamut: Gamut) => void;
   /** Class prefix for every element, so styles can be overridden. */
   classPrefix?: string;
   className?: string;
@@ -39,22 +70,46 @@ export function ColourPicker(props: ColourPickerProps) {
   // region must not destroy the other axes.
   const [draft, setDraft] = useState<Oklch | null>(null);
 
-  const current = resolveCurrent(draft, props.value);
+  // The output space decides what `resolveCurrent` compares against, so it is
+  // read from the prop here rather than from the model it feeds.
+  const current = resolveCurrent(draft, props.value, props.gamut);
   const model = pickerModel(current, {
     layout: props.layout,
     parts: props.parts,
     labels: props.labels,
+    gamut: props.gamut,
+    references: props.references,
+    gamutChoices: props.gamutChoices,
   });
-  const { labels, layout, hex, canonical, clipped, withCharts } = model;
+  const { labels, layout, hex, canonical, clipped } = model;
   const show = model.parts;
+  // `chart` renders one plot for the whole picker rather than one per axis.
+  const single = withSingleChart(layout) ? model.charts[0] : undefined;
+
+  // Recents are uncontrolled until `recents` is passed, mirroring how `value`
+  // works. The internal list is kept regardless so switching to controlled
+  // mid-session does not lose it.
+  const [ownRecents, setOwnRecents] = useState<string[]>([]);
+  const recents = props.recents ?? ownRecents;
+
+  // A drag calls `onChange` for every value it passes through, so recording
+  // there would bury the list in near-identical colours from one gesture.
+  // Only a commit — a pointer release, a preset, a hex entry — lands here.
+  const commit = (colour: string) => {
+    const next = addRecent(recents, colour, props.maxRecents);
+    setOwnRecents(next);
+    props.onRecentsChange?.(next);
+  };
+  const commitCurrent = () => commit(emitValue(current, model.gamut));
 
   const emit = (next: Oklch) => {
     setDraft(next);
-    props.onChange(emitValue(next));
+    props.onChange(emitValue(next, model.gamut));
   };
   const pick = (colour: string) => {
     setDraft(null);
     props.onChange(colour);
+    commit(colour);
   };
   // Handlers are bound to both onInput and onChange — React fires the latter,
   // Preact the former. Each pair shares one function.
@@ -84,10 +139,41 @@ export function ColourPicker(props: ColourPickerProps) {
         </div>
       )}
 
+      {show.recents && recents.length > 0 && (
+        <div className={`${prefix}__recents`}>
+          {recents.map((r) => (
+            <button
+              key={r}
+              type="button"
+              className={`${prefix}__recent${r === canonical ? ` ${prefix}__recent--selected` : ""}`}
+              style={{ background: r }}
+              onClick={() => pick(r)}
+              aria-label={`Recent: ${colourName(r)}`}
+              aria-pressed={r === canonical}
+            />
+          ))}
+        </div>
+      )}
+
+      {single && (
+        <GamutChart
+          base={current}
+          axis={single.axis}
+          id={single.axis}
+          x={single.x}
+          y={single.y}
+          references={model.references}
+          onPick={(x, y) => emit(chartPick(current, single.axis, x, y))}
+          onPicked={commitCurrent}
+          classPrefix={prefix}
+        />
+      )}
+
       <div className={`${prefix}__axes`}>
         {model.axes.map((a, i) => {
           const spans = model.spans[i] ?? [];
-          const chart = model.charts[i];
+          // In the `chart` layout the one chart is hoisted above the axes.
+          const chart = single ? undefined : model.charts[i];
           const slide = (e: { target: EventTarget | null }) =>
             emit({ ...current, [a.key]: Number((e.target as HTMLInputElement).value) });
           // A div, not a label — the slider has its own aria-label.
@@ -102,13 +188,17 @@ export function ColourPicker(props: ColourPickerProps) {
                 </output>
               </span>
 
+              {/* Read-only here: a 34px strip gives a drag almost no vertical
+                  travel, and it would set two axes at once right above the
+                  slider that sets one precisely. Only `chart` is big enough. */}
               {chart && (
                 <GamutChart
                   base={current}
                   axis={a.key}
                   id={a.key}
-                  position={chart.position}
-                  chromaFraction={chart.chromaFraction}
+                  x={chart.x}
+                  y={chart.y}
+                  references={model.references}
                   classPrefix={prefix}
                 />
               )}
@@ -136,6 +226,11 @@ export function ColourPicker(props: ColourPickerProps) {
                   aria-label={labels[a.key]}
                   onInput={slide}
                   onChange={slide}
+                  // The gesture ending is the commit, not each value it passed
+                  // through. `blur` catches the keyboard: arrowing along a
+                  // slider should record once the user moves on, not per step.
+                  onPointerUp={commitCurrent}
+                  onBlur={commitCurrent}
                 />
               </span>
             </div>
@@ -143,13 +238,36 @@ export function ColourPicker(props: ColourPickerProps) {
         })}
       </div>
 
+      {model.withGamutSwitch && (
+        /* biome-ignore lint/a11y/useSemanticElements: a <fieldset> is for form
+           controls and brings a legend and its own box; this is a toolbar of
+           buttons, which is what role="group" describes. */
+        <div className={`${prefix}__gamut-switch`} role="group" aria-label="Output gamut">
+          {model.gamutChoices.map((g) => {
+            const selected = g.id === model.gamut.id;
+            return (
+              <button
+                key={g.id}
+                type="button"
+                className={`${prefix}__gamut-choice`}
+                aria-pressed={selected}
+                aria-label={`Output in ${g.label}`}
+                onClick={() => props.onGamutChange?.(g)}
+              >
+                {g.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {model.withFooter && (
         <div className={`${prefix}__footer`}>
           {show.preview && (
             <span
               className={`${prefix}__preview`}
               style={{ background: hex, color: model.light ? "#000" : "#fff" }}
-              title={clipped ? labels.outOfGamut : canonical}
+              title={clipped ? model.notice : canonical}
             />
           )}
           {show.hexInput && (
@@ -160,13 +278,16 @@ export function ColourPicker(props: ColourPickerProps) {
               aria-label="Hex colour"
               onInput={editHex}
               onChange={editHex}
+              // Typing a hex passes through half-entered colours, so the commit
+              // is leaving the field rather than each keystroke.
+              onBlur={commitCurrent}
             />
           )}
           {show.name && <span className={`${prefix}__name`}>{model.name}</span>}
         </div>
       )}
 
-      {show.notice && clipped && <p className={`${prefix}__notice`}>{labels.outOfGamut}</p>}
+      {show.notice && clipped && <p className={`${prefix}__notice`}>{model.notice}</p>}
     </div>
   );
 }

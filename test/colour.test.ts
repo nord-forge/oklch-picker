@@ -1,5 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
+  CHART_MAX_CHROMA,
+  SRGB,
   clampToGamut,
   colourName,
   formatOklch,
@@ -12,6 +14,13 @@ import {
   parseOklch,
   toOklch,
 } from "../packages/core/src/colour.js";
+import { P3, REC2020 } from "../packages/core/src/gamuts.js";
+import {
+  DEFAULT_LABELS,
+  DEFAULT_MAX_RECENTS,
+  addRecent,
+  pickerModel,
+} from "../packages/core/src/model.js";
 
 describe("parse / format", () => {
   test("parses the stored form", () => {
@@ -90,6 +99,20 @@ describe("gamut", () => {
     expect(inGamut({ l: 0.75, c: 0.35, h: 145 })).toBe(false);
   });
 
+  // Regression: these two disagreed near black — maxChroma returned 0 while
+  // inGamut still said true, so the picker drew a crosshair above the curve and
+  // showed no out-of-gamut notice for a colour it could not display.
+  test("inGamut and maxChroma agree everywhere, near black included", () => {
+    for (const h of [0, 60, 145, 200, 263, 320]) {
+      for (let l = 0; l <= 1.0001; l += 0.02) {
+        const limit = maxChroma(l, h);
+        // Anything past the reported limit must be reported as out of gamut.
+        expect(inGamut({ l, c: limit + 0.01, h })).toBe(false);
+        if (limit > 0) expect(inGamut({ l, c: limit, h })).toBe(true);
+      }
+    }
+  });
+
   test("clamping keeps lightness and hue, reduces chroma", () => {
     const wanted = { l: 0.75, c: 0.35, h: 145 };
     const got = clampToGamut(wanted);
@@ -138,6 +161,33 @@ describe("maxChroma", () => {
   test("is zero at pure black", () => {
     expect(maxChroma(0, 145)).toBe(0);
   });
+
+  // Regression: inGamut applied its tolerance to linear light, which near black
+  // is worth ~1.6/255 and admitted chroma no screen can show. maxChroma papered
+  // over it by returning 0 below L=0.06, which zeroed a real region instead.
+  test("the near-black gamut is small but not flat-zeroed", () => {
+    for (const h of [0, 145, 263]) {
+      // It opens up gradually rather than switching on at a threshold. How
+      // early depends on the hue — green needs more lightness than blue before
+      // any chroma survives quantisation — so this only pins the ordering.
+      expect(maxChroma(0.08, h)).toBeGreaterThan(0);
+      expect(maxChroma(0.08, h)).toBeGreaterThan(maxChroma(0.03, h));
+      // And stays narrow — this is near black, not a phantom peak.
+      expect(maxChroma(0.08, h)).toBeLessThan(0.1);
+    }
+    // Blue reaches furthest at a given low lightness; the old L<=0.06 cutoff
+    // reported zero for all of it.
+    expect(maxChroma(0.04, 263)).toBeGreaterThan(0);
+  });
+
+  test("reports only chroma that survives 8-bit quantisation", () => {
+    // Every chroma inside the reported limit is a different pixel from grey.
+    for (const l of [0.02, 0.05, 0.1, 0.5]) {
+      const limit = maxChroma(l, 263);
+      if (limit === 0) continue;
+      expect(oklchToHex({ l, c: limit, h: 263 })).not.toBe(oklchToHex({ l, c: 0, h: 263 }));
+    }
+  });
 });
 
 describe("gamutCurve", () => {
@@ -149,8 +199,10 @@ describe("gamutCurve", () => {
     for (const c of cols) expect(c.hex).toMatch(/^#[0-9a-f]{6}$/);
   });
 
+  // The h chart sweeps lightness horizontally, so it is the one that shows the
+  // gamut closing to a point at black and at white.
   test("the lightness silhouette rises to a peak and falls away", () => {
-    const cols = gamutCurve({ l: 0.5, c: 0.1, h: 145 }, "l", 64);
+    const cols = gamutCurve({ l: 0.5, c: 0.1, h: 145 }, "h", 64);
     const peak = cols.reduce((a, b) => (b.c > a.c ? b : a));
     // Peak sits mid-to-high, not jammed against either end.
     expect(peak.t).toBeGreaterThan(0.4);
@@ -164,16 +216,62 @@ describe("gamutCurve", () => {
   // producing a false spike (0.18 at L=0.03) that drew a phantom peak.
   test("no phantom chroma spike at the dark end", () => {
     for (const h of [0, 60, 145, 200, 260, 320]) {
-      const cols = gamutCurve({ l: 0.5, c: 0.1, h }, "l", 64);
+      const cols = gamutCurve({ l: 0.5, c: 0.1, h }, "h", 64);
       const peak = cols.reduce((a, b) => (b.c > a.c ? b : a));
       expect(peak.t).toBeGreaterThan(0.4);
     }
   });
 
-  test("the hue silhouette varies with hue", () => {
-    const cols = gamutCurve({ l: 0.7, c: 0.15, h: 0 }, "h", 32);
+  test("the l chart's hue sweep varies with hue", () => {
+    const cols = gamutCurve({ l: 0.7, c: 0.15, h: 0 }, "l", 32);
     const values = cols.map((c) => c.c);
     expect(Math.max(...values)).toBeGreaterThan(Math.min(...values) + 0.05);
+  });
+
+  // The charts scaled to MAX_CHROMA, the bisection bound, which no colour
+  // reaches — the top 13% of every chart was permanently empty.
+  test("the tallest curve nearly fills the chart, and none overflows", () => {
+    let tallest = 0;
+    for (let h = 0; h < 360; h += 3) {
+      for (const col of gamutCurve({ l: 0, c: 0, h }, "h", 64)) {
+        expect(col.c).toBeLessThanOrEqual(1);
+        tallest = Math.max(tallest, col.c);
+      }
+    }
+    // Some hue must come close to the top, or the scale is too generous again.
+    expect(tallest).toBeGreaterThan(0.9);
+  });
+
+  test("the chart scale sits just above the reachable peak", () => {
+    let peak = 0;
+    for (let h = 0; h < 360; h += 3) {
+      for (let l = 0; l <= 1; l += 0.02) peak = Math.max(peak, maxChroma(l, h));
+    }
+    // Above, so nothing clips; close, so no band of the chart is dead.
+    expect(CHART_MAX_CHROMA).toBeGreaterThan(peak);
+    expect(CHART_MAX_CHROMA).toBeLessThan(peak * 1.1);
+  });
+
+  // The bug this replaced: the c and h charts both swept max chroma against
+  // hue, so they drew byte-identical curves under two different sliders.
+  test("the three charts are genuinely different slices", () => {
+    const base = { l: 0.7, c: 0.15, h: 255 };
+    const [l, c, h] = (["l", "c", "h"] as const).map((axis) =>
+      gamutCurve(base, axis, 32)
+        .map((col) => col.c.toFixed(4))
+        .join(),
+    );
+    expect(l).not.toBe(c);
+    expect(c).not.toBe(h);
+    expect(l).not.toBe(h);
+  });
+
+  // The c chart's vertical axis is lightness, and holding chroma fixed makes
+  // some hues unreachable at every lightness — a column of zero, not a floor.
+  test("the c chart reports zero where the held chroma is unreachable", () => {
+    const cols = gamutCurve({ l: 0.7, c: 0.15, h: 255 }, "c", 32);
+    expect(cols.some((col) => col.c === 0)).toBe(true);
+    expect(cols.some((col) => col.c > 0.5)).toBe(true);
   });
 });
 
@@ -222,5 +320,170 @@ describe("isLight", () => {
     expect(isLight(hexToOklch("#ffcc00") as never)).toBe(true);
     expect(isLight(hexToOklch("#000000") as never)).toBe(false);
     expect(isLight(hexToOklch("#123456") as never)).toBe(false);
+  });
+});
+
+describe("wider gamuts", () => {
+  test("each contains the one below it", () => {
+    let checked = 0;
+    for (let h = 0; h < 360; h += 5) {
+      for (let l = 0.1; l <= 0.95; l += 0.05) {
+        const c = maxChroma(l, h, SRGB);
+        if (c <= 0) continue;
+        checked++;
+        // Just inside sRGB must also be inside the wider spaces.
+        expect(inGamut({ l, c: c * 0.99, h }, P3)).toBe(true);
+        expect(inGamut({ l, c: c * 0.99, h }, REC2020)).toBe(true);
+      }
+    }
+    expect(checked).toBeGreaterThan(500);
+  });
+
+  test("each reaches further than the one below it", () => {
+    const peak = (g: Parameters<typeof maxChroma>[2]) => {
+      let p = 0;
+      for (let h = 0; h < 360; h += 3) {
+        for (let l = 0.05; l <= 0.98; l += 0.02) p = Math.max(p, maxChroma(l, h, g));
+      }
+      return p;
+    };
+    const [s, p, r] = [peak(SRGB), peak(P3), peak(REC2020)];
+    expect(p).toBeGreaterThan(s);
+    expect(r).toBeGreaterThan(p);
+  });
+
+  // Each gamut bisects against its own bound: Rec. 2020 reaches ~0.464, so
+  // sharing sRGB's 0.37 would have clipped its boundary with no visible error.
+  test("no gamut's peak is clipped by its own search bound", () => {
+    for (const g of [SRGB, P3, REC2020]) {
+      let p = 0;
+      for (let h = 0; h < 360; h += 3) {
+        for (let l = 0.05; l <= 0.98; l += 0.02) p = Math.max(p, maxChroma(l, h, g));
+      }
+      expect(p).toBeLessThan(g.maxChroma);
+      expect(p).toBeLessThanOrEqual(g.chartMaxChroma);
+    }
+  });
+});
+
+describe("the output gamut", () => {
+  // Outside sRGB, comfortably inside P3.
+  const wide = { l: 0.7, c: 0.25, h: 145 };
+
+  test("says nothing when the colour is displayable", () => {
+    const m = pickerModel({ l: 0.7, c: 0.1, h: 255 });
+    expect(m.clipped).toBe(false);
+    expect(m.notice).toBe("");
+  });
+
+  test("defaults to sRGB, with the wording 1.0 shipped", () => {
+    const m = pickerModel(wide);
+    expect(m.gamut.id).toBe("srgb");
+    expect(m.clipped).toBe(true);
+    expect(m.notice).toBe(DEFAULT_LABELS.outOfGamut);
+  });
+
+  // The point of choosing a wider space: the colour is emitted, not flagged
+  // and thrown away. Warning about a colour the picker itself now outputs
+  // would defeat the purpose of enabling it.
+  test("a wider gamut emits the colour rather than clamping it away", () => {
+    const srgb = pickerModel(wide);
+    const p3 = pickerModel(wide, { gamut: P3 });
+
+    expect(p3.clipped).toBe(false);
+    expect(p3.notice).toBe("");
+    // sRGB clamps the chroma down; P3 keeps what was dialled.
+    expect(parseOklch(srgb.canonical)?.c).toBeLessThan(0.23);
+    expect(parseOklch(p3.canonical)?.c).toBeCloseTo(0.25, 3);
+    // And the chroma slider reaches further.
+    expect(p3.reachable).toBeGreaterThan(srgb.reachable);
+  });
+
+  test("sRGB stays drawn as a reference when it is not the output", () => {
+    expect(pickerModel(wide, { gamut: P3 }).references.map((g) => g.id)).toEqual(["srgb"]);
+    // Nothing to outline when sRGB is itself the output.
+    expect(pickerModel(wide).references).toEqual([]);
+  });
+
+  test("only warns once the colour leaves the output gamut too", () => {
+    const m = pickerModel({ l: 0.7, c: 0.6, h: 145 }, { gamut: P3 });
+    expect(m.clipped).toBe(true);
+    expect(m.notice).toBe("Outside Display P3 — the nearest Display P3 colour is used.");
+  });
+
+  test("each message can be replaced, per gamut and in general", () => {
+    expect(pickerModel(wide, { labels: { outOfGamut: "Nope." } }).notice).toBe("Nope.");
+    expect(
+      pickerModel({ l: 0.7, c: 0.6, h: 145 }, { gamut: P3, labels: { "outOf:p3": "Too far." } })
+        .notice,
+    ).toBe("Too far.");
+  });
+
+  test("parts.notice turns the message off without changing the maths", () => {
+    const m = pickerModel(wide, { parts: { notice: false } });
+    expect(m.parts.notice).toBe(false);
+    // Still clipped, so the emitted value is still clamped — only the text goes.
+    expect(m.clipped).toBe(true);
+  });
+});
+
+describe("the gamut switcher", () => {
+  const c = { l: 0.7, c: 0.15, h: 255 };
+
+  test("is off unless asked for", () => {
+    expect(pickerModel(c).withGamutSwitch).toBe(false);
+    expect(pickerModel(c, { gamut: P3 }).withGamutSwitch).toBe(false);
+  });
+
+  test("offers the output gamut and its references", () => {
+    const m = pickerModel(c, { gamut: P3, parts: { gamutSwitch: true } });
+    expect(m.withGamutSwitch).toBe(true);
+    expect(m.gamutChoices.map((g) => g.id)).toEqual(["srgb", "p3"]);
+  });
+
+  test("stays hidden when there is only one space to choose", () => {
+    // sRGB alone has no references, so the control would have one button.
+    const m = pickerModel(c, { parts: { gamutSwitch: true } });
+    expect(m.withGamutSwitch).toBe(false);
+    expect(m.gamutChoices).toEqual([]);
+  });
+
+  test("takes an explicit list, deduplicated by id", () => {
+    const m = pickerModel(c, {
+      gamut: P3,
+      gamutChoices: [SRGB, P3, REC2020, P3],
+      parts: { gamutSwitch: true },
+    });
+    expect(m.gamutChoices.map((g) => g.id)).toEqual(["srgb", "p3", "rec2020"]);
+  });
+});
+
+describe("recent colours", () => {
+  test("keeps the most recent first", () => {
+    expect(addRecent(["b", "c"], "a")).toEqual(["a", "b", "c"]);
+  });
+
+  // Re-picking a colour should move it up, not stack a duplicate: two dials of
+  // the same colour are the same colour however they were reached.
+  test("moves a repeat to the front rather than duplicating it", () => {
+    expect(addRecent(["a", "b", "c"], "b")).toEqual(["b", "a", "c"]);
+    expect(addRecent(["a"], "a")).toEqual(["a"]);
+  });
+
+  test("drops the oldest past the limit", () => {
+    const full = ["1", "2", "3", "4", "5", "6", "7", "8"];
+    expect(addRecent(full, "9")).toEqual(["9", "1", "2", "3", "4", "5", "6", "7"]);
+    expect(addRecent(full, "9")).toHaveLength(DEFAULT_MAX_RECENTS);
+  });
+
+  test("honours a custom limit, and zero disables it", () => {
+    expect(addRecent(["a", "b"], "c", 2)).toEqual(["c", "a"]);
+    expect(addRecent(["a", "b"], "c", 0)).toEqual([]);
+  });
+
+  test("does not mutate the list it was given", () => {
+    const before = ["a", "b"];
+    addRecent(before, "c");
+    expect(before).toEqual(["a", "b"]);
   });
 });

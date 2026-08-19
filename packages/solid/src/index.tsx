@@ -7,47 +7,92 @@ import {
   CHART_H,
   CHART_W,
   type ChartSlot,
+  type Gamut,
+  type LabelKey,
   type Oklch,
   type PickerLayout,
   type PickerParts,
+  addRecent,
   chartBase,
+  chartPick,
   colourName,
   emitValue,
   gamutChartModel,
   hexToOklch,
   pickerModel,
   resolveCurrent,
+  withSingleChart,
 } from "@oklch-picker/core";
-import { For, Show, createMemo, createSignal } from "solid-js";
+import { For, Index, Show, createMemo, createSignal } from "solid-js";
 
 interface GamutChartProps {
+  /** The axis held fixed; the chart sweeps the other two. */
   axis: Axis;
   /** Memo key: the single input this curve depends on. */
   curveKey: number;
-  position: number;
-  chromaFraction: number;
+  /** 0..1 across the plot; drives the vertical crosshair. */
+  x: number;
+  /** 0..1 up the plot, bottom-up; drives the horizontal crosshair. */
+  y: number;
+  /** Called with 0..1 plot coordinates as the pointer moves. Omit for a
+   * display-only chart. */
+  onPick?: (x: number, y: number) => void;
+  /** Called when a drag ends, so the caller can record the settled colour
+   * rather than every value the gesture passed through. */
+  onPicked?: () => void;
+  /** Reference spaces to outline over the filled region. Omit for none. */
+  references?: Gamut[] | undefined;
   classPrefix: string;
   resolution?: number;
 }
 
-/** One gamut chart. `createMemo` on the curve means dragging an axis that does
- * not feed it reuses the path and its ~65 gradient stops. */
+/** One gamut chart: a 2D slice of the sRGB gamut, holding one axis fixed and
+ * sweeping the other two, so under the curve is displayable and above it is
+ * not. `createMemo` on the curve means dragging an axis that does not feed it
+ * reuses the path and its ~65 gradient stops. */
 function GamutChart(props: GamutChartProps) {
+  // The boundaries ride along in this memo rather than taking their own: they
+  // come from the same sweep, so a second memo would walk the axis twice.
   const curve = createMemo(() =>
-    gamutChartModel(chartBase(props.curveKey, props.axis), props.axis, props.resolution ?? 64),
+    gamutChartModel(
+      chartBase(props.curveKey, props.axis),
+      props.axis,
+      props.resolution ?? 64,
+      props.references,
+    ),
   );
   const gradId = () => `${props.classPrefix}-gamut-${props.axis}`;
-  const crossY = () => CHART_H - Math.min(1, Math.max(0, props.chromaFraction)) * CHART_H;
+  const crossY = () => CHART_H - Math.min(1, Math.max(0, props.y)) * CHART_H;
+
+  // Pointer capture keeps a drag alive once it leaves the chart, so the value
+  // still tracks rather than sticking at the edge.
+  const pick = (e: PointerEvent & { currentTarget: SVGSVGElement }) => {
+    const onPick = props.onPick;
+    if (!onPick) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    if (!r.width || !r.height) return;
+    onPick((e.clientX - r.left) / r.width, (r.bottom - e.clientY) / r.height);
+  };
 
   return (
     <svg
-      class={`${props.classPrefix}__chart`}
+      class={`${props.classPrefix}__chart${props.onPick ? ` ${props.classPrefix}__chart--interactive` : ""}`}
       viewBox={`0 0 ${CHART_W} ${CHART_H}`}
       preserveAspectRatio="none"
       // `focusable="false"` is omitted here, unlike the other adapters: it is a
       // legacy IE attribute Solid's JSX types do not model, and `aria-hidden`
       // already keeps the chart out of the accessibility tree.
       aria-hidden="true"
+      onPointerDown={(e) => {
+        if (!props.onPick) return;
+        e.currentTarget.setPointerCapture(e.pointerId);
+        pick(e);
+      }}
+      onPointerMove={(e) => {
+        if (props.onPick && e.currentTarget.hasPointerCapture(e.pointerId)) pick(e);
+      }}
+      // The release is the commit; the drag itself is a continuous preview.
+      onPointerUp={() => props.onPick && props.onPicked?.()}
     >
       <defs>
         <linearGradient id={gradId()} x1="0" x2="1" y1="0" y2="0">
@@ -62,10 +107,19 @@ function GamutChart(props: GamutChartProps) {
         fill={`url(#${gradId()})`}
       />
       <path d={`M${curve().path}`} fill="none" class={`${props.classPrefix}__chart-line`} />
+      <For each={curve().boundaries}>
+        {(b) => (
+          <path
+            d={`M${b.path}`}
+            fill="none"
+            class={`${props.classPrefix}__gamut-boundary ${props.classPrefix}__gamut-boundary--${b.id}`}
+          />
+        )}
+      </For>
 
       <line
-        x1={props.position * CHART_W}
-        x2={props.position * CHART_W}
+        x1={props.x * CHART_W}
+        x2={props.x * CHART_W}
         y1="0"
         y2={CHART_H}
         class={`${props.classPrefix}__crosshair`}
@@ -87,14 +141,41 @@ export interface ColourPickerProps {
   /** Called with a canonical, gamut-clamped `oklch(L C H)` string. */
   onChange: (colour: string) => void;
   presets?: string[];
-  /** Visual arrangement. `compact` drops the charts and inlines each label
-   * with its slider; `side-by-side` puts the readout and presets in a right
-   * rail. Default `stacked`. */
+  /** Recently used colours, most recent first. Omit to let the picker keep its
+   * own list for the session; pass one to store them yourself — in a backend,
+   * or shared between pickers. */
+  recents?: string[];
+  /** Called with the new list when a colour is committed, for the controlled
+   * form above. Fires on commit — a pointer release, a preset, a hex entry —
+   * not on every value a drag passes through. */
+  onRecentsChange?: (recents: string[]) => void;
+  /** How many recents to keep. Ignored when `recents` is controlled: the list
+   * you pass is the list that renders. */
+  maxRecents?: number;
+  /** Visual arrangement. `chart` (the default) shows one large
+   * lightness x chroma plot above all three sliders; `side-by-side` adds a right
+   * rail for the readout and presets; `compact` drops the charts entirely and
+   * inlines each label with its slider; `stacked` gives every axis its own
+   * thin chart. */
   layout?: PickerLayout;
   /** Turn parts off, e.g. `{ charts: false, name: false }`. All on by default. */
   parts?: PickerParts;
-  /** Override for translation. */
-  labels?: Partial<Record<Axis | "outOfGamut", string>>;
+  /** Override for translation. Keys are the three axes, `outOfGamut`, and
+   * `outOf:<gamut id>` for a wider space's own notice. */
+  labels?: Partial<Record<LabelKey, string>>;
+  /** The output space: what the sliders reach, what is clamped, and what is
+   * emitted. Defaults to sRGB. Import wider spaces from
+   * `@oklch-picker/core/gamuts`; omitting this ships none of that code. */
+  gamut?: Gamut;
+  /** Spaces to outline on the charts without clamping to them. Defaults to
+   * sRGB whenever `gamut` is wider, so the safe region stays visible. */
+  references?: Gamut[];
+  /** What the switcher offers, when `parts.gamutSwitch` is on. Defaults to the
+   * output gamut plus its references. */
+  gamutChoices?: Gamut[];
+  /** Called when a switcher button is pressed. Omit to leave the buttons inert
+   * — the app is driving `gamut` as a prop either way. */
+  onGamutChange?: (gamut: Gamut) => void;
   /** Class prefix for every element, so styles can be overridden. */
   classPrefix?: string;
   class?: string;
@@ -106,21 +187,48 @@ export function ColourPicker(props: ColourPickerProps) {
   // region must not destroy the other axes.
   const [draft, setDraft] = createSignal<Oklch | null>(null);
 
+  // The output space decides what `resolveCurrent` compares against, so it is
+  // read from the prop here rather than from the model it feeds.
   const model = createMemo(() =>
-    pickerModel(resolveCurrent(draft(), props.value), {
+    pickerModel(resolveCurrent(draft(), props.value, props.gamut), {
       layout: props.layout,
       parts: props.parts,
       labels: props.labels,
+      gamut: props.gamut,
+      references: props.references,
+      gamutChoices: props.gamutChoices,
     }),
   );
 
+  // `chart` renders one plot for the whole picker rather than one per axis.
+  const single = (): ChartSlot | undefined =>
+    withSingleChart(model().layout) ? model().charts[0] : undefined;
+
   const dial = (next: Oklch) => {
     setDraft(next);
-    props.onChange(emitValue(next));
+    props.onChange(emitValue(next, model().gamut));
   };
+
+  // Recents are uncontrolled until `recents` is passed, mirroring how `value`
+  // works. The internal list is kept regardless so switching to controlled
+  // mid-session does not lose it.
+  const [ownRecents, setOwnRecents] = createSignal<string[]>([]);
+  const recents = () => props.recents ?? ownRecents();
+
+  // A drag calls `onChange` for every value it passes through, so recording
+  // there would bury the list in near-identical colours from one gesture.
+  // Only a commit — a pointer release, a preset, a hex entry — lands here.
+  const commit = (colour: string) => {
+    const next = addRecent(recents(), colour, props.maxRecents);
+    setOwnRecents(next);
+    props.onRecentsChange?.(next);
+  };
+  const commitCurrent = () => commit(emitValue(model().current, model().gamut));
+
   const pick = (colour: string) => {
     setDraft(null);
     props.onChange(colour);
+    commit(colour);
   };
 
   return (
@@ -147,29 +255,74 @@ export function ColourPicker(props: ColourPickerProps) {
         </div>
       </Show>
 
+      <Show when={model().parts.recents && recents().length > 0}>
+        <div class={`${prefix()}__recents`}>
+          <For each={recents()}>
+            {(colour) => {
+              const selected = () => colour === model().canonical;
+              return (
+                <button
+                  type="button"
+                  class={`${prefix()}__recent${selected() ? ` ${prefix()}__recent--selected` : ""}`}
+                  style={{ background: colour }}
+                  aria-label={`Recent: ${colourName(colour)}`}
+                  aria-pressed={selected()}
+                  onClick={() => pick(colour)}
+                />
+              );
+            }}
+          </For>
+        </div>
+      </Show>
+
+      <Show when={single()}>
+        {(slot) => (
+          <GamutChart
+            axis={slot().axis}
+            curveKey={slot().key}
+            x={slot().x}
+            y={slot().y}
+            references={model().references}
+            onPick={(x, y) => dial(chartPick(model().current, slot().axis, x, y))}
+            onPicked={commitCurrent}
+            classPrefix={prefix()}
+          />
+        )}
+      </Show>
+
       <div class={`${prefix()}__axes`}>
-        <For each={model().axes}>
+        {/* `Index`, not `For`: `For` keys by object identity, and `axisModels`
+            returns fresh objects each render, so every keystroke replaced all
+            three rows — taking focus and pointer capture with them mid-drag.
+            The axes are a fixed three in a fixed order, so position is the
+            right key. */}
+        <Index each={model().axes}>
           {(a, i) => {
-            const chart = (): ChartSlot | undefined => model().charts[i()];
+            // In the `chart` layout the one chart is hoisted above the axes.
+            const chart = (): ChartSlot | undefined => (single() ? undefined : model().charts[i]);
             // A div, not a label — the slider has its own aria-label.
             return (
               <div class={`${prefix()}__axis`}>
                 <span class={`${prefix()}__axis-head`}>
                   <span class={`${prefix()}__axis-label`} aria-hidden="true">
-                    {model().layout === "compact" ? a.key.toUpperCase() : model().labels[a.key]}
+                    {model().layout === "compact" ? a().key.toUpperCase() : model().labels[a().key]}
                   </span>
                   <output class={`${prefix()}__axis-value`}>
-                    {a.key === "h" ? Math.round(a.value) : a.value.toFixed(2)}
+                    {a().key === "h" ? Math.round(a().value) : a().value.toFixed(2)}
                   </output>
                 </span>
 
+                {/* Read-only here: a 34px strip gives a drag almost no vertical
+                    travel, and it would set two axes at once right above the
+                    slider that sets one precisely. Only `chart` is big enough. */}
                 <Show when={chart()}>
                   {(slot) => (
                     <GamutChart
                       axis={slot().axis}
                       curveKey={slot().key}
-                      position={slot().position}
-                      chromaFraction={slot().chromaFraction}
+                      x={slot().x}
+                      y={slot().y}
+                      references={model().references}
                       classPrefix={prefix()}
                     />
                   )}
@@ -178,9 +331,9 @@ export function ColourPicker(props: ColourPickerProps) {
                 <span class={`${prefix()}__track`}>
                   <span
                     class={`${prefix()}__track-fill`}
-                    style={{ background: model().gradients[i()] }}
+                    style={{ background: model().gradients[i] }}
                   >
-                    <For each={model().spans[i()]}>
+                    <For each={model().spans[i]}>
                       {(s) => (
                         <span
                           class={`${prefix()}__out-of-gamut`}
@@ -195,21 +348,48 @@ export function ColourPicker(props: ColourPickerProps) {
                   <input
                     type="range"
                     class={`${prefix()}__slider`}
-                    min={a.min}
-                    max={a.max}
-                    step={a.step}
-                    value={a.value}
-                    aria-label={model().labels[a.key]}
+                    min={a().min}
+                    max={a().max}
+                    step={a().step}
+                    value={a().value}
+                    aria-label={model().labels[a().key]}
                     onInput={(e) =>
-                      dial({ ...model().current, [a.key]: Number(e.currentTarget.value) })
+                      dial({ ...model().current, [a().key]: Number(e.currentTarget.value) })
                     }
+                    // The gesture ending is the commit, not each value it
+                    // passed through. `blur` catches the keyboard: arrowing
+                    // along a slider should record once the user moves on,
+                    // not per step.
+                    onPointerUp={commitCurrent}
+                    onBlur={commitCurrent}
                   />
                 </span>
               </div>
             );
           }}
-        </For>
+        </Index>
       </div>
+
+      <Show when={model().withGamutSwitch}>
+        {/* biome-ignore lint/a11y/useSemanticElements: a <fieldset> is for form
+            controls and brings a legend and its own box; this is a toolbar of
+            buttons, which is what role="group" describes. */}
+        <div class={`${prefix()}__gamut-switch`} role="group" aria-label="Output gamut">
+          <For each={model().gamutChoices}>
+            {(g) => (
+              <button
+                type="button"
+                class={`${prefix()}__gamut-choice`}
+                aria-pressed={g.id === model().gamut.id}
+                aria-label={`Output in ${g.label}`}
+                onClick={() => props.onGamutChange?.(g)}
+              >
+                {g.label}
+              </button>
+            )}
+          </For>
+        </div>
+      </Show>
 
       <Show when={model().withFooter}>
         <div class={`${prefix()}__footer`}>
@@ -217,7 +397,7 @@ export function ColourPicker(props: ColourPickerProps) {
             <span
               class={`${prefix()}__preview`}
               style={{ background: model().hex, color: model().light ? "#000" : "#fff" }}
-              title={model().clipped ? model().labels.outOfGamut : model().canonical}
+              title={model().clipped ? model().notice : model().canonical}
             />
           </Show>
           <Show when={model().parts.hexInput}>
@@ -230,6 +410,9 @@ export function ColourPicker(props: ColourPickerProps) {
                 const parsed = hexToOklch(e.currentTarget.value);
                 if (parsed) dial(parsed);
               }}
+              // Typing a hex passes through half-entered colours, so the commit
+              // is leaving the field rather than each keystroke.
+              onBlur={commitCurrent}
             />
           </Show>
           <Show when={model().parts.name}>
@@ -239,11 +422,11 @@ export function ColourPicker(props: ColourPickerProps) {
       </Show>
 
       <Show when={model().parts.notice && model().clipped}>
-        <p class={`${prefix()}__notice`}>{model().labels.outOfGamut}</p>
+        <p class={`${prefix()}__notice`}>{model().notice}</p>
       </Show>
     </div>
   );
 }
 
-export type { PickerLayout, PickerParts } from "@oklch-picker/core";
-export type { Axis, Oklch } from "@oklch-picker/core";
+export type { LabelKey, PickerLayout, PickerParts } from "@oklch-picker/core";
+export type { Axis, Gamut, Oklch } from "@oklch-picker/core";

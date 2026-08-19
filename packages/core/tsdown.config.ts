@@ -2,7 +2,7 @@ import { defineConfig } from "tsdown";
 
 /** The shared layer, plus the stylesheet every adapter's consumers import. */
 export default defineConfig({
-  entry: ["src/index.ts", "src/colour.ts"],
+  entry: ["src/index.ts", "src/colour.ts", "src/gamuts.ts"],
   format: ["esm"],
   dts: true,
   clean: true,

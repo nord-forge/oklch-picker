@@ -7,6 +7,11 @@
  * generating palettes, or naming colours in a table.
  */
 export {
+  axisMax,
+  CHART_MAX_CHROMA,
+  SRGB,
+  CHART_PLANES,
+  chartColour,
   clampToGamut,
   colourName,
   formatOklch,
@@ -20,16 +25,24 @@ export {
   parseOklch,
   toOklch,
 } from "./colour.js";
-export type { Axis, GamutColumn, Oklch } from "./colour.js";
+export type { Axis, Gamut, GamutColumn, Oklch } from "./colour.js";
 
 export {
+  addRecent,
   atPosition,
   axisModels,
   CHART_H,
   CHART_W,
+  chartAxes,
   chartBase,
   chartKey,
+  chartPick,
+  chartSlot,
+  defaultOutOfGamutNotice,
+  gamutNoticeKey,
   DEFAULT_LABELS,
+  DEFAULT_LAYOUT,
+  DEFAULT_MAX_RECENTS,
   DEFAULT_PARTS,
   emitValue,
   FALLBACK,
@@ -38,11 +51,13 @@ export {
   pickerModel,
   resolveCurrent,
   trackGradient,
+  withSingleChart,
 } from "./model.js";
 export type {
   AxisModel,
   ChartSlot,
   GamutChartModel,
+  LabelKey,
   PickerLayout,
   PickerModel,
   PickerOptions,

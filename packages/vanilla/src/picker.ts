@@ -11,16 +11,24 @@ import {
   type Axis,
   CHART_H,
   CHART_W,
+  type ChartSlot,
+  DEFAULT_LAYOUT,
+  type Gamut,
+  type LabelKey,
   type Oklch,
   type PickerLayout,
   type PickerParts,
+  SRGB,
+  addRecent,
   chartBase,
+  chartPick,
   colourName,
   emitValue,
   gamutChartModel,
   hexToOklch,
   pickerModel,
   resolveCurrent,
+  withSingleChart,
 } from "@oklch-picker/core";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -59,6 +67,20 @@ function json<T>(raw: string | null): T | undefined {
   }
 }
 
+/** A list-of-colours attribute, as either a JSON array or a plain
+ * comma-separated list — hand-written markup should not have to quote. */
+function colourList(raw: string | null): string[] | null {
+  return (
+    json<string[]>(raw) ??
+    (raw
+      ? raw
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
+      : null)
+  );
+}
+
 /** One axis row: the nodes are built once and mutated in place thereafter. */
 interface AxisRow {
   root: HTMLElement;
@@ -75,6 +97,10 @@ interface ChartNodes {
   gradient: SVGLinearGradientElement;
   area: SVGPathElement;
   line: SVGPathElement;
+  /** One outline per reference space, aligned with the model's `references`.
+   * Built once and mutated, like every other node here; a change to the gamut
+   * configuration rebuilds. */
+  boundaries: SVGPathElement[];
   vertical: SVGLineElement;
   horizontal: SVGLineElement;
   /** Last curve key rendered, so the ~65 stops rebuild only when it changes. */
@@ -82,7 +108,15 @@ interface ChartNodes {
 }
 
 export class OklchPickerElement extends HTMLElement {
-  static observedAttributes = ["value", "layout", "class-prefix", "parts", "labels", "presets"];
+  static observedAttributes = [
+    "value",
+    "layout",
+    "class-prefix",
+    "parts",
+    "labels",
+    "presets",
+    "recents",
+  ];
 
   /** Submit with a surrounding form, like any built-in input, so a
    * server-rendered page can round-trip the colour through a plain POST. */
@@ -105,15 +139,35 @@ export class OklchPickerElement extends HTMLElement {
   #draft: Oklch | null = null;
   #value: string | null = null;
   #presets: string[] | null = null;
+  /** The controlled list, or null while the element keeps its own. */
+  #recents: string[] | null = null;
+  /** Kept regardless of `recents`, so handing control over mid-session does
+   * not lose what the user has already picked. */
+  #ownRecents: string[] = [];
+  #maxRecents: number | undefined;
   #parts: PickerParts | undefined;
-  #labels: Partial<Record<Axis | "outOfGamut", string>> | undefined;
+  #labels: Partial<Record<LabelKey, string>> | undefined;
+  #gamut: Gamut | undefined;
+  #references: Gamut[] | undefined;
+  #gamutChoices: Gamut[] | undefined;
   #prefix = "oklch-picker";
   #built = false;
+  /** The reference spaces the current tree was built for, so #updateChart can
+   * write a `d` per index without re-deriving them. */
+  #builtReferences: Gamut[] = [];
 
   // Built once, then mutated. Rebuilding the tree per input would drop focus
   // from the slider mid-drag.
   #presetButtons: { button: HTMLButtonElement; colour: string }[] = [];
+  /** The recents row and the buttons in it. Unlike every other row here the
+   * list grows, so #updateRecents rebuilds these children — but only these,
+   * because rebuilding the tree would drop focus from the slider mid-drag. */
+  #recentsRow: HTMLElement | undefined;
+  #recentButtons: { button: HTMLButtonElement; colour: string }[] = [];
   #rows: AxisRow[] = [];
+  /** The `chart` layout's single plot, above the axes rather than inside one. */
+  #chart: ChartNodes | undefined;
+  #gamutButtons: { button: HTMLButtonElement; gamut: Gamut }[] = [];
   #preview: HTMLElement | undefined;
   #hex: HTMLInputElement | undefined;
   #name: HTMLElement | undefined;
@@ -155,6 +209,29 @@ export class OklchPickerElement extends HTMLElement {
     this.#rebuild();
   }
 
+  /** Recently committed colours, most recent first. Null — the default —
+   * leaves the element keeping its own list for the session; assigning one
+   * makes it controlled, exactly as `value` is. */
+  get recents(): string[] | null {
+    return this.#recents;
+  }
+  set recents(next: string[] | null) {
+    this.#recents = next;
+    // Only the row's children change, so this is a render rather than a
+    // rebuild — the sliders keep their nodes and their focus.
+    this.#render();
+  }
+
+  /** How many recents to keep. Ignored while `recents` is controlled: the list
+   * assigned is the list that renders. */
+  get maxRecents(): number | undefined {
+    return this.#maxRecents;
+  }
+  set maxRecents(next: number | undefined) {
+    this.#maxRecents = next;
+    this.#render();
+  }
+
   get parts(): PickerParts | undefined {
     return this.#parts;
   }
@@ -163,16 +240,51 @@ export class OklchPickerElement extends HTMLElement {
     this.#rebuild();
   }
 
-  get labels(): Partial<Record<Axis | "outOfGamut", string>> | undefined {
+  get labels(): Partial<Record<LabelKey, string>> | undefined {
     return this.#labels;
   }
-  set labels(next: Partial<Record<Axis | "outOfGamut", string>> | undefined) {
+  set labels(next: Partial<Record<LabelKey, string>> | undefined) {
     this.#labels = next;
     this.#render();
   }
 
+  /** The output space: what the sliders reach, what is clamped, and what is
+   * emitted. A property, not an attribute: a `Gamut` carries a conversion
+   * function, which no attribute string could express. Import wider spaces
+   * from `@oklch-picker/core/gamuts`.
+   *
+   * Rebuilds rather than re-renders — each reference space owns a path node,
+   * and those are built once and mutated thereafter. */
+  get gamut(): Gamut | undefined {
+    return this.#gamut;
+  }
+  set gamut(next: Gamut | undefined) {
+    this.#gamut = next;
+    this.#rebuild();
+  }
+
+  /** Spaces outlined on the charts but never clamped to. Property-only, for
+   * the same reason as `gamut`. */
+  get references(): Gamut[] | undefined {
+    return this.#references;
+  }
+  set references(next: Gamut[] | undefined) {
+    this.#references = next;
+    this.#rebuild();
+  }
+
+  /** What the switcher offers, when `parts.gamutSwitch` is on. Property-only,
+   * for the same reason as `gamut`. */
+  get gamutChoices(): Gamut[] | undefined {
+    return this.#gamutChoices;
+  }
+  set gamutChoices(next: Gamut[] | undefined) {
+    this.#gamutChoices = next;
+    this.#rebuild();
+  }
+
   get layout(): PickerLayout {
-    return (this.getAttribute("layout") as PickerLayout | null) ?? "stacked";
+    return (this.getAttribute("layout") as PickerLayout | null) ?? DEFAULT_LAYOUT;
   }
   set layout(next: PickerLayout) {
     this.setAttribute("layout", next);
@@ -189,7 +301,18 @@ export class OklchPickerElement extends HTMLElement {
   connectedCallback(): void {
     // Attributes are the source of truth on first upgrade; a property set
     // before upgrade is handled by #upgradeProperty below.
-    for (const name of ["value", "presets", "parts", "labels", "classPrefix"] as const) {
+    for (const name of [
+      "value",
+      "presets",
+      "recents",
+      "maxRecents",
+      "parts",
+      "labels",
+      "gamut",
+      "references",
+      "gamutChoices",
+      "classPrefix",
+    ] as const) {
       this.#upgradeProperty(name);
     }
     if (this.#value === null) this.#value = this.getAttribute("value");
@@ -229,7 +352,19 @@ export class OklchPickerElement extends HTMLElement {
 
   /** A property set before the element upgraded shadows the accessor; take
    * the value, delete it, and re-set it through the prototype. */
-  #upgradeProperty(name: "value" | "presets" | "parts" | "labels" | "classPrefix"): void {
+  #upgradeProperty(
+    name:
+      | "value"
+      | "presets"
+      | "recents"
+      | "maxRecents"
+      | "parts"
+      | "labels"
+      | "gamut"
+      | "references"
+      | "gamutChoices"
+      | "classPrefix",
+  ): void {
     if (!Object.hasOwn(this, name)) return;
     const held = (this as Record<string, unknown>)[name];
     delete (this as Record<string, unknown>)[name];
@@ -242,34 +377,71 @@ export class OklchPickerElement extends HTMLElement {
     // Properties win over attributes: a JSON attribute is the no-framework
     // fallback, not an override of what script has already set.
     this.#parts ??= json<PickerParts>(this.getAttribute("parts"));
-    this.#labels ??= json<Partial<Record<Axis | "outOfGamut", string>>>(
-      this.getAttribute("labels"),
-    );
-    if (this.#presets === null) {
-      const raw = this.getAttribute("presets");
-      // Accept both a JSON array and a plain comma-separated list.
-      this.#presets =
-        json<string[]>(raw) ??
-        (raw
-          ? raw
-              .split(",")
-              .map((s) => s.trim())
-              .filter(Boolean)
-          : null);
-    }
+    this.#labels ??= json<Partial<Record<LabelKey, string>>>(this.getAttribute("labels"));
+    if (this.#presets === null) this.#presets = colourList(this.getAttribute("presets"));
+    // An attribute makes the list controlled just as the property does: markup
+    // that names the recents is markup that owns them.
+    if (this.#recents === null) this.#recents = colourList(this.getAttribute("recents"));
   }
 
-  /** Emit a dialled colour: keep it as the draft, publish the clamped form. */
+  /** The colour showing right now. Handlers bound once at build time cannot
+   * close over a model, so they read it back through here. */
+  #currentColour(): Oklch {
+    return resolveCurrent(this.#draft, this.#value, this.#gamut);
+  }
+
+  /** Emit a dialled colour: keep it as the draft, publish the clamped form.
+   * Clamped to the output gamut, not to sRGB — otherwise a P3 picker would
+   * throw away the chroma it was configured to reach. */
   #emit(next: Oklch): void {
     this.#draft = next;
-    this.#publish(emitValue(next));
+    this.#publish(emitValue(next, this.#gamut));
+  }
+
+  /** Switch the output space. The element owns its own state, so it applies
+   * the choice rather than only announcing it — and re-publishes the colour,
+   * because narrowing the gamut would otherwise leave a stored value the
+   * picker has just promised it will not emit. */
+  #chooseGamut(gamut: Gamut): void {
+    if (gamut.id === (this.#gamut ?? SRGB).id) return;
+    const dialled = this.#currentColour();
+    this.#gamut = gamut;
+    this.dispatchEvent(
+      new CustomEvent("gamutchange", { detail: { gamut }, bubbles: true, composed: true }),
+    );
+    // Keep it as the draft: widening later should restore the chroma the user
+    // dialled rather than the chroma the narrower space clipped it to.
+    this.#draft = dialled;
+    this.#publish(emitValue(dialled, gamut));
+    // The boundary nodes are cut per reference space, so the tree follows.
+    this.#rebuild();
   }
 
   /** Emit a chosen colour verbatim — a preset is already canonical. */
   #pick(colour: string): void {
     this.#draft = null;
     this.#publish(colour);
+    this.#commit(colour);
   }
+
+  /** Record a committed colour. A drag emits for every value it passes
+   * through, so recording there would bury the list in near-identical colours
+   * from one gesture; only a commit — a pointer release, a preset, leaving the
+   * hex field — reaches here. */
+  #commit(colour: string): void {
+    const recents = addRecent(this.#recents ?? this.#ownRecents, colour, this.#maxRecents);
+    this.#ownRecents = recents;
+    // A controlled list stays the caller's to set, as `value` would be were
+    // this element not driving its own; the event is how they hear about it.
+    if (this.#recents === null) this.#render();
+    this.dispatchEvent(
+      new CustomEvent("recentschange", { detail: { recents }, bubbles: true, composed: true }),
+    );
+  }
+
+  /** The colour showing right now, committed. Bound once at build time, so the
+   * colour is read back rather than closed over. */
+  #commitCurrent = () => this.#commit(emitValue(this.#currentColour(), this.#gamut));
 
   #publish(colour: string): void {
     this.#value = colour;
@@ -301,7 +473,11 @@ export class OklchPickerElement extends HTMLElement {
     if (!this.isConnected) return;
     this.replaceChildren();
     this.#presetButtons = [];
+    this.#recentsRow = undefined;
+    this.#recentButtons = [];
+    this.#gamutButtons = [];
     this.#rows = [];
+    this.#chart = undefined;
     this.#preview = undefined;
     this.#hex = undefined;
     this.#name = undefined;
@@ -312,10 +488,13 @@ export class OklchPickerElement extends HTMLElement {
 
   #render(): void {
     if (!this.isConnected) return;
-    const model = pickerModel(resolveCurrent(this.#draft, this.#value), {
+    const model = pickerModel(this.#currentColour(), {
       layout: this.layout,
       parts: this.#parts,
       labels: this.#labels,
+      gamut: this.#gamut,
+      references: this.#references,
+      gamutChoices: this.#gamutChoices,
     });
     if (!this.#built) this.#build(model);
     this.#update(model);
@@ -324,6 +503,10 @@ export class OklchPickerElement extends HTMLElement {
   #build(model: ReturnType<typeof pickerModel>): void {
     const p = this.#prefix;
     this.className = `${p} ${p}--${model.layout}`;
+    // The model resolves the reference list — including the sRGB outline a
+    // wider output gamut gets for free — so the boundary nodes are cut from it
+    // rather than from the raw property.
+    this.#builtReferences = model.references;
 
     if (this.#presets && this.#presets.length > 0) {
       const row = el("div", `${p}__presets`);
@@ -339,6 +522,24 @@ export class OklchPickerElement extends HTMLElement {
       this.append(row);
     }
 
+    // Cut the row even when the list is empty: it fills in as colours are
+    // committed, and #updateRecents hides it until then. Building it here
+    // rather than on first commit keeps it in document order without a
+    // rebuild, which would drop focus from the slider that just committed.
+    if (model.parts.recents) {
+      this.#recentsRow = el("div", `${p}__recents`);
+      this.append(this.#recentsRow);
+    }
+
+    // `chart` renders one plot for the whole picker rather than one per axis.
+    // The layout is fixed until the attribute changes, and a change rebuilds,
+    // so deciding here keeps #update to mutating attributes.
+    const single = withSingleChart(model.layout) ? model.charts[0] : undefined;
+    if (single) {
+      this.#chart = this.#buildChart(single.axis, true);
+      this.append(this.#chart.root);
+    }
+
     const axes = el("div", `${p}__axes`);
     for (const [i, a] of model.axes.entries()) {
       const root = el("div", `${p}__axis`);
@@ -349,9 +550,12 @@ export class OklchPickerElement extends HTMLElement {
       head.append(label, output);
       root.append(head);
 
+      // Read-only here: a 34px strip gives a drag almost no vertical travel,
+      // and it would set two axes at once right above the slider that sets one
+      // precisely. Only the `chart` layout's plot is big enough to drag.
       let chart: ChartNodes | undefined;
-      if (model.charts[i]) {
-        chart = this.#buildChart(a.key);
+      if (!single && model.charts[i]) {
+        chart = this.#buildChart(a.key, false);
         root.append(chart.root);
       }
 
@@ -362,9 +566,18 @@ export class OklchPickerElement extends HTMLElement {
       // `input` alone: every browser with custom elements fires it for pointer
       // and keyboard alike, and also binding `change` would emit twice per
       // commit. The stray native `change` is contained in #contain.
+      //
+      // The colour is read at event time, not closed over: this listener is
+      // bound once for the life of the node, so a build-time `model.current`
+      // would reset every other axis to what it held when the picker was built.
       slider.addEventListener("input", () =>
-        this.#emit({ ...model.current, [a.key]: Number(slider.value) }),
+        this.#emit({ ...this.#currentColour(), [a.key]: Number(slider.value) }),
       );
+      // The gesture ending is the commit, not each value it passed through.
+      // `blur` catches the keyboard: arrowing along a slider should record once
+      // the user moves on, not per step.
+      slider.addEventListener("pointerup", this.#commitCurrent);
+      slider.addEventListener("blur", this.#commitCurrent);
       this.#contain(slider);
       track.append(fill, slider);
       root.append(track);
@@ -382,6 +595,22 @@ export class OklchPickerElement extends HTMLElement {
     }
     this.append(axes);
 
+    if (model.withGamutSwitch) {
+      const group = el("div", `${p}__gamut-switch`);
+      group.setAttribute("role", "group");
+      group.setAttribute("aria-label", "Output gamut");
+      for (const gamut of model.gamutChoices) {
+        const button = el("button", `${p}__gamut-choice`);
+        button.type = "button";
+        button.textContent = gamut.label;
+        button.setAttribute("aria-label", `Output in ${gamut.label}`);
+        button.addEventListener("click", () => this.#chooseGamut(gamut));
+        group.append(button);
+        this.#gamutButtons.push({ button, gamut });
+      }
+      this.append(group);
+    }
+
     if (model.withFooter) {
       const footer = el("div", `${p}__footer`);
       if (model.parts.preview) {
@@ -396,6 +625,9 @@ export class OklchPickerElement extends HTMLElement {
           const parsed = hexToOklch(hex.value);
           if (parsed) this.#emit(parsed);
         });
+        // Typing a hex passes through half-entered colours, so the commit is
+        // leaving the field rather than each keystroke.
+        hex.addEventListener("blur", this.#commitCurrent);
         this.#contain(hex);
         footer.append(hex);
         this.#hex = hex;
@@ -415,13 +647,42 @@ export class OklchPickerElement extends HTMLElement {
     this.#built = true;
   }
 
-  #buildChart(axis: Axis): ChartNodes {
+  #buildChart(axis: Axis, interactive: boolean): ChartNodes {
     const p = this.#prefix;
-    const root = svg("svg", `${p}__chart`);
+    const root = svg("svg", `${p}__chart${interactive ? ` ${p}__chart--interactive` : ""}`);
     root.setAttribute("viewBox", `0 0 ${CHART_W} ${CHART_H}`);
     root.setAttribute("preserveAspectRatio", "none");
+    // The sliders stay the accessible path; dragging here is a shortcut.
     root.setAttribute("aria-hidden", "true");
     root.setAttribute("focusable", "false");
+
+    if (interactive) {
+      // Pointer, not mouse, so a touch drag works. Pointer capture keeps the
+      // drag alive once it leaves the chart, so the value still tracks rather
+      // than sticking at the edge. These are our own events, not an inner
+      // input's, so nothing needs containing — #emit dispatches once.
+      const pick = (event: PointerEvent) => {
+        const r = root.getBoundingClientRect();
+        if (!r.width || !r.height) return;
+        this.#emit(
+          chartPick(
+            this.#currentColour(),
+            axis,
+            (event.clientX - r.left) / r.width,
+            (r.bottom - event.clientY) / r.height,
+          ),
+        );
+      };
+      root.addEventListener("pointerdown", (event) => {
+        root.setPointerCapture(event.pointerId);
+        pick(event);
+      });
+      root.addEventListener("pointermove", (event) => {
+        if (root.hasPointerCapture(event.pointerId)) pick(event);
+      });
+      // The release is the commit; the drag itself is a continuous preview.
+      root.addEventListener("pointerup", this.#commitCurrent);
+    }
 
     const defs = svg("defs");
     const gradient = svg("linearGradient");
@@ -438,6 +699,13 @@ export class OklchPickerElement extends HTMLElement {
     area.setAttribute("fill", `url(#${gradient.getAttribute("id")})`);
     const line = svg("path", `${p}__chart-line`);
     line.setAttribute("fill", "none");
+    // One node per reference space, in the order given, so #updateChart can
+    // write a `d` by index rather than rebuilding the set as the colour moves.
+    const boundaries = this.#builtReferences.map((g) => {
+      const path = svg("path", `${p}__gamut-boundary ${p}__gamut-boundary--${g.id}`);
+      path.setAttribute("fill", "none");
+      return path;
+    });
     const vertical = svg("line", `${p}__crosshair`);
     vertical.setAttribute("y1", "0");
     vertical.setAttribute("y2", String(CHART_H));
@@ -445,8 +713,8 @@ export class OklchPickerElement extends HTMLElement {
     horizontal.setAttribute("x1", "0");
     horizontal.setAttribute("x2", String(CHART_W));
 
-    root.append(defs, area, line, vertical, horizontal);
-    return { root, gradient, area, line, vertical, horizontal, key: null };
+    root.append(defs, area, line, ...boundaries, vertical, horizontal);
+    return { root, gradient, area, line, boundaries, vertical, horizontal, key: null };
   }
 
   #update(model: ReturnType<typeof pickerModel>): void {
@@ -459,6 +727,16 @@ export class OklchPickerElement extends HTMLElement {
       button.setAttribute("aria-pressed", String(selected));
     }
 
+    this.#updateRecents(model.canonical);
+
+    for (const { button, gamut } of this.#gamutButtons) {
+      attr(button, "aria-pressed", String(gamut.id === model.gamut.id));
+    }
+
+    // The hoisted `chart` layout plot; the per-axis charts follow below.
+    const single = model.charts[0];
+    if (this.#chart && single) this.#updateChart(this.#chart, single);
+
     for (const [i, a] of model.axes.entries()) {
       const row = this.#rows[i];
       if (!row) continue;
@@ -467,7 +745,7 @@ export class OklchPickerElement extends HTMLElement {
       row.output.textContent = a.key === "h" ? String(Math.round(a.value)) : a.value.toFixed(2);
 
       const chart = model.charts[i];
-      if (chart && row.chart) this.#updateChart(row.chart, chart.axis, chart);
+      if (chart && row.chart) this.#updateChart(row.chart, chart);
 
       row.fill.style.background = model.gradients[i] ?? "";
       this.#updateSpans(row, model.spans[i] ?? []);
@@ -484,27 +762,29 @@ export class OklchPickerElement extends HTMLElement {
     if (this.#preview) {
       this.#preview.style.background = model.hex;
       this.#preview.style.color = model.light ? "#000" : "#fff";
-      attr(this.#preview, "title", model.clipped ? model.labels.outOfGamut : model.canonical);
+      attr(this.#preview, "title", model.clipped ? model.notice : model.canonical);
     }
     // Never overwrite what is being typed — a half-entered hex is not a colour.
     if (this.#hex && this.#hex !== this.ownerDocument.activeElement) this.#hex.value = model.hex;
     if (this.#name) this.#name.textContent = model.name;
     if (this.#notice) {
-      this.#notice.textContent = model.clipped ? model.labels.outOfGamut : "";
+      this.#notice.textContent = model.notice;
       this.#notice.hidden = !model.clipped;
     }
   }
 
-  #updateChart(
-    nodes: ChartNodes,
-    axis: Axis,
-    slot: { key: number; position: number; chromaFraction: number },
-  ): void {
+  #updateChart(nodes: ChartNodes, slot: ChartSlot): void {
+    const axis = slot.axis;
     // The curve and its stops depend on one input; rebuild only when it moves.
     if (nodes.key !== slot.key) {
-      const m = gamutChartModel(chartBase(slot.key, axis), axis);
+      const m = gamutChartModel(chartBase(slot.key, axis), axis, undefined, this.#builtReferences);
       nodes.area.setAttribute("d", `M0,${CHART_H} L${m.path} L${CHART_W},${CHART_H} Z`);
       nodes.line.setAttribute("d", `M${m.path}`);
+      // Aligned by construction: both lists come from #builtReferences, and a
+      // change to it rebuilds the tree rather than reaching this path.
+      for (const [i, b] of m.boundaries.entries()) {
+        nodes.boundaries[i]?.setAttribute("d", `M${b.path}`);
+      }
       nodes.gradient.replaceChildren(
         ...m.stops.map((s) => {
           const stop = svg("stop");
@@ -515,12 +795,51 @@ export class OklchPickerElement extends HTMLElement {
       );
       nodes.key = slot.key;
     }
-    const x = String(slot.position * CHART_W);
+    const x = String(slot.x * CHART_W);
     attr(nodes.vertical, "x1", x);
     attr(nodes.vertical, "x2", x);
-    const y = String(CHART_H - Math.min(1, Math.max(0, slot.chromaFraction)) * CHART_H);
+    const y = String(CHART_H - Math.min(1, Math.max(0, slot.y)) * CHART_H);
     attr(nodes.horizontal, "y1", y);
     attr(nodes.horizontal, "y2", y);
+  }
+
+  /** The one row here whose length changes: a colour joins the front on every
+   * commit. Rebuilding just these children is cheap and, unlike a rebuild of
+   * the tree, leaves the slider that raised the commit still focused. */
+  #updateRecents(canonical: string): void {
+    const row = this.#recentsRow;
+    if (!row) return;
+    const p = this.#prefix;
+    const recents = this.#recents ?? this.#ownRecents;
+
+    // The list grows and reorders, so a pooled button would have to be re-bound
+    // to a different colour anyway. Cutting the children afresh is simpler and
+    // costs nothing next to how rarely a commit happens.
+    const stale =
+      this.#recentButtons.length !== recents.length ||
+      this.#recentButtons.some((b, i) => b.colour !== recents[i]);
+    if (stale) {
+      this.#recentButtons = recents.map((colour) => {
+        const button = el("button", `${p}__recent`);
+        button.type = "button";
+        button.style.background = colour;
+        button.setAttribute("aria-label", `Recent: ${colourName(colour)}`);
+        button.addEventListener("click", () => this.#pick(colour));
+        return { button, colour };
+      });
+      row.replaceChildren(...this.#recentButtons.map((b) => b.button));
+    }
+    // Empty is not "no row" but "a row with nothing in it"; hide it so the
+    // layout gap goes with it.
+    row.hidden = recents.length === 0;
+
+    // Selection follows the colour, not the list, so it is written every
+    // render rather than only when the buttons are cut.
+    for (const { button, colour } of this.#recentButtons) {
+      const selected = colour === canonical;
+      button.className = `${p}__recent${selected ? ` ${p}__recent--selected` : ""}`;
+      attr(button, "aria-pressed", String(selected));
+    }
   }
 
   /** Hatched runs come and go as the colour moves, so this pools the nodes. */
@@ -552,6 +871,15 @@ export function register(tag = "oklch-picker"): void {
  * gamut-clamped. */
 export type OklchPickerChangeEvent = CustomEvent<{ colour: string }>;
 
+/** The `gamutchange` event a switcher button raises. The element has already
+ * applied the choice; a `change` with the re-clamped colour follows. */
+export type OklchPickerGamutChangeEvent = CustomEvent<{ gamut: Gamut }>;
+
+/** The `recentschange` event raised when a colour is committed — a pointer
+ * release, a preset, leaving the hex field — not on every value a drag passes
+ * through. `detail.recents` is the whole list, most recent first. */
+export type OklchPickerRecentsChangeEvent = CustomEvent<{ recents: string[] }>;
+
 declare global {
   interface HTMLElementTagNameMap {
     "oklch-picker": OklchPickerElement;
@@ -560,6 +888,8 @@ declare global {
   /** So `picker.addEventListener("change", e => e.detail.colour)` types. */
   interface OklchPickerElementEventMap extends HTMLElementEventMap {
     change: OklchPickerChangeEvent;
+    gamutchange: OklchPickerGamutChangeEvent;
+    recentschange: OklchPickerRecentsChangeEvent;
   }
 }
 

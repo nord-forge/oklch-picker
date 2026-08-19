@@ -1,8 +1,10 @@
 <script setup>
+import { SRGB } from "@oklch-picker/core";
+import { P3, REC2020 } from "@oklch-picker/core/gamuts";
 import { ColourPicker } from "@oklch-picker/vue";
 import { ref } from "vue";
 
-const LAYOUTS = ["stacked", "compact", "side-by-side"];
+const LAYOUTS = ["chart", "side-by-side", "compact", "stacked"];
 const PRESETS = [
   "oklch(0.72 0.19 35)",
   "oklch(0.8 0.17 85)",
@@ -13,7 +15,11 @@ const PRESETS = [
 
 // `v-model` writes straight back into this ref.
 const colour = ref("oklch(0.7 0.15 255)");
-const layout = ref("stacked");
+const layout = ref("chart");
+// The output space, not a display setting: picking P3 widens what `v-model`
+// receives, so the emitted string itself changes.
+const gamut = ref(SRGB);
+const GAMUTS = [SRGB, P3, REC2020];
 </script>
 
 <template>
@@ -40,12 +46,21 @@ const layout = ref("stacked");
     </div>
 
     <div class="demo__panel">
-      <ColourPicker v-model="colour" :layout="layout" :presets="PRESETS" />
+      <ColourPicker
+        v-model="colour"
+        :layout="layout"
+        :presets="PRESETS"
+        :gamut="gamut"
+        :gamut-choices="GAMUTS"
+        :parts="{ gamutSwitch: true }"
+        @gamut-change="gamut = $event"
+      />
     </div>
 
     <p class="demo__value">
       <span class="demo__swatch" :style="{ background: colour }" />
       <code class="demo__code">{{ colour }}</code>
+      <span class="demo__note">in {{ gamut.label }}</span>
     </p>
   </main>
 </template>
