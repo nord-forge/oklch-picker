@@ -249,6 +249,85 @@ once directly above the slider that sets one precisely.
 Charts are hidden from assistive tech either way — the sliders are the
 accessible route, and they reach everything a chart can.
 
+### Wider gamuts
+
+The picker works in sRGB by default and ships nothing else. Pass `gamut` to
+work in a wider space instead:
+
+```tsx
+import { P3 } from "@oklch-picker/core/gamuts";
+
+<ColourPicker value={colour} onChange={setColour} gamut={P3} />
+```
+
+That is the **output** space, not decoration: the chroma slider reaches
+further, the value is clamped to P3 rather than sRGB, and the notice only fires
+once a colour leaves P3 too. Choosing P3 and then still emitting an sRGB colour
+would defeat the point of choosing it.
+
+sRGB is outlined on the chart as a reference whenever it is not the output, so
+the safe region stays visible. Override with `references` to draw others, or
+`references={[]}` for none.
+
+`P3` and `REC2020` live behind their own entry point on purpose. An app that
+never imports them never ships the matrices — the bundler drops the module
+statically, so there is no dynamic import and nothing async in the render path.
+Opting in costs a few hundred bytes.
+
+### Letting the user switch
+
+Off by default. Turn it on and the picker renders a small segmented control:
+
+```tsx
+const [gamut, setGamut] = useState(SRGB);
+
+<ColourPicker
+  value={colour}
+  onChange={setColour}
+  gamut={gamut}
+  onGamutChange={setGamut}
+  gamutChoices={[SRGB, P3, REC2020]}
+  parts={{ gamutSwitch: true }}
+/>
+```
+
+`gamutChoices` defaults to the output gamut plus its references. The control
+hides itself when that leaves only one option — one option is not a choice.
+
+### Notices
+
+When a colour falls outside the output gamut the picker says so. The wording
+comes from `labels`, and there are two keys:
+
+- **`outOfGamut`** — the sRGB message, and the fallback for any space with no
+  wording of its own. Defaults to *"Outside sRGB — the nearest sRGB colour is
+  used."*
+- **`outOf:<gamut id>`** — the message for one output space. With `gamut={P3}`
+  the default becomes *"Outside Display P3 — the nearest Display P3 colour is
+  used."*
+
+Every message names its own space rather than saying "outside what a screen can
+display": P3 is a screen too, so that phrasing was only ever true while sRGB
+was the only option.
+
+Override either:
+
+```tsx
+<ColourPicker
+  labels={{
+    outOfGamut: "Not displayable.",
+    "outOf:p3": "Needs a wide-gamut screen.",
+  }}
+/>
+```
+
+Or turn the message off entirely, leaving the maths untouched — the value is
+still clamped, the hatching still shows, only the text goes:
+
+```tsx
+<ColourPicker parts={{ notice: false }} />
+```
+
 ### Hiding parts
 
 Everything except the sliders is optional:
@@ -270,9 +349,13 @@ Everything except the sliders is optional:
 | `value` | `string \| null` | — | `oklch(L C H)` or hex |
 | `onChange` | `(colour: string) => void` | — | Receives a canonical, clamped `oklch(L C H)` |
 | `presets` | `string[]` | — | Swatches shown above the sliders |
-| `layout` | `"stacked" \| "compact" \| "side-by-side" \| "chart"` | `"stacked"` | See [Layouts](#layouts) |
-| `parts` | `{ charts?, preview?, hexInput?, name?, notice?: boolean }` | all `true` | Turn parts off, e.g. `{ charts: false }` |
-| `labels` | `Partial<Record<"l"\|"c"\|"h"\|"outOfGamut", string>>` | English | For translation |
+| `layout` | `"chart" \| "side-by-side" \| "compact" \| "stacked"` | `"chart"` | See [Layouts](#layouts) |
+| `parts` | `{ charts?, preview?, hexInput?, name?, notice?, gamutSwitch?: boolean }` | all `true` except `gamutSwitch` | Turn parts off, e.g. `{ charts: false }` |
+| `labels` | `Partial<Record<LabelKey, string>>` | English | Translation and custom notices — see [Notices](#notices) |
+| `gamut` | `Gamut` | `SRGB` | The output space — clamped and emitted; see [Wider gamuts](#wider-gamuts) |
+| `references` | `Gamut[]` | `[SRGB]` when wider | Spaces outlined on the chart but never clamped to |
+| `gamutChoices` | `Gamut[]` | output + references | What the switcher offers |
+| `onGamutChange` | `(gamut: Gamut) => void` | — | Fired by the built-in switcher |
 | `classPrefix` | `string` | `"oklch-picker"` | Prefix for every class name |
 | `className` | `string` | — | Added to the root element |
 
