@@ -383,6 +383,14 @@ const PARTS = [
     cursor: pointer;
   }
 
+  /* The icon and the label are separate boxes, so the button has to centre
+     them. Without this the icon sits on the text baseline and rides low. */
+  .play__tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
   .play__tab:hover,
   .play__copy:hover {
     color: var(--site-text);
