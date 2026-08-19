@@ -136,7 +136,10 @@ describe("ColourPicker (Svelte)", () => {
 
   test("accepts hex in the hex field", async () => {
     const onchange = vi.fn();
-    render(ColourPicker, { props: { value: "oklch(0.7 0.15 255)", onchange } });
+    // Opt in: hex is off by default since 2.0.
+    render(ColourPicker, {
+      props: { value: "oklch(0.7 0.15 255)", onchange, parts: { hexInput: true } },
+    });
 
     await fireEvent.input(screen.getByLabelText("Hex colour"), { target: { value: "#ff0000" } });
 
@@ -152,7 +155,7 @@ describe("ColourPicker (Svelte)", () => {
     const { container } = render(ColourPicker, {
       props: {
         value: "oklch(0.7 0.15 255)",
-        parts: { charts: false, hexInput: false, name: false, preview: false },
+        parts: { charts: false, oklchInput: false, hexInput: false, name: false, preview: false },
       },
     });
     expect(container.querySelector(".oklch-picker__chart")).toBeNull();
@@ -198,8 +201,10 @@ describe("ColourPicker (Svelte)", () => {
     // One chart, and it sits above the axes rather than inside one of them.
     expect(container.querySelectorAll(".oklch-picker__chart")).toHaveLength(1);
     expect(container.querySelector(".oklch-picker__axis .oklch-picker__chart")).toBeNull();
-    // All three sliders remain.
-    expect(container.querySelectorAll(".oklch-picker__slider")).toHaveLength(3);
+    // The three axes remain. Counting sliders would also catch the alpha one,
+    // which is not an axis.
+    expect(container.querySelectorAll(".oklch-picker__axis")).toHaveLength(4);
+    expect(container.querySelectorAll(".oklch-picker__alpha")).toHaveLength(1);
   });
 
   test("stacked gives every axis its own chart", () => {
@@ -231,7 +236,8 @@ describe("ColourPicker (Svelte)", () => {
       props: { value: "oklch(0.7 0.15 255)", layout: "chart", parts: { charts: false } },
     });
     expect(container.querySelector(".oklch-picker__chart")).toBeNull();
-    expect(container.querySelectorAll(".oklch-picker__slider")).toHaveLength(3);
+    // Three axes plus alpha; charts going away does not remove a slider.
+    expect(container.querySelectorAll(".oklch-picker__slider")).toHaveLength(4);
   });
 
   test("dragging the chart emits a clamped colour", () => {

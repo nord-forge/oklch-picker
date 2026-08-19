@@ -39,6 +39,14 @@
   --okp-thumb: #fff;
   --okp-thumb-line: rgb(0 0 0 / 0.55);
 
+  /* The alpha checkerboard. A close pair rather than the usual white and mid
+     grey: transparency is information, not a warning, so the squares should be
+     legible without pulling the eye off the colour above them. Override both
+     for a louder board. */
+  --okp-alpha-check-light: light-dark(#ffffff, #1c1c1f);
+  --okp-alpha-check-dark: light-dark(#ededed, #2a2a2e);
+  --okp-alpha-check-size: 6px;
+
   display: flex;
   flex-direction: column;
   gap: var(--okp-gap);
@@ -55,10 +63,16 @@
 }
 
 /* ---- Presets ---- */
+/* Below the chart and sliders rather than above them.
+   The root is a flex column, so `order` moves the swatches for all five
+   adapters from one place, rather than each rewriting its markup and drifting.
+   Every other child keeps the default order of 0, so this is the only rule
+   needed: presets and recents sort after them, in that order. */
 .oklch-picker__presets {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  order: 1;
 }
 .oklch-picker__preset {
   width: 24px;
@@ -86,6 +100,9 @@
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+  /* After the presets, which are after the sliders. Recents are history, so
+     they sit furthest from the control. */
+  order: 2;
 }
 .oklch-picker__recent {
   width: 18px;
@@ -205,6 +222,35 @@
   box-shadow: inset 0 0 0 1px var(--okp-line);
   overflow: hidden;
 }
+/* The alpha row sits with the axes, so it inherits their grid and spacing. It
+   is not an axis in the model, only in the layout. */
+.oklch-picker__alpha {
+  order: 0;
+}
+/* The alpha track's checkerboard, under the colour ramp.
+   Deliberately quiet. The out-of-gamut hatching below is loud because it is a
+   warning; transparency is not one, so this only needs to say "what is behind
+   shows through". Two flat greys near the surface colour, no contrast pair,
+   and a 6px cell that reads as texture at the track's 12px height rather than
+   as a pattern competing with the colour on top. */
+.oklch-picker__alpha-check {
+  position: absolute;
+  inset: 0;
+  background-color: var(--okp-alpha-check-light);
+  background-image: conic-gradient(
+    var(--okp-alpha-check-dark) 0deg 90deg,
+    transparent 90deg 180deg,
+    var(--okp-alpha-check-dark) 180deg 270deg,
+    transparent 270deg 360deg
+  );
+  background-size: var(--okp-alpha-check-size) var(--okp-alpha-check-size);
+}
+/* The colour ramp sits over the checkerboard rather than replacing it, so the
+   left end genuinely shows the squares through a transparent colour. */
+.oklch-picker__alpha-ramp {
+  position: absolute;
+  inset: 0;
+}
 /* Diagonal hatching over the part of the axis that leaves sRGB. Lives inside
    the inset fill, so its percentages share the thumb's coordinate space. */
 .oklch-picker__out-of-gamut {
@@ -299,7 +345,38 @@
 .oklch-picker__footer {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
+  /* Last, after the swatch rows. It reads out the current value, so it belongs
+     at the end rather than between the sliders and the palette. */
+  order: 3;
+}
+/* The value fields. `oklch` is the wide one because it is the primary format
+   and its string is the longest; the others size to their content. */
+.oklch-picker__field {
+  height: 26px;
+  padding: 0 8px;
+  border-radius: var(--okp-radius);
+  border: 1px solid var(--okp-line);
+  background: var(--okp-surface);
+  color: var(--okp-text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11.5px;
+  min-width: 0;
+}
+.oklch-picker__field--oklch {
+  flex: 1 1 11rem;
+  max-width: 15rem;
+}
+.oklch-picker__field--rgb {
+  flex: 0 1 9rem;
+}
+.oklch-picker__field--hex {
+  flex: 0 0 92px;
+}
+.oklch-picker__field:focus-visible {
+  outline: 2px solid var(--okp-focus);
+  outline-offset: 2px;
 }
 .oklch-picker__preview {
   width: 34px;

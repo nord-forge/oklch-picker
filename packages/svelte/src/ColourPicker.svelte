@@ -10,9 +10,9 @@ import {
   chartPick,
   colourName,
   emitValue,
-  hexToOklch,
   pickerModel,
   resolveCurrent,
+  toOklch,
   withSingleChart,
 } from "@oklch-picker/core";
 import GamutChart from "./GamutChart.svelte";
@@ -130,6 +130,23 @@ function pick(colour: string) {
   publish(colour);
   commit(colour);
 }
+
+// `toOklch` rather than a per-field parser: a field accepts any supported
+// format whichever one it shows, so pasting a hex into the oklch field works
+// instead of being a rule to learn.
+function editColour(event: Event & { currentTarget: HTMLInputElement }) {
+  const parsed = toOklch(event.currentTarget.value);
+  if (parsed) dial(parsed);
+}
+
+// Fully opaque drops the key rather than storing `a: 1`, so a colour dragged
+// back to opaque emits `oklch(L C H)` and not `oklch(L C H / 1)`. One shape
+// for "opaque", set in one place.
+function slideAlpha(event: Event & { currentTarget: HTMLInputElement }) {
+  const a = Number(event.currentTarget.value);
+  const { a: _drop, ...rest } = model.current;
+  dial(a >= 1 ? rest : { ...rest, a });
+}
 </script>
 
 <div class={[classPrefix, `${classPrefix}--${model.layout}`, className].filter(Boolean).join(" ")}>
@@ -235,6 +252,39 @@ function pick(colour: string) {
         </span>
       </div>
     {/each}
+
+    <!-- Alpha rides with the axes for layout but is not one of them. It has no
+         gamut chart and no hatching, because transparency cannot put a colour
+         outside what a screen can show. -->
+    {#if model.withAlpha}
+      <div class="{classPrefix}__axis {classPrefix}__alpha">
+        <span class="{classPrefix}__axis-head">
+          <span class="{classPrefix}__axis-label" aria-hidden="true">
+            {model.layout === "compact" ? "A" : "Alpha"}
+          </span>
+          <output class="{classPrefix}__axis-value">{model.alpha.value.toFixed(2)}</output>
+        </span>
+
+        <span class="{classPrefix}__track">
+          <span class="{classPrefix}__track-fill">
+            <span class="{classPrefix}__alpha-check"></span>
+            <span class="{classPrefix}__alpha-ramp" style:background={model.alpha.track}></span>
+          </span>
+          <input
+            type="range"
+            class="{classPrefix}__slider"
+            min={model.alpha.min}
+            max={model.alpha.max}
+            step={model.alpha.step}
+            value={model.alpha.value}
+            aria-label="Alpha"
+            oninput={slideAlpha}
+            onpointerup={commitCurrent}
+            onblur={commitCurrent}
+          />
+        </span>
+      </div>
+    {/if}
   </div>
 
   {#if model.withGamutSwitch}
@@ -263,18 +313,40 @@ function pick(colour: string) {
           title={model.clipped ? model.notice : model.canonical}
         ></span>
       {/if}
-      {#if model.parts.hexInput}
-        <!-- Typing a hex passes through half-entered colours, so the commit is
-             leaving the field rather than each keystroke. -->
+      <!-- Every field accepts any supported format, whichever it displays.
+           Pasting a hex into the oklch field works, because refusing it would
+           be a rule the reader has to learn for no benefit. Typing passes
+           through half-entered colours, so the commit is leaving the field
+           rather than each keystroke. -->
+      {#if model.parts.oklchInput}
         <input
-          class="{classPrefix}__hex"
+          class="{classPrefix}__field {classPrefix}__field--oklch"
+          value={model.oklch}
+          spellcheck="false"
+          aria-label="OKLCH colour"
+          oninput={editColour}
+          onblur={commitCurrent}
+        />
+      {/if}
+      {#if model.parts.rgbInput}
+        <input
+          class="{classPrefix}__field {classPrefix}__field--rgb"
+          value={model.rgb}
+          spellcheck="false"
+          aria-label="RGB colour"
+          oninput={editColour}
+          onblur={commitCurrent}
+        />
+      {/if}
+      {#if model.parts.hexInput}
+        <!-- The legacy `__hex` class stays alongside the new one: existing
+             tests and consumer CSS target it. -->
+        <input
+          class="{classPrefix}__field {classPrefix}__field--hex {classPrefix}__hex"
           value={model.hex}
           spellcheck="false"
           aria-label="Hex colour"
-          oninput={(e) => {
-            const parsed = hexToOklch(e.currentTarget.value);
-            if (parsed) dial(parsed);
-          }}
+          oninput={editColour}
           onblur={commitCurrent}
         />
       {/if}

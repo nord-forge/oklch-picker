@@ -10,8 +10,15 @@ export interface Oklch {
   l: number; // 0..1
   c: number; // 0..~0.4 in sRGB
   h: number; // 0..360 degrees
+  /** 0..1, opaque when absent. Optional rather than defaulted so an opaque
+   * colour stays the three-part `oklch(L C H)` it has always been, and so
+   * every existing `{ l, c, h }` literal is still a valid Oklch. */
+  a?: number;
 }
 
+/** The three gamut axes. Alpha is deliberately not one of them: it does not
+ * move a colour in or out of gamut, so it must stay clear of the chart maths,
+ * the clamping, and the reachable-chroma search. It is carried alongside. */
 export type Axis = "l" | "c" | "h";
 
 /** Chroma high enough that no sRGB colour reaches it. This is the bisection's
@@ -37,19 +44,47 @@ function linearToSrgb(v: number): number {
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 const round = (n: number, dp: number) => Number(n.toFixed(dp));
 
-/** Parse `oklch(L C H)`, returning null when the string is not that form. */
+/** Parse `oklch(L C H)` or `oklch(L C H / A)`, returning null otherwise.
+ *
+ * Alpha accepts a fraction or a percentage, matching CSS. It is omitted from
+ * the result when it is 1, so an opaque colour parses to the same three-key
+ * object it always did and nothing downstream has to special-case it. */
 export function parseOklch(value: string | null | undefined): Oklch | null {
   if (!value) return null;
-  const m = value.match(/^oklch\(\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*\)$/i);
+  const m = value.match(
+    /^oklch\(\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*(?:\/\s*([\d.]+)(%?)\s*)?\)$/i,
+  );
   if (!m) return null;
   const [l, c, h] = [Number(m[1]), Number(m[2]), Number(m[3])];
   if (![l, c, h].every(Number.isFinite)) return null;
-  return { l, c, h };
+
+  if (m[4] === undefined) return { l, c, h };
+  const raw = Number(m[4]);
+  if (!Number.isFinite(raw)) return null;
+  const a = clamp(m[5] === "%" ? raw / 100 : raw, 0, 1);
+  return a >= 1 ? { l, c, h } : { l, c, h, a };
 }
 
-/** Format as the `oklch(L C H)` string the API stores. */
-export function formatOklch({ l, c, h }: Oklch): string {
-  return `oklch(${round(l, 4)} ${round(c, 4)} ${round(((h % 360) + 360) % 360, 2)})`;
+/** Format as the `oklch(L C H)` string the API stores, or `oklch(L C H / A)`
+ * when the colour is not opaque.
+ *
+ * An opaque colour keeps the short form. Emitting `/ 1` on every value would
+ * change what every existing app stores for no gain. */
+export function formatOklch(colour: Oklch): string {
+  const { l, c, h } = colour;
+  const base = `${round(l, 4)} ${round(c, 4)} ${round(((h % 360) + 360) % 360, 2)}`;
+  return hasAlpha(colour) ? `oklch(${base} / ${round(colour.a, 4)})` : `oklch(${base})`;
+}
+
+/** Whether a colour carries meaningful transparency. One place to ask, so
+ * "undefined means opaque" is not re-derived at every call site. */
+export function hasAlpha(colour: Oklch): colour is Oklch & { a: number } {
+  return colour.a !== undefined && colour.a < 1;
+}
+
+/** Alpha as a number, treating absent as opaque. */
+export function alphaOf(colour: Oklch): number {
+  return colour.a === undefined ? 1 : clamp(colour.a, 0, 1);
 }
 
 /** OKLCH -> LMS cubes, the half of the transform every gamut shares. */
@@ -160,15 +195,25 @@ export function oklchToHex(colour: Oklch): string {
     clamp(Math.round(linearToSrgb(v) * 255), 0, 255)
       .toString(16)
       .padStart(2, "0");
-  return `#${to255(r)}${to255(g)}${to255(b)}`;
+  const base = `#${to255(r)}${to255(g)}${to255(b)}`;
+  // Eight digits only when there is transparency to carry. An opaque colour
+  // keeps the six-digit form every existing consumer expects.
+  if (!hasAlpha(colour)) return base;
+  const alpha = clamp(Math.round(colour.a * 255), 0, 255)
+    .toString(16)
+    .padStart(2, "0");
+  return `${base}${alpha}`;
 }
 
-/** `#rgb` / `#rrggbb` -> OKLCH. Returns null for anything else. */
+/** `#rgb`, `#rgba`, `#rrggbb` or `#rrggbbaa` to OKLCH. Null for anything else. */
 export function hexToOklch(hex: string): Oklch | null {
-  const m = hex.trim().match(/^#?([0-9a-f]{3}|[0-9a-f]{6})$/i);
+  const m = hex.trim().match(/^#?([0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i);
   if (!m) return null;
   const raw = m[1] as string;
-  const full = raw.length === 3 ? raw.replace(/./g, "$&$&") : raw;
+  const expanded = raw.length <= 4 ? raw.replace(/./g, "$&$&") : raw;
+  const full = expanded.slice(0, 6);
+  // Present only in the 4 and 8 digit forms.
+  const alphaHex = expanded.length === 8 ? expanded.slice(6, 8) : undefined;
   const [r, g, b] = [0, 2, 4].map((i) =>
     srgbToLinear(Number.parseInt(full.slice(i, i + 2), 16) / 255),
   ) as [number, number, number];
@@ -185,13 +230,71 @@ export function hexToOklch(hex: string): Oklch | null {
   let h = (Math.atan2(B, A) * 180) / Math.PI;
   if (h < 0) h += 360;
   // A greyscale colour has no meaningful hue; report 0 rather than atan2 noise.
-  return { l: L, c, h: c < 1e-6 ? 0 : h };
+  const colour: Oklch = { l: L, c, h: c < 1e-6 ? 0 : h };
+
+  if (alphaHex === undefined) return colour;
+  const a = Number.parseInt(alphaHex, 16) / 255;
+  return a >= 1 ? colour : { ...colour, a };
 }
 
-/** Accepts either stored form and returns OKLCH, or null if unparseable. */
+/** The 0..255 sRGB channels for a colour, gamut-clamped. The shared step
+ * behind both the `rgb()` string and the hex one. */
+export function oklchToRgb255(colour: Oklch, gamut: Gamut = SRGB): [number, number, number] {
+  const [r, g, b] = oklchToLinearRgb(clampToGamut(colour, gamut));
+  const to255 = (v: number) => clamp(Math.round(linearToSrgb(v) * 255), 0, 255);
+  return [to255(r), to255(g), to255(b)];
+}
+
+/** Format as `rgb(R G B)`, or `rgb(R G B / A)` when not opaque.
+ *
+ * The space-separated CSS Color 4 form rather than legacy `rgba(...)` commas.
+ * Both are valid CSS and every target browser parses this one, since a browser
+ * without it would not support `oklch()` either. */
+export function formatRgb(colour: Oklch, gamut: Gamut = SRGB): string {
+  const [r, g, b] = oklchToRgb255(colour, gamut);
+  const base = `${r} ${g} ${b}`;
+  return hasAlpha(colour) ? `rgb(${base} / ${round(colour.a, 4)})` : `rgb(${base})`;
+}
+
+/** Parse `rgb()` or `rgba()`, in either the comma or the space form, with an
+ * optional alpha. Channels accept 0..255 or percentages. */
+export function parseRgb(value: string | null | undefined): Oklch | null {
+  if (!value) return null;
+  const m = value
+    .trim()
+    .match(
+      /^rgba?\(\s*([\d.]+)(%?)[\s,]+([\d.]+)(%?)[\s,]+([\d.]+)(%?)\s*(?:[,/]\s*([\d.]+)(%?)\s*)?\)$/i,
+    );
+  if (!m) return null;
+
+  const channel = (raw: string | undefined, pct: string | undefined) => {
+    const n = Number(raw);
+    if (!Number.isFinite(n)) return Number.NaN;
+    return clamp(pct === "%" ? (n / 100) * 255 : n, 0, 255);
+  };
+  const r = channel(m[1], m[2]);
+  const g = channel(m[3], m[4]);
+  const b = channel(m[5], m[6]);
+  if (![r, g, b].every(Number.isFinite)) return null;
+
+  const hex = `#${[r, g, b].map((v) => Math.round(v).toString(16).padStart(2, "0")).join("")}`;
+  const colour = hexToOklch(hex);
+  if (!colour) return null;
+
+  if (m[7] === undefined) return colour;
+  const rawAlpha = Number(m[7]);
+  if (!Number.isFinite(rawAlpha)) return null;
+  const a = clamp(m[8] === "%" ? rawAlpha / 100 : rawAlpha, 0, 1);
+  return a >= 1 ? colour : { ...colour, a };
+}
+
+/** Accepts any supported form and returns OKLCH, or null if unparseable.
+ *
+ * Order matters only for speed, since the three forms cannot be confused: each
+ * parser anchors on its own prefix. */
 export function toOklch(value: string | null | undefined): Oklch | null {
   if (!value) return null;
-  return parseOklch(value) ?? hexToOklch(value);
+  return parseOklch(value) ?? parseRgb(value) ?? hexToOklch(value);
 }
 
 /** Highest chroma that fits in sRGB here. Peaks mid-lightness, collapses to white and black. */

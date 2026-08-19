@@ -9,11 +9,13 @@ import {
   type Gamut,
   type Oklch,
   SRGB,
+  alphaOf,
   axisMax,
   chartColour,
   clampToGamut,
   colourName,
   formatOklch,
+  formatRgb,
   gamutCurve,
   inGamut,
   isLight,
@@ -35,7 +37,18 @@ export const DEFAULT_LAYOUT: PickerLayout = "chart";
 export interface PickerParts {
   charts?: boolean;
   preview?: boolean;
+  /** The editable `oklch()` field. On by default in 1.1. OKLCH is what the
+   * picker works in and what it emits, so it is the field that should lead. */
+  oklchInput?: boolean;
+  /** The editable `rgb()` field. Off by default. */
+  rgbInput?: boolean;
+  /** The editable hex field. Off by default since 1.1, where it used to be on.
+   * Hex cannot express what this picker is for: it is sRGB only, so it cannot
+   * carry a wide-gamut colour at all. */
   hexInput?: boolean;
+  /** The alpha slider. On by default, since OKLCH carries alpha and a picker
+   * that silently drops it would lose part of a value passed in. */
+  alpha?: boolean;
   name?: boolean;
   notice?: boolean;
   /** A control for switching the output gamut. Off by default: most pickers
@@ -50,7 +63,10 @@ export interface PickerParts {
 export const DEFAULT_PARTS: Required<PickerParts> = {
   charts: true,
   preview: true,
-  hexInput: true,
+  oklchInput: true,
+  rgbInput: false,
+  hexInput: false,
+  alpha: true,
   name: true,
   notice: true,
   gamutSwitch: false,
@@ -164,6 +180,42 @@ export function axisModels(current: Oklch, reachable: number): AxisModel[] {
   ];
 }
 
+/** The alpha slider's own model.
+ *
+ * Separate from `axisModels` on purpose. Alpha is not a gamut axis, so giving
+ * it an `Axis` key would let it reach `gamutCurve`, `chartAxes`, `atPosition`
+ * and the clamping, where it means nothing. Adapters render this one after the
+ * three and write back to `a`. */
+export interface AlphaModel {
+  min: number;
+  max: number;
+  step: number;
+  value: number;
+  /** The transparent-to-opaque ramp of the current colour. */
+  track: string;
+}
+
+/** The alpha ramp, transparent to the opaque colour.
+ *
+ * Only the ramp, not the checkerboard behind it. The ramp depends on the
+ * current colour so it has to be computed. The board is fixed presentation and
+ * lives in the stylesheet as `--okp-alpha-check-*`, where a theme can restyle
+ * it without going through the model. */
+export function alphaTrack(current: Oklch, gamut: Gamut = SRGB): string {
+  const solid = oklchToHex(clampToGamut({ ...current, a: 1 }, gamut));
+  return `linear-gradient(to right, transparent, ${solid})`;
+}
+
+export function alphaModel(current: Oklch, gamut: Gamut = SRGB): AlphaModel {
+  return {
+    min: 0,
+    max: 1,
+    step: 0.01,
+    value: alphaOf(current),
+    track: alphaTrack(current, gamut),
+  };
+}
+
 /** What the picker shows before anything is set. A mid blue. */
 export const FALLBACK: Oklch = { l: 0.7, c: 0.13, h: 260 };
 
@@ -233,8 +285,19 @@ export function chartPick(base: Oklch, axis: Axis, x: number, y: number): Oklch 
  * adapter only supplies markup and state. */
 export interface PickerModel {
   current: Oklch;
-  /** Preview swatch colour. */
+  /** Preview swatch colour. Carries an alpha pair of digits when transparent,
+   * so the swatch shows the transparency rather than a lie. */
   hex: string;
+  /** The current colour as `rgb()`, for `parts.rgbInput`. */
+  rgb: string;
+  /** The current colour as `oklch()`, for `parts.oklchInput`. The same string
+   * as `canonical`, named for the field it fills. */
+  oklch: string;
+  /** The alpha slider, when `parts.alpha` is on. Alpha is not a gamut axis, so
+   * it sits beside `axes` rather than in it. */
+  alpha: AlphaModel;
+  /** Whether the alpha slider should render. */
+  withAlpha: boolean;
   /** The value that would be emitted for `current`. */
   canonical: string;
   /** True when `current` is outside sRGB, so the notice and title apply. */
@@ -340,6 +403,10 @@ export function pickerModel(current: Oklch, options: PickerOptions = {}): Picker
     gamutChoices: withGamutSwitch ? gamutChoices : [],
     withGamutSwitch,
     hex: oklchToHex(current),
+    rgb: formatRgb(current, gamut),
+    oklch: emitValue(current, gamut),
+    alpha: alphaModel(current, gamut),
+    withAlpha: parts.alpha,
     canonical: emitValue(current, gamut),
     clipped,
     notice,
@@ -354,7 +421,7 @@ export function pickerModel(current: Oklch, options: PickerOptions = {}): Picker
     parts,
     layout,
     withCharts,
-    withFooter: parts.preview || parts.hexInput || parts.name,
+    withFooter: parts.preview || parts.oklchInput || parts.rgbInput || parts.hexInput || parts.name,
   };
 }
 

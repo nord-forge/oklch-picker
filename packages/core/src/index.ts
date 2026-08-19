@@ -7,6 +7,7 @@
  * server, generate palettes, or name colours in a table.
  */
 export {
+  alphaOf,
   axisMax,
   CHART_MAX_CHROMA,
   SRGB,
@@ -15,14 +16,18 @@ export {
   clampToGamut,
   colourName,
   formatOklch,
+  formatRgb,
   gamutCurve,
+  hasAlpha,
   hexToOklch,
   inGamut,
   isLight,
   MAX_CHROMA,
   maxChroma,
   oklchToHex,
+  oklchToRgb255,
   parseOklch,
+  parseRgb,
   toOklch,
 } from "./colour.js";
 export type { Axis, Gamut, GamutColumn, Oklch } from "./colour.js";

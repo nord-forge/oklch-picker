@@ -25,9 +25,9 @@ import {
   colourName,
   emitValue,
   gamutChartModel,
-  hexToOklch,
   pickerModel,
   resolveCurrent,
+  toOklch,
   withSingleChart,
 } from "@oklch-picker/core";
 
@@ -168,7 +168,11 @@ export class OklchPickerElement extends HTMLElement {
   /** The `chart` layout's single plot, above the axes rather than inside one. */
   #chart: ChartNodes | undefined;
   #gamutButtons: { button: HTMLButtonElement; gamut: Gamut }[] = [];
+  /** The alpha row's mutable parts. Built once like every other row. */
+  #alphaRow: { output: HTMLOutputElement; ramp: HTMLElement; slider: HTMLInputElement } | undefined;
   #preview: HTMLElement | undefined;
+  #oklchField: HTMLInputElement | undefined;
+  #rgbField: HTMLInputElement | undefined;
   #hex: HTMLInputElement | undefined;
   #name: HTMLElement | undefined;
   #notice: HTMLParagraphElement | undefined;
@@ -478,7 +482,10 @@ export class OklchPickerElement extends HTMLElement {
     this.#gamutButtons = [];
     this.#rows = [];
     this.#chart = undefined;
+    this.#alphaRow = undefined;
     this.#preview = undefined;
+    this.#oklchField = undefined;
+    this.#rgbField = undefined;
     this.#hex = undefined;
     this.#name = undefined;
     this.#notice = undefined;
@@ -593,6 +600,47 @@ export class OklchPickerElement extends HTMLElement {
         slider,
       });
     }
+
+    // Alpha rides with the axes for layout but is not one of them. No chart and
+    // no hatching, because transparency cannot put a colour out of gamut.
+    if (model.withAlpha) {
+      const root = el("div", `${p}__axis ${p}__alpha`);
+      const head = el("span", `${p}__axis-head`);
+      const label = el("span", `${p}__axis-label`);
+      label.setAttribute("aria-hidden", "true");
+      label.textContent = model.layout === "compact" ? "A" : "Alpha";
+      const output = el("output", `${p}__axis-value`);
+      head.append(label, output);
+
+      const track = el("span", `${p}__track`);
+      const fill = el("span", `${p}__track-fill`);
+      const check = el("span", `${p}__alpha-check`);
+      const ramp = el("span", `${p}__alpha-ramp`);
+      fill.append(check, ramp);
+
+      const slider = el("input", `${p}__slider`);
+      slider.type = "range";
+      slider.min = String(model.alpha.min);
+      slider.max = String(model.alpha.max);
+      slider.step = String(model.alpha.step);
+      slider.setAttribute("aria-label", "Alpha");
+      slider.addEventListener("input", () => {
+        const a = Number(slider.value);
+        // Opaque drops the key rather than storing `a: 1`, so one shape means
+        // opaque everywhere.
+        const { a: _drop, ...rest } = this.#currentColour();
+        this.#emit(a >= 1 ? rest : { ...rest, a });
+      });
+      slider.addEventListener("pointerup", this.#commitCurrent);
+      slider.addEventListener("blur", this.#commitCurrent);
+      this.#contain(slider);
+
+      track.append(fill, slider);
+      root.append(head, track);
+      axes.append(root);
+      this.#alphaRow = { output, ramp, slider };
+    }
+
     this.append(axes);
 
     if (model.withGamutSwitch) {
@@ -617,21 +665,29 @@ export class OklchPickerElement extends HTMLElement {
         this.#preview = el("span", `${p}__preview`);
         footer.append(this.#preview);
       }
-      if (model.parts.hexInput) {
-        const hex = el("input", `${p}__hex`);
-        hex.spellcheck = false;
-        hex.setAttribute("aria-label", "Hex colour");
-        hex.addEventListener("input", () => {
-          const parsed = hexToOklch(hex.value);
+      // One factory for all three fields. Each accepts any supported format
+      // whichever one it displays, so `toOklch` parses rather than a
+      // per-field parser: pasting a hex into the oklch field should work.
+      const field = (kind: "oklch" | "rgb" | "hex", label: string) => {
+        const input = el("input", `${p}__field ${p}__field--${kind}`);
+        if (kind === "hex") input.classList.add(`${p}__hex`);
+        input.spellcheck = false;
+        input.setAttribute("aria-label", label);
+        input.addEventListener("input", () => {
+          const parsed = toOklch(input.value);
           if (parsed) this.#emit(parsed);
         });
-        // Typing a hex passes through half-entered colours, so the commit is
-        // leaving the field rather than each keystroke.
-        hex.addEventListener("blur", this.#commitCurrent);
-        this.#contain(hex);
-        footer.append(hex);
-        this.#hex = hex;
-      }
+        // Typing passes through half-entered colours, so the commit is leaving
+        // the field rather than each keystroke.
+        input.addEventListener("blur", this.#commitCurrent);
+        this.#contain(input);
+        footer.append(input);
+        return input;
+      };
+
+      if (model.parts.oklchInput) this.#oklchField = field("oklch", "OKLCH colour");
+      if (model.parts.rgbInput) this.#rgbField = field("rgb", "RGB colour");
+      if (model.parts.hexInput) this.#hex = field("hex", "Hex colour");
       if (model.parts.name) {
         this.#name = el("span", `${p}__name`);
         footer.append(this.#name);
@@ -765,7 +821,21 @@ export class OklchPickerElement extends HTMLElement {
       attr(this.#preview, "title", model.clipped ? model.notice : model.canonical);
     }
     // Never overwrite what is being typed. A half-entered hex is not a colour.
-    if (this.#hex && this.#hex !== this.ownerDocument.activeElement) this.#hex.value = model.hex;
+    if (this.#alphaRow) {
+      this.#alphaRow.output.textContent = model.alpha.value.toFixed(2);
+      this.#alphaRow.ramp.style.background = model.alpha.track;
+      // Same rule as the axis sliders: do not fight a drag in progress.
+      if (this.#alphaRow.slider !== this.ownerDocument.activeElement) {
+        this.#alphaRow.slider.value = String(model.alpha.value);
+      }
+    }
+
+    // Never overwrite the field being typed in. Re-rendering a half-entered
+    // value under the caret would fight the person editing it.
+    const active = this.ownerDocument.activeElement;
+    if (this.#oklchField && this.#oklchField !== active) this.#oklchField.value = model.oklch;
+    if (this.#rgbField && this.#rgbField !== active) this.#rgbField.value = model.rgb;
+    if (this.#hex && this.#hex !== active) this.#hex.value = model.hex;
     if (this.#name) this.#name.textContent = model.name;
     if (this.#notice) {
       this.#notice.textContent = model.notice;

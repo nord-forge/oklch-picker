@@ -133,8 +133,9 @@ describe("<oklch-picker>", () => {
     expect(picker.querySelectorAll(".oklch-picker__preset")).toHaveLength(2);
   });
 
+  // Opt in: hex is off by default since 2.0.
   test("accepts hex in the hex field", () => {
-    const picker = mount({ value: "oklch(0.7 0.15 255)" });
+    const picker = mount({ value: "oklch(0.7 0.15 255)", parts: '{"hexInput": true}' });
     const seen: string[] = [];
     picker.addEventListener("change", (e) => seen.push((e as CustomEvent).detail.colour));
 
@@ -154,7 +155,7 @@ describe("<oklch-picker>", () => {
   test("parts can be turned off with a JSON attribute", () => {
     const picker = mount({
       value: "oklch(0.7 0.15 255)",
-      parts: '{"charts":false,"hexInput":false,"name":false,"preview":false}',
+      parts: '{"charts":false,"oklchInput":false,"hexInput":false,"name":false,"preview":false}',
     });
     expect(picker.querySelector(".oklch-picker__chart")).toBeNull();
     expect(picker.querySelector(".oklch-picker__hex")).toBeNull();
@@ -193,8 +194,10 @@ describe("<oklch-picker>", () => {
     // One chart, and it sits above the axes rather than inside one of them.
     expect(picker.querySelectorAll(".oklch-picker__chart")).toHaveLength(1);
     expect(picker.querySelector(".oklch-picker__axis .oklch-picker__chart")).toBeNull();
-    // All three sliders remain.
-    expect(picker.querySelectorAll(".oklch-picker__slider")).toHaveLength(3);
+    // The three axes remain, plus alpha. Counting sliders alone would also
+    // catch the alpha one, which is not an axis.
+    expect(picker.querySelectorAll(".oklch-picker__axis")).toHaveLength(4);
+    expect(picker.querySelectorAll(".oklch-picker__alpha")).toHaveLength(1);
   });
 
   test("stacked gives every axis its own chart", () => {
@@ -224,7 +227,8 @@ describe("<oklch-picker>", () => {
       parts: '{"charts":false}',
     });
     expect(picker.querySelector(".oklch-picker__chart")).toBeNull();
-    expect(picker.querySelectorAll(".oklch-picker__slider")).toHaveLength(3);
+    // Three axes plus alpha; dropping charts does not drop a slider.
+    expect(picker.querySelectorAll(".oklch-picker__slider")).toHaveLength(4);
   });
 
   test("dragging the chart emits a clamped colour", () => {
