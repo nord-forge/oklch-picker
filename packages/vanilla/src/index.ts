@@ -1,4 +1,4 @@
 export { OklchPickerElement, register } from "./picker.js";
-export type { OklchPickerChangeEvent } from "./picker.js";
-export type { PickerLayout, PickerParts } from "@oklch-picker/core";
-export type { Axis, Oklch } from "@oklch-picker/core";
+export type { OklchPickerChangeEvent, OklchPickerGamutChangeEvent } from "./picker.js";
+export type { LabelKey, PickerLayout, PickerParts } from "@oklch-picker/core";
+export type { Axis, Gamut, Oklch } from "@oklch-picker/core";

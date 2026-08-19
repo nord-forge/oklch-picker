@@ -6,7 +6,9 @@
 import {
   type Axis,
   CHART_PLANES,
+  type Gamut,
   type Oklch,
+  SRGB,
   axisMax,
   chartColour,
   clampToGamut,
@@ -35,6 +37,10 @@ export interface PickerParts {
   hexInput?: boolean;
   name?: boolean;
   notice?: boolean;
+  /** A control for switching the output gamut. Off by default: most pickers
+   * target one space, and offering the choice only makes sense when the app
+   * has said which spaces are on offer. */
+  gamutSwitch?: boolean;
 }
 
 export const DEFAULT_PARTS: Required<PickerParts> = {
@@ -43,14 +49,39 @@ export const DEFAULT_PARTS: Required<PickerParts> = {
   hexInput: true,
   name: true,
   notice: true,
+  gamutSwitch: false,
 };
+
+/** Label keys: the three axes, plus one notice per gamut the colour can land
+ * outside of. `outOfGamut` is the fallback used when no wider gamut is
+ * configured, or when the colour is outside all of them. */
+export type LabelKey = Axis | "outOfGamut" | `outOf:${string}`;
 
 export const DEFAULT_LABELS: Record<Axis | "outOfGamut", string> = {
   l: "Lightness",
   c: "Chroma",
   h: "Hue",
-  outOfGamut: "Outside what a screen can display — the nearest colour is used.",
+  // Names sRGB rather than "what a screen can display": the picker can target
+  // P3, which is also a screen, so the generic phrasing was only true while
+  // sRGB was the only option.
+  outOfGamut: "Outside sRGB — the nearest sRGB colour is used.",
 };
+
+/** Per-gamut notice key, so `labels` can word the message for one output space
+ * without touching the others — `{ "outOf:p3": "…" }`. */
+export function gamutNoticeKey(gamut: Gamut): `outOf:${string}` {
+  return `outOf:${gamut.id}`;
+}
+
+/** Default wording for a colour the output gamut cannot show. Every space names
+ * itself: once the picker can target P3, "what a screen can display" is no
+ * longer true of sRGB alone. */
+export function defaultOutOfGamutNotice(gamut: Gamut, fallback: string): string {
+  // sRGB defers to `labels.outOfGamut` so a translation or an override of that
+  // one key still wins; every other space words itself from its own label.
+  if (gamut.id === SRGB.id) return fallback;
+  return `Outside ${gamut.label} — the nearest ${gamut.label} colour is used.`;
+}
 
 /** The colour at fraction t along one axis, the other axes held. */
 export function atPosition(base: Oklch, axis: Axis, t: number, max: number): Oklch {
@@ -60,11 +91,11 @@ export function atPosition(base: Oklch, axis: Axis, t: number, max: number): Okl
 }
 
 /** CSS background for a slider track, sampled along the axis. */
-export function trackGradient(base: Oklch, axis: Axis, max: number): string {
+export function trackGradient(base: Oklch, axis: Axis, max: number, gamut: Gamut = SRGB): string {
   const steps = axis === "h" ? 24 : 16;
   const stops: string[] = [];
   for (let i = 0; i <= steps; i++) {
-    stops.push(oklchToHex(clampToGamut(atPosition(base, axis, i / steps, max))));
+    stops.push(oklchToHex(clampToGamut(atPosition(base, axis, i / steps, max), gamut)));
   }
   return `linear-gradient(to right, ${stops.join(",")})`;
 }
@@ -75,13 +106,13 @@ export interface Span {
 }
 
 /** Every out-of-gamut run, as 0..1 fractions — an axis can be unreachable at both ends. */
-export function outOfGamutSpans(base: Oklch, axis: Axis, max: number): Span[] {
+export function outOfGamutSpans(base: Oklch, axis: Axis, max: number, gamut: Gamut = SRGB): Span[] {
   const steps = 64;
   const spans: Span[] = [];
   let run: number | null = null;
   for (let i = 0; i <= steps; i++) {
     const t = i / steps;
-    const bad = !inGamut(atPosition(base, axis, t, max));
+    const bad = !inGamut(atPosition(base, axis, t, max), gamut);
     if (bad && run === null) run = t;
     if (!bad && run !== null) {
       spans.push({ start: run, end: t });
@@ -118,15 +149,19 @@ export const FALLBACK: Oklch = { l: 0.7, c: 0.13, h: 260 };
  * emitted, otherwise the stored value. Dragging through an out-of-gamut region
  * clamps what is emitted, and without this the other axes would be destroyed by
  * reading that clamped value back. */
-export function resolveCurrent(draft: Oklch | null, value: string | null | undefined): Oklch {
+export function resolveCurrent(
+  draft: Oklch | null,
+  value: string | null | undefined,
+  gamut: Gamut = SRGB,
+): Oklch {
   const stored = toOklch(value) ?? FALLBACK;
-  if (draft && formatOklch(clampToGamut(draft)) === formatOklch(stored)) return draft;
+  if (draft && formatOklch(clampToGamut(draft, gamut)) === formatOklch(stored)) return draft;
   return stored;
 }
 
 /** The canonical, gamut-clamped string to emit for a dialled colour. */
-export function emitValue(next: Oklch): string {
-  return formatOklch(clampToGamut(next));
+export function emitValue(next: Oklch, gamut: Gamut = SRGB): string {
+  return formatOklch(clampToGamut(next, gamut));
 }
 
 /** The single input a chart's curve depends on, for memoisation. A chart sweeps
@@ -159,9 +194,9 @@ export function chartAxes(layout: PickerLayout): Axis[] {
 
 /** Where the current colour sits in one chart's slice plane, 0..1 on each
  * screen axis with y measured bottom-up. */
-export function chartSlot(current: Oklch, axis: Axis): ChartSlot {
+export function chartSlot(current: Oklch, axis: Axis, gamut: Gamut = SRGB): ChartSlot {
   const { x, y } = CHART_PLANES[axis];
-  const at = (a: Axis) => Math.min(1, Math.max(0, current[a] / axisMax(a)));
+  const at = (a: Axis) => Math.min(1, Math.max(0, current[a] / axisMax(a, gamut)));
   return { axis, key: chartKey(current, axis), x: at(x), y: at(y) };
 }
 
@@ -182,6 +217,18 @@ export interface PickerModel {
   canonical: string;
   /** True when `current` is outside sRGB, so the notice and title apply. */
   clipped: boolean;
+  /** The message to show while clipped, already resolved against `labels` and
+   * any wider gamut that contains the colour. Empty when not clipped. */
+  notice: string;
+  /** The output space: what is clamped, emitted, and measured against. */
+  gamut: Gamut;
+  /** Spaces drawn as reference outlines but never clamped to. */
+  references: Gamut[];
+  /** The spaces the switcher offers, in order. Empty when it is off, or when
+   * fewer than two were given — one option is not a choice. */
+  gamutChoices: Gamut[];
+  /** Whether the gamut switcher should render. */
+  withGamutSwitch: boolean;
   /** Whether the text over the preview swatch should be dark. */
   light: boolean;
   name: string;
@@ -194,7 +241,7 @@ export interface PickerModel {
   spans: Span[][];
   /** Per-axis slider track backgrounds, aligned with `axes`. */
   gradients: string[];
-  labels: Record<Axis | "outOfGamut", string>;
+  labels: Record<Axis | "outOfGamut", string> & Partial<Record<string, string>>;
   parts: Required<PickerParts>;
   layout: PickerLayout;
   /** Whether charts should render at all — `compact` has no room for them. */
@@ -217,32 +264,70 @@ export interface ChartSlot {
 export interface PickerOptions {
   layout?: PickerLayout | undefined;
   parts?: PickerParts | undefined;
-  labels?: Partial<Record<Axis | "outOfGamut", string>> | undefined;
+  labels?: Partial<Record<LabelKey, string>> | undefined;
+  /** The output space. Everything follows it: the sliders' reach, what is
+   * clamped and emitted, and what the notice measures against. Defaults to
+   * sRGB. Import wider spaces from `@oklch-picker/core/gamuts` — omitting this
+   * ships none of that code. */
+  gamut?: Gamut | undefined;
+  /** Extra spaces to outline on the charts without clamping to them. Defaults
+   * to sRGB whenever `gamut` is wider, so the safe region stays visible. */
+  references?: Gamut[] | undefined;
+  /** Spaces the built-in switcher offers, when `parts.gamutSwitch` is on.
+   * Defaults to the output gamut plus its references, deduplicated. */
+  gamutChoices?: Gamut[] | undefined;
 }
 
 /** Derive a whole picker from the current colour. Pure — call it per render. */
 export function pickerModel(current: Oklch, options: PickerOptions = {}): PickerModel {
-  const labels = { ...DEFAULT_LABELS, ...options.labels };
+  const labels = { ...DEFAULT_LABELS, ...options.labels } as PickerModel["labels"];
   const parts = { ...DEFAULT_PARTS, ...options.parts };
   const layout = options.layout ?? DEFAULT_LAYOUT;
   // Compact has no room for charts; skip computing them, not just hiding them.
   const withCharts = parts.charts && layout !== "compact";
 
-  const reachable = maxChroma(current.l, current.h);
+  // The one space everything agrees on: what the sliders reach, what is
+  // clamped and emitted, and what the notice is measured against. Choosing P3
+  // here means a P3 colour is emitted rather than flagged and thrown away.
+  const gamut = options.gamut ?? SRGB;
+  const reachable = maxChroma(current.l, current.h, gamut);
   const axes = axisModels(current, reachable);
+  const clipped = !inGamut(current, gamut);
+
+  // Reference spaces are drawn but never clamped to. sRGB earns a line
+  // whenever it is not itself the output, so a wider picker still shows where
+  // the safe region ends.
+  const references = options.references ?? (gamut === SRGB ? [] : [SRGB]);
+
+  const notice = clipped
+    ? (labels[gamutNoticeKey(gamut)] ?? defaultOutOfGamutNotice(gamut, labels.outOfGamut))
+    : "";
+
+  // Narrowest-first, and deduplicated by id so passing sRGB as both the output
+  // and a reference does not offer it twice.
+  const offered = options.gamutChoices ?? [...references, gamut];
+  const seen = new Set<string>();
+  const gamutChoices = offered.filter((g) => !seen.has(g.id) && seen.add(g.id));
+  // One option is not a choice, so the control needs at least two.
+  const withGamutSwitch = parts.gamutSwitch && gamutChoices.length > 1;
 
   return {
     current,
+    gamut,
+    references,
+    gamutChoices: withGamutSwitch ? gamutChoices : [],
+    withGamutSwitch,
     hex: oklchToHex(current),
-    canonical: emitValue(current),
-    clipped: !inGamut(current),
+    canonical: emitValue(current, gamut),
+    clipped,
+    notice,
     light: isLight(current),
-    name: colourName(emitValue(current)),
+    name: colourName(emitValue(current, gamut)),
     reachable,
     axes,
-    charts: withCharts ? chartAxes(layout).map((axis) => chartSlot(current, axis)) : [],
-    spans: axes.map((a) => outOfGamutSpans(current, a.key, a.max)),
-    gradients: axes.map((a) => trackGradient(current, a.key, a.max)),
+    charts: withCharts ? chartAxes(layout).map((axis) => chartSlot(current, axis, gamut)) : [],
+    spans: axes.map((a) => outOfGamutSpans(current, a.key, a.max, gamut)),
+    gradients: axes.map((a) => trackGradient(current, a.key, a.max, gamut)),
     labels,
     parts,
     layout,
@@ -260,16 +345,47 @@ export interface GamutChartModel {
   path: string;
   /** Gradient stops: offset in percent, colour already gamut-clamped. */
   stops: { offset: number; hex: string }[];
+  /** One outline per wider gamut, in the order given. Empty unless `gamuts`
+   * was passed, so an app that never opts in draws exactly what it did. */
+  boundaries: { id: string; path: string }[];
 }
 
 /** The curve and gradient of one gamut chart, in CHART_W x CHART_H viewBox
  * units. The curve is plotted on the vertical axis' own scale, not normalised
  * to its peak: the crosshair is positioned on that same scale, so rescaling
  * here would drift the two apart. */
-export function gamutChartModel(base: Oklch, axis: Axis, resolution = 64): GamutChartModel {
+export function gamutChartModel(
+  base: Oklch,
+  axis: Axis,
+  resolution = 64,
+  gamuts: Gamut[] = [],
+): GamutChartModel {
   const cols = gamutCurve(base, axis, resolution);
-  const path = cols
-    .map((c) => `${(c.t * CHART_W).toFixed(2)},${(CHART_H - c.c * CHART_H).toFixed(2)}`)
-    .join(" L");
-  return { path, stops: cols.map((c) => ({ offset: c.t * 100, hex: c.hex })) };
+  const toPath = (points: { t: number; c: number }[]) =>
+    points
+      .map((c) => `${(c.t * CHART_W).toFixed(2)},${(CHART_H - c.c * CHART_H).toFixed(2)}`)
+      .join(" L");
+
+  // A wider gamut's curve is measured in its own space but must be drawn on
+  // this chart's scale, so the outline sits above the filled region rather
+  // than being renormalised back onto it. Only a chroma-vertical plane needs
+  // that conversion: `gamutCurve` already divides chroma by the chart scale,
+  // whereas a lightness-vertical column is a plain 0..1 fraction of an axis
+  // that every gamut shares. Anything past the top is clipped to it.
+  const rescale = CHART_PLANES[axis].y === "c";
+  const boundaries = gamuts.map((g) => ({
+    id: g.id,
+    path: toPath(
+      gamutCurve(base, axis, resolution, g).map((c) => ({
+        t: c.t,
+        c: rescale ? Math.min(1, c.c) : c.c,
+      })),
+    ),
+  }));
+
+  return {
+    path: toPath(cols),
+    stops: cols.map((c) => ({ offset: c.t * 100, hex: c.hex })),
+    boundaries,
+  };
 }

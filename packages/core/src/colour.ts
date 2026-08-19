@@ -51,22 +51,61 @@ export function formatOklch({ l, c, h }: Oklch): string {
   return `oklch(${round(l, 4)} ${round(c, 4)} ${round(((h % 360) + 360) % 360, 2)})`;
 }
 
-/** OKLCH -> linear sRGB channels (may fall outside 0..1 when out of gamut). */
-function oklchToLinearRgb({ l, c, h }: Oklch): [number, number, number] {
+/** OKLCH -> LMS cubes, the half of the transform every gamut shares. */
+export function oklchToLms({ l, c, h }: Oklch): [number, number, number] {
   const hr = (h * Math.PI) / 180;
   const A = c * Math.cos(hr);
   const B = c * Math.sin(hr);
 
-  const l_ = (l + 0.3963377774 * A + 0.2158037573 * B) ** 3;
-  const m_ = (l - 0.1055613458 * A - 0.0638541728 * B) ** 3;
-  const s_ = (l - 0.0894841775 * A - 1.291485548 * B) ** 3;
+  return [
+    (l + 0.3963377774 * A + 0.2158037573 * B) ** 3,
+    (l - 0.1055613458 * A - 0.0638541728 * B) ** 3,
+    (l - 0.0894841775 * A - 1.291485548 * B) ** 3,
+  ];
+}
 
+/** A colour space the picker can test against and draw a boundary for.
+ *
+ * Only sRGB ships with the core. Wider gamuts live in `@oklch-picker/core/
+ * gamuts` as plain data, so an app that never imports them never pays for
+ * them — the bundler drops the module statically, with no dynamic import and
+ * no async boundary in the render path. */
+export interface Gamut {
+  /** Stable id, used for the CSS class on its boundary line. */
+  id: string;
+  /** Shown in the out-of-gamut notice. */
+  label: string;
+  /** LMS cubes -> that space's linear channels. */
+  fromLms: (lms: [number, number, number]) => [number, number, number];
+  /** Chroma this space cannot reach, as the bisection's upper bound. Must sit
+   * above the space's true peak or the boundary is silently clipped — Rec. 2020
+   * reaches ~0.464, well past what sRGB needs. */
+  maxChroma: number;
+  /** Chart scale: the space's own reachable peak, rounded up. */
+  chartMaxChroma: number;
+}
+
+function lmsToLinearSrgb([l_, m_, s_]: [number, number, number]): [number, number, number] {
   return [
     4.0767416621 * l_ - 3.3077115913 * m_ + 0.2309699292 * s_,
     -1.2684380046 * l_ + 2.6097574011 * m_ - 0.3413193965 * s_,
     -0.0041960863 * l_ - 0.7034186147 * m_ + 1.707614701 * s_,
   ];
 }
+
+/** OKLCH -> linear sRGB channels (may fall outside 0..1 when out of gamut). */
+function oklchToLinearRgb(colour: Oklch): [number, number, number] {
+  return lmsToLinearSrgb(oklchToLms(colour));
+}
+
+/** sRGB — what the picker clamps to, and the only gamut bundled by default. */
+export const SRGB: Gamut = {
+  id: "srgb",
+  label: "sRGB",
+  fromLms: lmsToLinearSrgb,
+  maxChroma: MAX_CHROMA,
+  chartMaxChroma: CHART_MAX_CHROMA,
+};
 
 /** True when the colour is representable in sRGB (within a small tolerance).
  *
@@ -82,35 +121,35 @@ function oklchToLinearRgb({ l, c, h }: Oklch): [number, number, number] {
  * `#000000`, indistinguishable from the achromatic colour. Requiring a
  * distinguishable channel is what makes the gamut close to a point at black
  * rather than reporting a width that no screen can show. */
-export function inGamut(colour: Oklch): boolean {
+export function inGamut(colour: Oklch, gamut: Gamut = SRGB): boolean {
   const eps = 0.1 / 255;
-  const rgb = oklchToLinearRgb(colour);
+  const rgb = gamut.fromLms(oklchToLms(colour));
   if (!rgb.every((v) => linearToSrgb(v) >= -eps && linearToSrgb(v) <= 1 + eps)) return false;
   if (colour.c === 0) return true;
 
   // Distinguishable from grey at the same lightness once quantised to 8 bits?
   const to255 = (v: number) => Math.round(clamp(linearToSrgb(v), 0, 1) * 255);
-  const grey = oklchToLinearRgb({ ...colour, c: 0 }).map(to255);
+  const grey = gamut.fromLms(oklchToLms({ ...colour, c: 0 })).map(to255);
   return rgb.map(to255).some((v, i) => v !== grey[i]);
 }
 
-/** Highest chroma <= hi that fits sRGB at this lightness and hue. Chroma is
- * monotonic for gamut membership at fixed L and H, so bisect. */
-function bisectChroma(l: number, h: number, upper: number): number {
+/** Highest chroma <= hi that fits the gamut at this lightness and hue. Chroma
+ * is monotonic for gamut membership at fixed L and H, so bisect. */
+function bisectChroma(l: number, h: number, upper: number, gamut: Gamut = SRGB): number {
   let lo = 0;
   let hi = upper;
   for (let i = 0; i < 20; i++) {
     const mid = (lo + hi) / 2;
-    if (inGamut({ l, c: mid, h })) lo = mid;
+    if (inGamut({ l, c: mid, h }, gamut)) lo = mid;
     else hi = mid;
   }
   return lo;
 }
 
-/** Reduce chroma until the colour fits sRGB, keeping lightness and hue. */
-export function clampToGamut(colour: Oklch): Oklch {
-  if (inGamut(colour)) return colour;
-  return { ...colour, c: bisectChroma(colour.l, colour.h, colour.c) };
+/** Reduce chroma until the colour fits the gamut, keeping lightness and hue. */
+export function clampToGamut(colour: Oklch, gamut: Gamut = SRGB): Oklch {
+  if (inGamut(colour, gamut)) return colour;
+  return { ...colour, c: bisectChroma(colour.l, colour.h, colour.c, gamut) };
 }
 
 /** OKLCH -> `#rrggbb`. Out-of-gamut colours are clamped first. */
@@ -155,8 +194,8 @@ export function toOklch(value: string | null | undefined): Oklch | null {
 }
 
 /** Highest chroma that fits in sRGB here. Peaks mid-lightness, collapses to white and black. */
-export function maxChroma(l: number, h: number): number {
-  return bisectChroma(l, h, MAX_CHROMA);
+export function maxChroma(l: number, h: number, gamut: Gamut = SRGB): number {
+  return bisectChroma(l, h, gamut.maxChroma, gamut);
 }
 
 /** One column of a gamut chart: where along the axis, and how far it reaches. */
@@ -183,20 +222,26 @@ export const CHART_PLANES: Record<Axis, { x: Axis; y: Axis }> = {
  *
  * The curve, the crosshair, and a drag all read this, so it is the one place
  * the chart's scale is decided — change it here or they desync. */
-export function axisMax(axis: Axis): number {
+export function axisMax(axis: Axis, gamut: Gamut = SRGB): number {
   if (axis === "h") return 360;
-  if (axis === "c") return CHART_MAX_CHROMA;
+  if (axis === "c") return gamut.chartMaxChroma;
   return 1;
 }
 
 /** The colour at a point in a chart's slice plane, with `fixed` held from
  * `base`. `x` and `y` are 0..1 across the plot, y measured bottom-up. */
-export function chartColour(base: Oklch, fixed: Axis, x: number, y: number): Oklch {
+export function chartColour(
+  base: Oklch,
+  fixed: Axis,
+  x: number,
+  y: number,
+  gamut: Gamut = SRGB,
+): Oklch {
   const { x: xAxis, y: yAxis } = CHART_PLANES[fixed];
   return {
     ...base,
-    [xAxis]: x * axisMax(xAxis),
-    [yAxis]: y * axisMax(yAxis),
+    [xAxis]: x * axisMax(xAxis, gamut),
+    [yAxis]: y * axisMax(yAxis, gamut),
   } as Oklch;
 }
 
@@ -207,27 +252,32 @@ export function chartColour(base: Oklch, fixed: Axis, x: number, y: number): Okl
  * vertical axis is lightness, where the in-gamut run is a band with both a
  * floor and a ceiling, so the column reports the ceiling and the fill is read
  * from the gradient beneath it. */
-export function gamutCurve(base: Oklch, fixed: Axis, columns = 64): GamutColumn[] {
+export function gamutCurve(
+  base: Oklch,
+  fixed: Axis,
+  columns = 64,
+  gamut: Gamut = SRGB,
+): GamutColumn[] {
   const { x: xAxis, y: yAxis } = CHART_PLANES[fixed];
   const out: GamutColumn[] = [];
-  const yScale = axisMax(yAxis);
+  const yScale = axisMax(yAxis, gamut);
 
   for (let i = 0; i <= columns; i++) {
     const t = i / columns;
-    const at = (y: number) => chartColour(base, fixed, t, y);
+    const at = (y: number) => chartColour(base, fixed, t, y, gamut);
 
     let c: number;
     if (yAxis === "c") {
       // Chroma vertical: the boundary is the reachable chroma at this column.
       const probe = at(0);
-      c = maxChroma(probe.l, probe.h) / yScale;
+      c = maxChroma(probe.l, probe.h, gamut) / yScale;
     } else {
       // Lightness vertical at fixed chroma: scan for the highest lightness that
       // still fits. Below some lightness the chroma is unreachable too, so this
       // is a band, not a region anchored at zero.
       c = 0;
       for (let j = columns; j >= 0; j--) {
-        if (inGamut(at(j / columns))) {
+        if (inGamut(at(j / columns), gamut)) {
           c = j / columns;
           break;
         }
@@ -235,7 +285,7 @@ export function gamutCurve(base: Oklch, fixed: Axis, columns = 64): GamutColumn[
     }
 
     // Each column takes its own most-saturated in-gamut colour.
-    out.push({ t, c, hex: oklchToHex(clampToGamut(at(c))) });
+    out.push({ t, c, hex: oklchToHex(clampToGamut(at(c), gamut)) });
   }
   return out;
 }

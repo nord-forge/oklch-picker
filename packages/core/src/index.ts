@@ -9,6 +9,7 @@
 export {
   axisMax,
   CHART_MAX_CHROMA,
+  SRGB,
   CHART_PLANES,
   chartColour,
   clampToGamut,
@@ -24,7 +25,7 @@ export {
   parseOklch,
   toOklch,
 } from "./colour.js";
-export type { Axis, GamutColumn, Oklch } from "./colour.js";
+export type { Axis, Gamut, GamutColumn, Oklch } from "./colour.js";
 
 export {
   atPosition,
@@ -36,6 +37,8 @@ export {
   chartKey,
   chartPick,
   chartSlot,
+  defaultOutOfGamutNotice,
+  gamutNoticeKey,
   DEFAULT_LABELS,
   DEFAULT_LAYOUT,
   DEFAULT_PARTS,
@@ -52,6 +55,7 @@ export type {
   AxisModel,
   ChartSlot,
   GamutChartModel,
+  LabelKey,
   PickerLayout,
   PickerModel,
   PickerOptions,

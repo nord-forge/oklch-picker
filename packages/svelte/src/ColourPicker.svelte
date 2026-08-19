@@ -1,7 +1,8 @@
 <script lang="ts">
 /** An OKLCH colour picker: one slider per axis, each over a gamut cross-section. */
 import {
-  type Axis,
+  type Gamut,
+  type LabelKey,
   type Oklch,
   type PickerLayout,
   type PickerParts,
@@ -29,8 +30,22 @@ interface Props {
   layout?: PickerLayout;
   /** Turn parts off, e.g. `{ charts: false, name: false }`. All on by default. */
   parts?: PickerParts;
-  /** Override for translation. */
-  labels?: Partial<Record<Axis | "outOfGamut", string>>;
+  /** Override for translation. Keys are the three axes, `outOfGamut`, and
+   * `outOf:<gamut id>` for a wider space's own notice. */
+  labels?: Partial<Record<LabelKey, string>>;
+  /** The output space: what the sliders reach, what is clamped, and what is
+   * emitted. Defaults to sRGB. Import wider spaces from
+   * `@oklch-picker/core/gamuts`; omitting this ships none of that code. */
+  gamut?: Gamut;
+  /** Spaces to outline on the charts without clamping to them. Defaults to
+   * sRGB whenever `gamut` is wider, so the safe region stays visible. */
+  references?: Gamut[];
+  /** What the switcher offers, when `parts.gamutSwitch` is on. Defaults to the
+   * output gamut plus its references. */
+  gamutChoices?: Gamut[];
+  /** Called when a switcher button is pressed. Omit to leave the buttons inert
+   * — the app is driving `gamut` as a prop either way. */
+  ongamutchange?: (gamut: Gamut) => void;
   /** Class prefix for every element, so styles can be overridden. */
   classPrefix?: string;
   class?: string;
@@ -43,6 +58,10 @@ let {
   layout,
   parts,
   labels,
+  gamut,
+  references,
+  gamutChoices,
+  ongamutchange,
   classPrefix = "oklch-picker",
   class: className,
 }: Props = $props();
@@ -51,7 +70,18 @@ let {
 // region must not destroy the other axes.
 let draft = $state<Oklch | null>(null);
 
-const model = $derived(pickerModel(resolveCurrent(draft, value), { layout, parts, labels }));
+// The output space decides what `resolveCurrent` compares against, so it is
+// read from the prop here rather than from the model it feeds.
+const model = $derived(
+  pickerModel(resolveCurrent(draft, value, gamut), {
+    layout,
+    parts,
+    labels,
+    gamut,
+    references,
+    gamutChoices,
+  }),
+);
 // `chart` renders one plot for the whole picker rather than one per axis.
 const single = $derived(withSingleChart(model.layout) ? model.charts[0] : undefined);
 
@@ -61,7 +91,7 @@ function publish(colour: string) {
 }
 function dial(next: Oklch) {
   draft = next;
-  publish(emitValue(next));
+  publish(emitValue(next, model.gamut));
 }
 function pick(colour: string) {
   draft = null;
@@ -92,6 +122,7 @@ function pick(colour: string) {
       curveKey={single.key}
       x={single.x}
       y={single.y}
+      references={model.references}
       onpick={(x, y) => dial(chartPick(model.current, single.axis, x, y))}
       {classPrefix}
     />
@@ -121,6 +152,7 @@ function pick(colour: string) {
             curveKey={chart.key}
             x={chart.x}
             y={chart.y}
+            references={model.references}
             {classPrefix}
           />
         {/if}
@@ -150,6 +182,22 @@ function pick(colour: string) {
     {/each}
   </div>
 
+  {#if model.withGamutSwitch}
+    <div class="{classPrefix}__gamut-switch" role="group" aria-label="Output gamut">
+      {#each model.gamutChoices as choice (choice.id)}
+        <button
+          type="button"
+          class="{classPrefix}__gamut-choice"
+          aria-pressed={choice.id === model.gamut.id}
+          aria-label="Output in {choice.label}"
+          onclick={() => ongamutchange?.(choice)}
+        >
+          {choice.label}
+        </button>
+      {/each}
+    </div>
+  {/if}
+
   {#if model.withFooter}
     <div class="{classPrefix}__footer">
       {#if model.parts.preview}
@@ -157,7 +205,7 @@ function pick(colour: string) {
           class="{classPrefix}__preview"
           style:background={model.hex}
           style:color={model.light ? "#000" : "#fff"}
-          title={model.clipped ? model.labels.outOfGamut : model.canonical}
+          title={model.clipped ? model.notice : model.canonical}
         ></span>
       {/if}
       {#if model.parts.hexInput}
@@ -179,6 +227,6 @@ function pick(colour: string) {
   {/if}
 
   {#if model.parts.notice && model.clipped}
-    <p class="{classPrefix}__notice">{model.labels.outOfGamut}</p>
+    <p class="{classPrefix}__notice">{model.notice}</p>
   {/if}
 </div>

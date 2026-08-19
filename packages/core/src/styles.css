@@ -120,6 +120,31 @@
   stroke-width: 0.6;
   vector-effect: non-scaling-stroke;
 }
+/* Where a reference space ends. Dashed, so it reads as a landmark rather than
+   as another edge of the filled region, and drawn after the fill so it sits
+   above it. */
+.oklch-picker__gamut-boundary {
+  fill: none;
+  /* The fallback covers a gamut with no modifier rule of its own. */
+  stroke: rgb(255 255 255 / var(--okp-boundary-opacity, 0.6));
+  stroke-width: 1;
+  stroke-dasharray: 3 2;
+  vector-effect: non-scaling-stroke;
+}
+/* Distinguishable by weight rather than hue: two of these can run close
+   together over part of the sweep, and the outer one is always the more
+   speculative. sRGB is the firmest line — it is the space the reader can be
+   sure of — so it carries the most contrast. */
+.oklch-picker__gamut-boundary--srgb {
+  --okp-boundary-opacity: 0.85;
+}
+.oklch-picker__gamut-boundary--p3 {
+  --okp-boundary-opacity: 0.75;
+}
+.oklch-picker__gamut-boundary--rec2020 {
+  --okp-boundary-opacity: 0.45;
+}
+
 /* Difference blending rather than a fixed colour: the crosshair crosses the
    full spread of the gamut, and no one stroke reads against all of it. */
 .oklch-picker__crosshair {
@@ -204,6 +229,47 @@
   cursor: grab;
 }
 
+/* ---- Gamut switch ---- */
+/* A segmented control: one bordered box split by dividers, rather than a row
+   of separate buttons, because the choices are exclusive. The container owns
+   the border and clips the corners, so each segment stays a plain rectangle. */
+.oklch-picker__gamut-switch {
+  --okp-segment-selected: light-dark(#ededed, #2a2a2e);
+  display: flex;
+  align-self: start;
+  border: 1px solid var(--okp-line);
+  border-radius: var(--okp-radius);
+  background: var(--okp-surface);
+  overflow: hidden;
+}
+.oklch-picker__gamut-choice {
+  padding: 0 10px;
+  height: 24px;
+  border: none;
+  /* A divider between segments rather than a border on each, so neighbours do
+     not stack two lines where they meet. */
+  border-left: 1px solid var(--okp-line);
+  background: none;
+  color: var(--okp-text-muted);
+  font-family: inherit;
+  font-size: 11.5px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.oklch-picker__gamut-choice:first-child {
+  border-left: none;
+}
+.oklch-picker__gamut-choice[aria-pressed="true"] {
+  background: var(--okp-segment-selected);
+  color: var(--okp-text);
+}
+.oklch-picker__gamut-choice:focus-visible {
+  outline: 2px solid var(--okp-focus);
+  /* Inset, not offset: an outline outside the segment would be clipped by the
+     container that rounds the control's corners. */
+  outline-offset: -2px;
+}
+
 /* ---- Footer ---- */
 .oklch-picker__footer {
   display: flex;
@@ -282,8 +348,9 @@
   grid-template-areas:
     "chart  footer"
     "axes   presets"
+    "switch switch"
     "notice notice";
-  grid-template-rows: min-content min-content auto;
+  grid-template-rows: min-content min-content min-content auto;
   align-items: start;
   column-gap: calc(var(--okp-gap) * 1.6);
   row-gap: var(--okp-gap);
@@ -326,6 +393,11 @@
   grid-template-columns: repeat(auto-fill, 24px);
   justify-content: start;
   gap: 8px;
+}
+/* Full width under both columns: the switch names the space everything above
+   it is measured in, so it belongs to the whole picker rather than the rail. */
+.oklch-picker--side-by-side .oklch-picker__gamut-switch {
+  grid-area: switch;
 }
 .oklch-picker--side-by-side .oklch-picker__notice {
   grid-area: notice;

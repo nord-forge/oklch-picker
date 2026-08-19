@@ -13,9 +13,12 @@ import {
   CHART_W,
   type ChartSlot,
   DEFAULT_LAYOUT,
+  type Gamut,
+  type LabelKey,
   type Oklch,
   type PickerLayout,
   type PickerParts,
+  SRGB,
   chartBase,
   chartPick,
   colourName,
@@ -79,6 +82,10 @@ interface ChartNodes {
   gradient: SVGLinearGradientElement;
   area: SVGPathElement;
   line: SVGPathElement;
+  /** One outline per reference space, aligned with the model's `references`.
+   * Built once and mutated, like every other node here; a change to the gamut
+   * configuration rebuilds. */
+  boundaries: SVGPathElement[];
   vertical: SVGLineElement;
   horizontal: SVGLineElement;
   /** Last curve key rendered, so the ~65 stops rebuild only when it changes. */
@@ -110,9 +117,15 @@ export class OklchPickerElement extends HTMLElement {
   #value: string | null = null;
   #presets: string[] | null = null;
   #parts: PickerParts | undefined;
-  #labels: Partial<Record<Axis | "outOfGamut", string>> | undefined;
+  #labels: Partial<Record<LabelKey, string>> | undefined;
+  #gamut: Gamut | undefined;
+  #references: Gamut[] | undefined;
+  #gamutChoices: Gamut[] | undefined;
   #prefix = "oklch-picker";
   #built = false;
+  /** The reference spaces the current tree was built for, so #updateChart can
+   * write a `d` per index without re-deriving them. */
+  #builtReferences: Gamut[] = [];
 
   // Built once, then mutated. Rebuilding the tree per input would drop focus
   // from the slider mid-drag.
@@ -120,6 +133,7 @@ export class OklchPickerElement extends HTMLElement {
   #rows: AxisRow[] = [];
   /** The `chart` layout's single plot, above the axes rather than inside one. */
   #chart: ChartNodes | undefined;
+  #gamutButtons: { button: HTMLButtonElement; gamut: Gamut }[] = [];
   #preview: HTMLElement | undefined;
   #hex: HTMLInputElement | undefined;
   #name: HTMLElement | undefined;
@@ -169,12 +183,47 @@ export class OklchPickerElement extends HTMLElement {
     this.#rebuild();
   }
 
-  get labels(): Partial<Record<Axis | "outOfGamut", string>> | undefined {
+  get labels(): Partial<Record<LabelKey, string>> | undefined {
     return this.#labels;
   }
-  set labels(next: Partial<Record<Axis | "outOfGamut", string>> | undefined) {
+  set labels(next: Partial<Record<LabelKey, string>> | undefined) {
     this.#labels = next;
     this.#render();
+  }
+
+  /** The output space: what the sliders reach, what is clamped, and what is
+   * emitted. A property, not an attribute: a `Gamut` carries a conversion
+   * function, which no attribute string could express. Import wider spaces
+   * from `@oklch-picker/core/gamuts`.
+   *
+   * Rebuilds rather than re-renders — each reference space owns a path node,
+   * and those are built once and mutated thereafter. */
+  get gamut(): Gamut | undefined {
+    return this.#gamut;
+  }
+  set gamut(next: Gamut | undefined) {
+    this.#gamut = next;
+    this.#rebuild();
+  }
+
+  /** Spaces outlined on the charts but never clamped to. Property-only, for
+   * the same reason as `gamut`. */
+  get references(): Gamut[] | undefined {
+    return this.#references;
+  }
+  set references(next: Gamut[] | undefined) {
+    this.#references = next;
+    this.#rebuild();
+  }
+
+  /** What the switcher offers, when `parts.gamutSwitch` is on. Property-only,
+   * for the same reason as `gamut`. */
+  get gamutChoices(): Gamut[] | undefined {
+    return this.#gamutChoices;
+  }
+  set gamutChoices(next: Gamut[] | undefined) {
+    this.#gamutChoices = next;
+    this.#rebuild();
   }
 
   get layout(): PickerLayout {
@@ -195,7 +244,16 @@ export class OklchPickerElement extends HTMLElement {
   connectedCallback(): void {
     // Attributes are the source of truth on first upgrade; a property set
     // before upgrade is handled by #upgradeProperty below.
-    for (const name of ["value", "presets", "parts", "labels", "classPrefix"] as const) {
+    for (const name of [
+      "value",
+      "presets",
+      "parts",
+      "labels",
+      "gamut",
+      "references",
+      "gamutChoices",
+      "classPrefix",
+    ] as const) {
       this.#upgradeProperty(name);
     }
     if (this.#value === null) this.#value = this.getAttribute("value");
@@ -235,7 +293,17 @@ export class OklchPickerElement extends HTMLElement {
 
   /** A property set before the element upgraded shadows the accessor; take
    * the value, delete it, and re-set it through the prototype. */
-  #upgradeProperty(name: "value" | "presets" | "parts" | "labels" | "classPrefix"): void {
+  #upgradeProperty(
+    name:
+      | "value"
+      | "presets"
+      | "parts"
+      | "labels"
+      | "gamut"
+      | "references"
+      | "gamutChoices"
+      | "classPrefix",
+  ): void {
     if (!Object.hasOwn(this, name)) return;
     const held = (this as Record<string, unknown>)[name];
     delete (this as Record<string, unknown>)[name];
@@ -248,9 +316,7 @@ export class OklchPickerElement extends HTMLElement {
     // Properties win over attributes: a JSON attribute is the no-framework
     // fallback, not an override of what script has already set.
     this.#parts ??= json<PickerParts>(this.getAttribute("parts"));
-    this.#labels ??= json<Partial<Record<Axis | "outOfGamut", string>>>(
-      this.getAttribute("labels"),
-    );
+    this.#labels ??= json<Partial<Record<LabelKey, string>>>(this.getAttribute("labels"));
     if (this.#presets === null) {
       const raw = this.getAttribute("presets");
       // Accept both a JSON array and a plain comma-separated list.
@@ -268,13 +334,34 @@ export class OklchPickerElement extends HTMLElement {
   /** The colour showing right now. Handlers bound once at build time cannot
    * close over a model, so they read it back through here. */
   #currentColour(): Oklch {
-    return resolveCurrent(this.#draft, this.#value);
+    return resolveCurrent(this.#draft, this.#value, this.#gamut);
   }
 
-  /** Emit a dialled colour: keep it as the draft, publish the clamped form. */
+  /** Emit a dialled colour: keep it as the draft, publish the clamped form.
+   * Clamped to the output gamut, not to sRGB — otherwise a P3 picker would
+   * throw away the chroma it was configured to reach. */
   #emit(next: Oklch): void {
     this.#draft = next;
-    this.#publish(emitValue(next));
+    this.#publish(emitValue(next, this.#gamut));
+  }
+
+  /** Switch the output space. The element owns its own state, so it applies
+   * the choice rather than only announcing it — and re-publishes the colour,
+   * because narrowing the gamut would otherwise leave a stored value the
+   * picker has just promised it will not emit. */
+  #chooseGamut(gamut: Gamut): void {
+    if (gamut.id === (this.#gamut ?? SRGB).id) return;
+    const dialled = this.#currentColour();
+    this.#gamut = gamut;
+    this.dispatchEvent(
+      new CustomEvent("gamutchange", { detail: { gamut }, bubbles: true, composed: true }),
+    );
+    // Keep it as the draft: widening later should restore the chroma the user
+    // dialled rather than the chroma the narrower space clipped it to.
+    this.#draft = dialled;
+    this.#publish(emitValue(dialled, gamut));
+    // The boundary nodes are cut per reference space, so the tree follows.
+    this.#rebuild();
   }
 
   /** Emit a chosen colour verbatim — a preset is already canonical. */
@@ -313,6 +400,7 @@ export class OklchPickerElement extends HTMLElement {
     if (!this.isConnected) return;
     this.replaceChildren();
     this.#presetButtons = [];
+    this.#gamutButtons = [];
     this.#rows = [];
     this.#chart = undefined;
     this.#preview = undefined;
@@ -325,10 +413,13 @@ export class OklchPickerElement extends HTMLElement {
 
   #render(): void {
     if (!this.isConnected) return;
-    const model = pickerModel(resolveCurrent(this.#draft, this.#value), {
+    const model = pickerModel(this.#currentColour(), {
       layout: this.layout,
       parts: this.#parts,
       labels: this.#labels,
+      gamut: this.#gamut,
+      references: this.#references,
+      gamutChoices: this.#gamutChoices,
     });
     if (!this.#built) this.#build(model);
     this.#update(model);
@@ -337,6 +428,10 @@ export class OklchPickerElement extends HTMLElement {
   #build(model: ReturnType<typeof pickerModel>): void {
     const p = this.#prefix;
     this.className = `${p} ${p}--${model.layout}`;
+    // The model resolves the reference list — including the sRGB outline a
+    // wider output gamut gets for free — so the boundary nodes are cut from it
+    // rather than from the raw property.
+    this.#builtReferences = model.references;
 
     if (this.#presets && this.#presets.length > 0) {
       const row = el("div", `${p}__presets`);
@@ -410,6 +505,22 @@ export class OklchPickerElement extends HTMLElement {
       });
     }
     this.append(axes);
+
+    if (model.withGamutSwitch) {
+      const group = el("div", `${p}__gamut-switch`);
+      group.setAttribute("role", "group");
+      group.setAttribute("aria-label", "Output gamut");
+      for (const gamut of model.gamutChoices) {
+        const button = el("button", `${p}__gamut-choice`);
+        button.type = "button";
+        button.textContent = gamut.label;
+        button.setAttribute("aria-label", `Output in ${gamut.label}`);
+        button.addEventListener("click", () => this.#chooseGamut(gamut));
+        group.append(button);
+        this.#gamutButtons.push({ button, gamut });
+      }
+      this.append(group);
+    }
 
     if (model.withFooter) {
       const footer = el("div", `${p}__footer`);
@@ -494,6 +605,13 @@ export class OklchPickerElement extends HTMLElement {
     area.setAttribute("fill", `url(#${gradient.getAttribute("id")})`);
     const line = svg("path", `${p}__chart-line`);
     line.setAttribute("fill", "none");
+    // One node per reference space, in the order given, so #updateChart can
+    // write a `d` by index rather than rebuilding the set as the colour moves.
+    const boundaries = this.#builtReferences.map((g) => {
+      const path = svg("path", `${p}__gamut-boundary ${p}__gamut-boundary--${g.id}`);
+      path.setAttribute("fill", "none");
+      return path;
+    });
     const vertical = svg("line", `${p}__crosshair`);
     vertical.setAttribute("y1", "0");
     vertical.setAttribute("y2", String(CHART_H));
@@ -501,8 +619,8 @@ export class OklchPickerElement extends HTMLElement {
     horizontal.setAttribute("x1", "0");
     horizontal.setAttribute("x2", String(CHART_W));
 
-    root.append(defs, area, line, vertical, horizontal);
-    return { root, gradient, area, line, vertical, horizontal, key: null };
+    root.append(defs, area, line, ...boundaries, vertical, horizontal);
+    return { root, gradient, area, line, boundaries, vertical, horizontal, key: null };
   }
 
   #update(model: ReturnType<typeof pickerModel>): void {
@@ -513,6 +631,10 @@ export class OklchPickerElement extends HTMLElement {
       const selected = colour === model.canonical;
       button.className = `${p}__preset${selected ? ` ${p}__preset--selected` : ""}`;
       button.setAttribute("aria-pressed", String(selected));
+    }
+
+    for (const { button, gamut } of this.#gamutButtons) {
+      attr(button, "aria-pressed", String(gamut.id === model.gamut.id));
     }
 
     // The hoisted `chart` layout plot; the per-axis charts follow below.
@@ -544,13 +666,13 @@ export class OklchPickerElement extends HTMLElement {
     if (this.#preview) {
       this.#preview.style.background = model.hex;
       this.#preview.style.color = model.light ? "#000" : "#fff";
-      attr(this.#preview, "title", model.clipped ? model.labels.outOfGamut : model.canonical);
+      attr(this.#preview, "title", model.clipped ? model.notice : model.canonical);
     }
     // Never overwrite what is being typed — a half-entered hex is not a colour.
     if (this.#hex && this.#hex !== this.ownerDocument.activeElement) this.#hex.value = model.hex;
     if (this.#name) this.#name.textContent = model.name;
     if (this.#notice) {
-      this.#notice.textContent = model.clipped ? model.labels.outOfGamut : "";
+      this.#notice.textContent = model.notice;
       this.#notice.hidden = !model.clipped;
     }
   }
@@ -559,9 +681,14 @@ export class OklchPickerElement extends HTMLElement {
     const axis = slot.axis;
     // The curve and its stops depend on one input; rebuild only when it moves.
     if (nodes.key !== slot.key) {
-      const m = gamutChartModel(chartBase(slot.key, axis), axis);
+      const m = gamutChartModel(chartBase(slot.key, axis), axis, undefined, this.#builtReferences);
       nodes.area.setAttribute("d", `M0,${CHART_H} L${m.path} L${CHART_W},${CHART_H} Z`);
       nodes.line.setAttribute("d", `M${m.path}`);
+      // Aligned by construction: both lists come from #builtReferences, and a
+      // change to it rebuilds the tree rather than reaching this path.
+      for (const [i, b] of m.boundaries.entries()) {
+        nodes.boundaries[i]?.setAttribute("d", `M${b.path}`);
+      }
       nodes.gradient.replaceChildren(
         ...m.stops.map((s) => {
           const stop = svg("stop");
@@ -609,6 +736,10 @@ export function register(tag = "oklch-picker"): void {
  * gamut-clamped. */
 export type OklchPickerChangeEvent = CustomEvent<{ colour: string }>;
 
+/** The `gamutchange` event a switcher button raises. The element has already
+ * applied the choice; a `change` with the re-clamped colour follows. */
+export type OklchPickerGamutChangeEvent = CustomEvent<{ gamut: Gamut }>;
+
 declare global {
   interface HTMLElementTagNameMap {
     "oklch-picker": OklchPickerElement;
@@ -617,6 +748,7 @@ declare global {
   /** So `picker.addEventListener("change", e => e.detail.colour)` types. */
   interface OklchPickerElementEventMap extends HTMLElementEventMap {
     change: OklchPickerChangeEvent;
+    gamutchange: OklchPickerGamutChangeEvent;
   }
 }
 

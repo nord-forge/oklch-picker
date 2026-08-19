@@ -1,6 +1,7 @@
 /** An OKLCH colour picker: one slider per axis, each over a gamut cross-section. */
 import {
-  type Axis,
+  type Gamut,
+  type LabelKey,
   type Oklch,
   type PickerLayout,
   type PickerParts,
@@ -29,8 +30,22 @@ export interface ColourPickerProps {
   layout?: PickerLayout;
   /** Turn parts off, e.g. `{ charts: false, name: false }`. All on by default. */
   parts?: PickerParts;
-  /** Override for translation. */
-  labels?: Partial<Record<Axis | "outOfGamut", string>>;
+  /** Override for translation. Keys are the three axes, `outOfGamut`, and
+   * `outOf:<gamut id>` for a wider space's own notice. */
+  labels?: Partial<Record<LabelKey, string>>;
+  /** The output space: what the sliders reach, what is clamped, and what is
+   * emitted. Defaults to sRGB. Import wider spaces from
+   * `@oklch-picker/core/gamuts`; omitting this ships none of that code. */
+  gamut?: Gamut;
+  /** Spaces to outline on the charts without clamping to them. Defaults to
+   * sRGB whenever `gamut` is wider, so the safe region stays visible. */
+  references?: Gamut[];
+  /** What the switcher offers, when `parts.gamutSwitch` is on. Defaults to the
+   * output gamut plus its references. */
+  gamutChoices?: Gamut[];
+  /** Called when a switcher button is pressed. Omit to leave the buttons inert
+   * — the app is driving `gamut` as a prop either way. */
+  onGamutChange?: (gamut: Gamut) => void;
   /** Class prefix for every element, so styles can be overridden. */
   classPrefix?: string;
   className?: string;
@@ -43,11 +58,16 @@ export function ColourPicker(props: ColourPickerProps) {
   // region must not destroy the other axes.
   const [draft, setDraft] = useState<Oklch | null>(null);
 
-  const current = resolveCurrent(draft, props.value);
+  // The output space decides what `resolveCurrent` compares against, so it is
+  // read from the prop here rather than from the model it feeds.
+  const current = resolveCurrent(draft, props.value, props.gamut);
   const model = pickerModel(current, {
     layout: props.layout,
     parts: props.parts,
     labels: props.labels,
+    gamut: props.gamut,
+    references: props.references,
+    gamutChoices: props.gamutChoices,
   });
   const { labels, layout, hex, canonical, clipped } = model;
   const show = model.parts;
@@ -56,7 +76,7 @@ export function ColourPicker(props: ColourPickerProps) {
 
   const emit = (next: Oklch) => {
     setDraft(next);
-    props.onChange(emitValue(next));
+    props.onChange(emitValue(next, model.gamut));
   };
   const pick = (colour: string) => {
     setDraft(null);
@@ -97,6 +117,7 @@ export function ColourPicker(props: ColourPickerProps) {
           id={single.axis}
           x={single.x}
           y={single.y}
+          references={model.references}
           onPick={(x, y) => emit(chartPick(current, single.axis, x, y))}
           classPrefix={prefix}
         />
@@ -131,6 +152,7 @@ export function ColourPicker(props: ColourPickerProps) {
                   id={a.key}
                   x={chart.x}
                   y={chart.y}
+                  references={model.references}
                   classPrefix={prefix}
                 />
               )}
@@ -165,13 +187,36 @@ export function ColourPicker(props: ColourPickerProps) {
         })}
       </div>
 
+      {model.withGamutSwitch && (
+        /* biome-ignore lint/a11y/useSemanticElements: a <fieldset> is for form
+           controls and brings a legend and its own box; this is a toolbar of
+           buttons, which is what role="group" describes. */
+        <div className={`${prefix}__gamut-switch`} role="group" aria-label="Output gamut">
+          {model.gamutChoices.map((g) => {
+            const selected = g.id === model.gamut.id;
+            return (
+              <button
+                key={g.id}
+                type="button"
+                className={`${prefix}__gamut-choice`}
+                aria-pressed={selected}
+                aria-label={`Output in ${g.label}`}
+                onClick={() => props.onGamutChange?.(g)}
+              >
+                {g.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {model.withFooter && (
         <div className={`${prefix}__footer`}>
           {show.preview && (
             <span
               className={`${prefix}__preview`}
               style={{ background: hex, color: model.light ? "#000" : "#fff" }}
-              title={clipped ? labels.outOfGamut : canonical}
+              title={clipped ? model.notice : canonical}
             />
           )}
           {show.hexInput && (
@@ -188,7 +233,7 @@ export function ColourPicker(props: ColourPickerProps) {
         </div>
       )}
 
-      {show.notice && clipped && <p className={`${prefix}__notice`}>{labels.outOfGamut}</p>}
+      {show.notice && clipped && <p className={`${prefix}__notice`}>{model.notice}</p>}
     </div>
   );
 }

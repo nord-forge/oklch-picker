@@ -1,6 +1,6 @@
 /** A 2D slice of the sRGB gamut: the chart holds one axis fixed and sweeps the
  * other two, so under the curve is displayable and above it is not. */
-import type { Axis, Oklch } from "@oklch-picker/core";
+import type { Axis, Gamut, Oklch } from "@oklch-picker/core";
 import { CHART_H, CHART_W, chartBase, chartKey, gamutChartModel } from "@oklch-picker/core";
 import { useMemo, useRef } from "react";
 
@@ -8,6 +8,8 @@ export interface GamutChartProps {
   base: Oklch;
   /** The axis held fixed; the chart sweeps the other two. */
   axis: Axis;
+  /** Reference spaces to outline over the filled region. Omit for none. */
+  references?: Gamut[] | undefined;
   /** 0..1 across the plot; drives the vertical crosshair. */
   x: number;
   /** 0..1 up the plot, bottom-up; drives the horizontal crosshair. */
@@ -29,13 +31,18 @@ export function GamutChart(props: GamutChartProps) {
   // Keying the memo on the axis the chart holds fixed means dragging either
   // swept axis reuses the curve and its ~65 gradient stops.
   const curveInput = chartKey(props.base, axis);
-  const { path, stops } = useMemo(() => {
-    const m = gamutChartModel(chartBase(curveInput, axis), axis, resolution);
+  // The boundaries share the curve's memo rather than taking their own: they
+  // are computed from the same sweep, so recomputing them separately would
+  // walk the axis twice for one render.
+  const references = props.references;
+  const { path, stops, boundaries } = useMemo(() => {
+    const m = gamutChartModel(chartBase(curveInput, axis), axis, resolution, references);
     return {
       path: m.path,
       stops: m.stops.map((s) => <stop key={s.offset} offset={`${s.offset}%`} stopColor={s.hex} />),
+      boundaries: m.boundaries,
     };
-  }, [axis, curveInput, resolution]);
+  }, [axis, curveInput, resolution, references]);
   const gradId = `${props.classPrefix}-gamut-${props.id}`;
   const crossY = CHART_H - Math.min(1, Math.max(0, props.y)) * CHART_H;
 
@@ -76,6 +83,14 @@ export function GamutChart(props: GamutChartProps) {
 
       <path d={`M0,${CHART_H} L${path} L${CHART_W},${CHART_H} Z`} fill={`url(#${gradId})`} />
       <path d={`M${path}`} fill="none" className={`${props.classPrefix}__chart-line`} />
+      {boundaries.map((b) => (
+        <path
+          key={b.id}
+          d={`M${b.path}`}
+          fill="none"
+          className={`${props.classPrefix}__gamut-boundary ${props.classPrefix}__gamut-boundary--${b.id}`}
+        />
+      ))}
 
       <line
         x1={props.x * CHART_W}

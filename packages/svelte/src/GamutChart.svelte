@@ -3,7 +3,7 @@
  * other two, so under the curve is displayable and above it is not. `$derived`
  * memoises the curve, so dragging an axis that does not feed it reuses the path
  * and its ~65 gradient stops. */
-import type { Axis } from "@oklch-picker/core";
+import type { Axis, Gamut } from "@oklch-picker/core";
 import { CHART_H, CHART_W, chartBase, gamutChartModel } from "@oklch-picker/core";
 
 interface Props {
@@ -18,13 +18,17 @@ interface Props {
   /** Called with 0..1 plot coordinates as the pointer moves. Omit for a
    * display-only chart. */
   onpick?: (x: number, y: number) => void;
+  /** Reference spaces to outline over the filled region. Omit for none. */
+  references?: Gamut[] | undefined;
   classPrefix: string;
   resolution?: number;
 }
 
-const { axis, curveKey, x, y, onpick, classPrefix, resolution = 64 }: Props = $props();
+const { axis, curveKey, x, y, onpick, references, classPrefix, resolution = 64 }: Props = $props();
 
-const curve = $derived(gamutChartModel(chartBase(curveKey, axis), axis, resolution));
+// The boundaries ride along in this memo rather than taking their own: they
+// come from the same sweep, so a second `$derived` would walk the axis twice.
+const curve = $derived(gamutChartModel(chartBase(curveKey, axis), axis, resolution, references));
 const gradId = $derived(`${classPrefix}-gamut-${axis}`);
 const crossY = $derived(CHART_H - Math.min(1, Math.max(0, y)) * CHART_H);
 
@@ -64,6 +68,13 @@ function pick(event: PointerEvent & { currentTarget: SVGSVGElement }) {
 
   <path d="M0,{CHART_H} L{curve.path} L{CHART_W},{CHART_H} Z" fill="url(#{gradId})" />
   <path d="M{curve.path}" fill="none" class="{classPrefix}__chart-line" />
+  {#each curve.boundaries as boundary (boundary.id)}
+    <path
+      d="M{boundary.path}"
+      fill="none"
+      class="{classPrefix}__gamut-boundary {classPrefix}__gamut-boundary--{boundary.id}"
+    />
+  {/each}
 
   <line x1={x * CHART_W} x2={x * CHART_W} y1="0" y2={CHART_H} class="{classPrefix}__crosshair" />
   <line x1="0" x2={CHART_W} y1={crossY} y2={crossY} class="{classPrefix}__crosshair" />

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
   CHART_MAX_CHROMA,
+  SRGB,
   clampToGamut,
   colourName,
   formatOklch,
@@ -13,6 +14,8 @@ import {
   parseOklch,
   toOklch,
 } from "../packages/core/src/colour.js";
+import { P3, REC2020 } from "../packages/core/src/gamuts.js";
+import { DEFAULT_LABELS, pickerModel } from "../packages/core/src/model.js";
 
 describe("parse / format", () => {
   test("parses the stored form", () => {
@@ -312,5 +315,140 @@ describe("isLight", () => {
     expect(isLight(hexToOklch("#ffcc00") as never)).toBe(true);
     expect(isLight(hexToOklch("#000000") as never)).toBe(false);
     expect(isLight(hexToOklch("#123456") as never)).toBe(false);
+  });
+});
+
+describe("wider gamuts", () => {
+  test("each contains the one below it", () => {
+    let checked = 0;
+    for (let h = 0; h < 360; h += 5) {
+      for (let l = 0.1; l <= 0.95; l += 0.05) {
+        const c = maxChroma(l, h, SRGB);
+        if (c <= 0) continue;
+        checked++;
+        // Just inside sRGB must also be inside the wider spaces.
+        expect(inGamut({ l, c: c * 0.99, h }, P3)).toBe(true);
+        expect(inGamut({ l, c: c * 0.99, h }, REC2020)).toBe(true);
+      }
+    }
+    expect(checked).toBeGreaterThan(500);
+  });
+
+  test("each reaches further than the one below it", () => {
+    const peak = (g: Parameters<typeof maxChroma>[2]) => {
+      let p = 0;
+      for (let h = 0; h < 360; h += 3) {
+        for (let l = 0.05; l <= 0.98; l += 0.02) p = Math.max(p, maxChroma(l, h, g));
+      }
+      return p;
+    };
+    const [s, p, r] = [peak(SRGB), peak(P3), peak(REC2020)];
+    expect(p).toBeGreaterThan(s);
+    expect(r).toBeGreaterThan(p);
+  });
+
+  // Each gamut bisects against its own bound: Rec. 2020 reaches ~0.464, so
+  // sharing sRGB's 0.37 would have clipped its boundary with no visible error.
+  test("no gamut's peak is clipped by its own search bound", () => {
+    for (const g of [SRGB, P3, REC2020]) {
+      let p = 0;
+      for (let h = 0; h < 360; h += 3) {
+        for (let l = 0.05; l <= 0.98; l += 0.02) p = Math.max(p, maxChroma(l, h, g));
+      }
+      expect(p).toBeLessThan(g.maxChroma);
+      expect(p).toBeLessThanOrEqual(g.chartMaxChroma);
+    }
+  });
+});
+
+describe("the output gamut", () => {
+  // Outside sRGB, comfortably inside P3.
+  const wide = { l: 0.7, c: 0.25, h: 145 };
+
+  test("says nothing when the colour is displayable", () => {
+    const m = pickerModel({ l: 0.7, c: 0.1, h: 255 });
+    expect(m.clipped).toBe(false);
+    expect(m.notice).toBe("");
+  });
+
+  test("defaults to sRGB, with the wording 1.0 shipped", () => {
+    const m = pickerModel(wide);
+    expect(m.gamut.id).toBe("srgb");
+    expect(m.clipped).toBe(true);
+    expect(m.notice).toBe(DEFAULT_LABELS.outOfGamut);
+  });
+
+  // The point of choosing a wider space: the colour is emitted, not flagged
+  // and thrown away. Warning about a colour the picker itself now outputs
+  // would defeat the purpose of enabling it.
+  test("a wider gamut emits the colour rather than clamping it away", () => {
+    const srgb = pickerModel(wide);
+    const p3 = pickerModel(wide, { gamut: P3 });
+
+    expect(p3.clipped).toBe(false);
+    expect(p3.notice).toBe("");
+    // sRGB clamps the chroma down; P3 keeps what was dialled.
+    expect(parseOklch(srgb.canonical)?.c).toBeLessThan(0.23);
+    expect(parseOklch(p3.canonical)?.c).toBeCloseTo(0.25, 3);
+    // And the chroma slider reaches further.
+    expect(p3.reachable).toBeGreaterThan(srgb.reachable);
+  });
+
+  test("sRGB stays drawn as a reference when it is not the output", () => {
+    expect(pickerModel(wide, { gamut: P3 }).references.map((g) => g.id)).toEqual(["srgb"]);
+    // Nothing to outline when sRGB is itself the output.
+    expect(pickerModel(wide).references).toEqual([]);
+  });
+
+  test("only warns once the colour leaves the output gamut too", () => {
+    const m = pickerModel({ l: 0.7, c: 0.6, h: 145 }, { gamut: P3 });
+    expect(m.clipped).toBe(true);
+    expect(m.notice).toBe("Outside Display P3 — the nearest Display P3 colour is used.");
+  });
+
+  test("each message can be replaced, per gamut and in general", () => {
+    expect(pickerModel(wide, { labels: { outOfGamut: "Nope." } }).notice).toBe("Nope.");
+    expect(
+      pickerModel({ l: 0.7, c: 0.6, h: 145 }, { gamut: P3, labels: { "outOf:p3": "Too far." } })
+        .notice,
+    ).toBe("Too far.");
+  });
+
+  test("parts.notice turns the message off without changing the maths", () => {
+    const m = pickerModel(wide, { parts: { notice: false } });
+    expect(m.parts.notice).toBe(false);
+    // Still clipped, so the emitted value is still clamped — only the text goes.
+    expect(m.clipped).toBe(true);
+  });
+});
+
+describe("the gamut switcher", () => {
+  const c = { l: 0.7, c: 0.15, h: 255 };
+
+  test("is off unless asked for", () => {
+    expect(pickerModel(c).withGamutSwitch).toBe(false);
+    expect(pickerModel(c, { gamut: P3 }).withGamutSwitch).toBe(false);
+  });
+
+  test("offers the output gamut and its references", () => {
+    const m = pickerModel(c, { gamut: P3, parts: { gamutSwitch: true } });
+    expect(m.withGamutSwitch).toBe(true);
+    expect(m.gamutChoices.map((g) => g.id)).toEqual(["srgb", "p3"]);
+  });
+
+  test("stays hidden when there is only one space to choose", () => {
+    // sRGB alone has no references, so the control would have one button.
+    const m = pickerModel(c, { parts: { gamutSwitch: true } });
+    expect(m.withGamutSwitch).toBe(false);
+    expect(m.gamutChoices).toEqual([]);
+  });
+
+  test("takes an explicit list, deduplicated by id", () => {
+    const m = pickerModel(c, {
+      gamut: P3,
+      gamutChoices: [SRGB, P3, REC2020, P3],
+      parts: { gamutSwitch: true },
+    });
+    expect(m.gamutChoices.map((g) => g.id)).toEqual(["srgb", "p3", "rec2020"]);
   });
 });

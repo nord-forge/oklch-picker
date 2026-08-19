@@ -1,5 +1,6 @@
 /** The Vue adapter, asserting the same behaviour as the React suite. */
-import { parseOklch } from "@oklch-picker/core";
+import { SRGB, parseOklch } from "@oklch-picker/core";
+import { P3 } from "@oklch-picker/core/gamuts";
 import { ColourPicker } from "@oklch-picker/vue";
 import { mount } from "@vue/test-utils";
 import { describe, expect, test } from "vitest";
@@ -256,5 +257,59 @@ describe("ColourPicker (Vue)", () => {
     });
     expect(w.find(".my-picker").exists()).toBe(true);
     expect(w.find(".my-picker__axis").exists()).toBe(true);
+  });
+
+  // Outside sRGB, inside P3 — the colour the gamut tests turn on.
+  const wide = "oklch(0.7 0.25 145)";
+
+  test("the sRGB default costs nothing: no boundary, no switcher", () => {
+    const w = mount(ColourPicker, { props: { modelValue: wide } });
+    expect(w.find(".oklch-picker__gamut-boundary").exists()).toBe(false);
+    expect(w.find(".oklch-picker__gamut-switch").exists()).toBe(false);
+  });
+
+  // The whole point of the reshape: choosing P3 emits P3 rather than drawing a
+  // P3 outline around a value that was clamped to sRGB anyway.
+  test("a P3 output keeps a P3 colour whole, unclipped and unremarked", async () => {
+    const w = mount(ColourPicker, { props: { modelValue: wide, gamut: P3 } });
+    expect(w.find(".oklch-picker__notice").exists()).toBe(false);
+
+    await slider(w, "Hue").setValue("145");
+    // ~0.25, not the ~0.22 sRGB would have clipped it to.
+    expect(parseOklch(emitted(w).at(-1) as string)?.c).toBeCloseTo(0.25, 3);
+  });
+
+  test("a P3 output outlines sRGB as a reference", () => {
+    const w = mount(ColourPicker, { props: { modelValue: wide, gamut: P3 } });
+    const drawn = w.findAll(".oklch-picker__gamut-boundary");
+    expect(drawn).toHaveLength(1);
+    expect(drawn[0]?.classes()).toContain("oklch-picker__gamut-boundary--srgb");
+  });
+
+  test("the switcher offers the references and the output, and reports a press", async () => {
+    const w = mount(ColourPicker, {
+      props: { modelValue: wide, gamut: P3, parts: { gamutSwitch: true } },
+    });
+    const buttons = w.findAll(".oklch-picker__gamut-choice");
+    expect(buttons).toHaveLength(2);
+    expect(buttons.map((b) => b.text())).toEqual(["sRGB", "Display P3"]);
+    expect(buttons[1]?.attributes("aria-pressed")).toBe("true");
+
+    await buttons[0]?.trigger("click");
+    expect(w.emitted("gamutChange")?.[0]).toEqual([SRGB]);
+  });
+
+  test("one option is not a choice, so sRGB alone renders no switcher", () => {
+    const w = mount(ColourPicker, {
+      props: { modelValue: wide, parts: { gamutSwitch: true } },
+    });
+    expect(w.find(".oklch-picker__gamut-switch").exists()).toBe(false);
+  });
+
+  test("a per-gamut label words the notice for the output space", () => {
+    const w = mount(ColourPicker, {
+      props: { modelValue: "oklch(0.8 0.35 145)", gamut: P3, labels: { "outOf:p3": "custom" } },
+    });
+    expect(w.find(".oklch-picker__notice").text()).toBe("custom");
   });
 });

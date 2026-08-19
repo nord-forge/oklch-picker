@@ -7,6 +7,8 @@ import {
   CHART_H,
   CHART_W,
   type ChartSlot,
+  type Gamut,
+  type LabelKey,
   type Oklch,
   type PickerLayout,
   type PickerParts,
@@ -41,12 +43,21 @@ const GamutChart = defineComponent({
     /** Called with 0..1 plot coordinates as the pointer moves. Omit for a
      * display-only chart. */
     onPick: { type: Function as PropType<(x: number, y: number) => void>, default: undefined },
+    /** Reference spaces to outline over the filled region. Omit for none. */
+    references: { type: Array as PropType<Gamut[] | undefined>, default: undefined },
     classPrefix: { type: String, required: true },
     resolution: { type: Number, default: 64 },
   },
   setup(props) {
+    // The boundaries ride along in this memo rather than taking their own: they
+    // come from the same sweep, so a second computed would walk the axis twice.
     const curve = computed(() =>
-      gamutChartModel(chartBase(props.curveKey, props.axis), props.axis, props.resolution),
+      gamutChartModel(
+        chartBase(props.curveKey, props.axis),
+        props.axis,
+        props.resolution,
+        props.references,
+      ),
     );
 
     // Pointer capture keeps a drag alive once it leaves the chart, so the value
@@ -64,7 +75,7 @@ const GamutChart = defineComponent({
       const interactive = Boolean(props.onPick);
       const x = props.x * CHART_W;
       const y = CHART_H - Math.min(1, Math.max(0, props.y)) * CHART_H;
-      const { path, stops } = curve.value;
+      const { path, stops, boundaries } = curve.value;
 
       return h(
         "svg",
@@ -101,6 +112,14 @@ const GamutChart = defineComponent({
             fill: `url(#${gradId})`,
           }),
           h("path", { d: `M${path}`, fill: "none", class: `${props.classPrefix}__chart-line` }),
+          ...boundaries.map((b) =>
+            h("path", {
+              key: b.id,
+              d: `M${b.path}`,
+              fill: "none",
+              class: `${props.classPrefix}__gamut-boundary ${props.classPrefix}__gamut-boundary--${b.id}`,
+            }),
+          ),
           h("line", { x1: x, x2: x, y1: 0, y2: CHART_H, class: `${props.classPrefix}__crosshair` }),
           h("line", { x1: 0, x2: CHART_W, y1: y, y2: y, class: `${props.classPrefix}__crosshair` }),
         ],
@@ -123,11 +142,22 @@ export const ColourPicker = defineComponent({
     layout: { type: String as PropType<PickerLayout>, default: undefined },
     /** Turn parts off, e.g. `{ charts: false, name: false }`. All on by default. */
     parts: { type: Object as PropType<PickerParts>, default: undefined },
-    /** Override for translation. */
+    /** Override for translation. Keys are the three axes, `outOfGamut`, and
+     * `outOf:<gamut id>` for a wider space's own notice. */
     labels: {
-      type: Object as PropType<Partial<Record<Axis | "outOfGamut", string>>>,
+      type: Object as PropType<Partial<Record<LabelKey, string>>>,
       default: undefined,
     },
+    /** The output space: what the sliders reach, what is clamped, and what is
+     * emitted. Defaults to sRGB. Import wider spaces from
+     * `@oklch-picker/core/gamuts`; omitting this ships none of that code. */
+    gamut: { type: Object as PropType<Gamut>, default: undefined },
+    /** Spaces to outline on the charts without clamping to them. Defaults to
+     * sRGB whenever `gamut` is wider, so the safe region stays visible. */
+    references: { type: Array as PropType<Gamut[]>, default: undefined },
+    /** What the switcher offers, when `parts.gamutSwitch` is on. Defaults to
+     * the output gamut plus its references. */
+    gamutChoices: { type: Array as PropType<Gamut[]>, default: undefined },
     /** Class prefix for every element, so styles can be overridden. */
     classPrefix: { type: String, default: "oklch-picker" },
   },
@@ -135,16 +165,24 @@ export const ColourPicker = defineComponent({
     /** Canonical, gamut-clamped `oklch(L C H)`. */
     "update:modelValue": (colour: string) => typeof colour === "string",
     change: (colour: string) => typeof colour === "string",
+    /** A switcher button was pressed. The app owns `gamut`, so it decides
+     * whether to act on this. */
+    gamutChange: (gamut: Gamut) => typeof gamut === "object",
   },
   setup(props, { emit }) {
     // What was dialled, not what was emitted: dragging through an out-of-gamut
     // region must not destroy the other axes.
     const draft = ref<Oklch | null>(null);
+    // The output space decides what `resolveCurrent` compares against, so it is
+    // read from the prop here rather than from the model it feeds.
     const model = computed(() =>
-      pickerModel(resolveCurrent(draft.value, props.modelValue), {
+      pickerModel(resolveCurrent(draft.value, props.modelValue, props.gamut), {
         layout: props.layout,
         parts: props.parts,
         labels: props.labels,
+        gamut: props.gamut,
+        references: props.references,
+        gamutChoices: props.gamutChoices,
       }),
     );
 
@@ -154,7 +192,7 @@ export const ColourPicker = defineComponent({
     };
     const dial = (next: Oklch) => {
       draft.value = next;
-      publish(emitValue(next));
+      publish(emitValue(next, model.value.gamut));
     };
     const pick = (colour: string) => {
       draft.value = null;
@@ -196,6 +234,7 @@ export const ColourPicker = defineComponent({
             curveKey: single.key,
             x: single.x,
             y: single.y,
+            references: m.references,
             onPick: (x: number, y: number) => dial(chartPick(m.current, single.axis, x, y)),
             classPrefix: p,
           }),
@@ -229,6 +268,7 @@ export const ColourPicker = defineComponent({
                     curveKey: chart.key,
                     x: chart.x,
                     y: chart.y,
+                    references: m.references,
                     classPrefix: p,
                   })
                 : null,
@@ -262,6 +302,29 @@ export const ColourPicker = defineComponent({
         ),
       );
 
+      if (m.withGamutSwitch) {
+        children.push(
+          h(
+            "div",
+            { class: `${p}__gamut-switch`, role: "group", "aria-label": "Output gamut" },
+            m.gamutChoices.map((g) =>
+              h(
+                "button",
+                {
+                  key: g.id,
+                  type: "button",
+                  class: `${p}__gamut-choice`,
+                  "aria-pressed": g.id === m.gamut.id,
+                  "aria-label": `Output in ${g.label}`,
+                  onClick: () => emit("gamutChange", g),
+                },
+                [g.label],
+              ),
+            ),
+          ),
+        );
+      }
+
       if (m.withFooter) {
         const footer: VNode[] = [];
         if (m.parts.preview) {
@@ -269,7 +332,7 @@ export const ColourPicker = defineComponent({
             h("span", {
               class: `${p}__preview`,
               style: { background: m.hex, color: m.light ? "#000" : "#fff" },
-              title: m.clipped ? m.labels.outOfGamut : m.canonical,
+              title: m.clipped ? m.notice : m.canonical,
             }),
           );
         }
@@ -292,7 +355,7 @@ export const ColourPicker = defineComponent({
       }
 
       if (m.parts.notice && m.clipped) {
-        children.push(h("p", { class: `${p}__notice` }, [m.labels.outOfGamut]));
+        children.push(h("p", { class: `${p}__notice` }, [m.notice]));
       }
 
       return h("div", { class: [p, `${p}--${m.layout}`] }, children);
@@ -300,5 +363,5 @@ export const ColourPicker = defineComponent({
   },
 });
 
-export type { PickerLayout, PickerParts } from "@oklch-picker/core";
-export type { Axis, Oklch } from "@oklch-picker/core";
+export type { LabelKey, PickerLayout, PickerParts } from "@oklch-picker/core";
+export type { Axis, Gamut, Oklch } from "@oklch-picker/core";

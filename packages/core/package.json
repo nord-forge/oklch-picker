@@ -20,6 +20,10 @@
       "types": "./dist/colour.d.mts",
       "default": "./dist/colour.mjs"
     },
+    "./gamuts": {
+      "types": "./dist/gamuts.d.mts",
+      "default": "./dist/gamuts.mjs"
+    },
     "./styles.css": "./dist/styles.css",
     "./styles.min.css": "./dist/styles.min.css",
     "./package.json": "./package.json"

@@ -1,5 +1,6 @@
 /** The custom element, driven through real DOM — no framework involved. */
-import { parseOklch } from "@oklch-picker/core";
+import { SRGB, parseOklch } from "@oklch-picker/core";
+import { P3, REC2020 } from "@oklch-picker/core/gamuts";
 import { type OklchPickerElement, register } from "oklch-picker";
 import { afterEach, beforeAll, describe, expect, test, vi } from "vitest";
 
@@ -172,7 +173,7 @@ describe("<oklch-picker>", () => {
     const picker = mount({ value: "oklch(0.2 0.3 145)" });
     const notice = picker.querySelector<HTMLElement>(".oklch-picker__notice");
     expect(notice?.hidden).toBe(false);
-    expect(notice?.textContent).toContain("Outside what a screen can display");
+    expect(notice?.textContent).toContain("Outside sRGB");
 
     picker.value = "oklch(0.7 0.05 255)";
     expect(picker.querySelector<HTMLElement>(".oklch-picker__notice")?.hidden).toBe(true);
@@ -412,5 +413,98 @@ describe("<oklch-picker>", () => {
     hue.value = "200";
     hue.dispatchEvent(new Event("input"));
     expect(document.activeElement).toBe(hue);
+  });
+
+  // Outside sRGB, inside P3 — the colour the gamut tests turn on.
+  const wide = "oklch(0.7 0.25 145)";
+
+  test("the sRGB default costs nothing: no boundary, no switcher", () => {
+    const picker = mount({ value: wide, parts: '{"gamutSwitch":true}' });
+    expect(picker.querySelector(".oklch-picker__gamut-boundary")).toBeNull();
+    // One option is not a choice, so asking for the switcher still shows none.
+    expect(picker.querySelector(".oklch-picker__gamut-switch")).toBeNull();
+  });
+
+  // The whole point of the reshape: choosing P3 emits P3 rather than drawing a
+  // P3 outline around a value that was clamped to sRGB anyway. A `Gamut`
+  // carries a conversion function, so it arrives as a property.
+  test("a P3 output keeps a P3 colour whole, unclipped and unremarked", () => {
+    const picker = mount({ value: wide });
+    picker.gamut = P3;
+    const seen: string[] = [];
+    picker.addEventListener("change", (e) => seen.push((e as CustomEvent).detail.colour));
+    expect(picker.querySelector<HTMLElement>(".oklch-picker__notice")?.hidden).toBe(true);
+
+    const hue = slider(picker, "Hue");
+    if (!hue) throw new Error("no hue slider");
+    hue.value = "145";
+    hue.dispatchEvent(new Event("input"));
+
+    // ~0.25, not the ~0.22 sRGB would have clipped it to.
+    expect(parseOklch(seen.at(-1) as string)?.c).toBeCloseTo(0.25, 3);
+  });
+
+  test("a P3 output outlines sRGB as a reference", () => {
+    const picker = mount({ value: wide });
+    picker.gamut = P3;
+    const drawn = picker.querySelectorAll(".oklch-picker__gamut-boundary");
+    expect(drawn).toHaveLength(1);
+    expect(drawn[0]?.classList.contains("oklch-picker__gamut-boundary--srgb")).toBe(true);
+  });
+
+  test("the switcher offers the references and the output, and applies a press", () => {
+    const picker = mount({ value: wide, parts: '{"gamutSwitch":true}' });
+    picker.gamut = P3;
+    const chosen: string[] = [];
+    picker.addEventListener("gamutchange", (e) =>
+      chosen.push((e as CustomEvent).detail.gamut.id as string),
+    );
+
+    const buttons = Array.from(
+      picker.querySelectorAll<HTMLButtonElement>(".oklch-picker__gamut-choice"),
+    );
+    expect(buttons).toHaveLength(2);
+    expect(buttons.map((b) => b.textContent)).toEqual(["sRGB", "Display P3"]);
+    expect(buttons[1]?.getAttribute("aria-pressed")).toBe("true");
+
+    buttons[0]?.click();
+    expect(chosen).toEqual(["srgb"]);
+    // The element owns its state, so the press takes effect rather than only
+    // being announced: the stored colour comes back clamped to sRGB.
+    expect(picker.gamut).toBe(SRGB);
+    expect(parseOklch(picker.value)?.c).toBeCloseTo(0.2202, 3);
+  });
+
+  test("a per-gamut label words the notice for the output space", () => {
+    const picker = mount({ value: "oklch(0.8 0.35 145)" });
+    picker.gamut = P3;
+    picker.labels = { "outOf:p3": "custom" };
+    expect(picker.querySelector(".oklch-picker__notice")?.textContent).toBe("custom");
+  });
+
+  // A property assigned before the element upgrades shadows the accessor, so
+  // without #upgradeProperty the boundary would silently never be drawn.
+  test("gamut set before upgrade still takes effect", () => {
+    host = document.createElement("div");
+    const picker = document.createElement("oklch-picker");
+    picker.setAttribute("value", wide);
+    picker.gamut = P3;
+    host.append(picker);
+    document.body.append(host);
+
+    expect(picker.gamut).toBe(P3);
+    expect(picker.querySelectorAll(".oklch-picker__gamut-boundary")).toHaveLength(1);
+    // And the emitted value follows the property, not sRGB.
+    expect(picker.querySelector<HTMLElement>(".oklch-picker__notice")?.hidden).toBe(true);
+  });
+
+  test("references outline without being clamped to", () => {
+    const picker = mount({ value: wide });
+    picker.gamut = REC2020;
+    picker.references = [SRGB, P3];
+    const drawn = Array.from(picker.querySelectorAll(".oklch-picker__gamut-boundary"));
+    expect(drawn).toHaveLength(2);
+    expect(drawn[0]?.classList.contains("oklch-picker__gamut-boundary--srgb")).toBe(true);
+    expect(drawn[1]?.classList.contains("oklch-picker__gamut-boundary--p3")).toBe(true);
   });
 });
