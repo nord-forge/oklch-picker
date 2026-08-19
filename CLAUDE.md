@@ -35,7 +35,7 @@ npm run lint        # biome; lint:fix to write
 npm run dev         # all six examples at once, ports 5272-5277
 ```
 
-Run `npm run build` before the examples — they resolve each package's `dist/`,
+Run `npm run build` before the examples. They resolve each package's `dist/`,
 not its source, so edits under `packages/*/src` need a rebuild to show up.
 
 Two other places resolve `dist/` rather than source, and both fail silently by
@@ -51,9 +51,9 @@ testing the *previous* build rather than erroring:
 ## Architecture
 
 **Everything derives from `core`.** `colour.ts` is the maths; `model.ts` is the
-headless model — axis ranges, track gradients, chart geometry, the draft/emit
-resolution, and the chart memo key. `pickerModel()` returns everything a picker
-needs for one render.
+headless model. It covers axis ranges, track gradients, chart geometry, the
+draft/emit resolution, and the chart memo key. `pickerModel()` returns
+everything a picker needs for one render.
 
 An adapter therefore contains only markup and state wiring, ~250 lines each.
 **When you change behaviour, change `model.ts`** so all five adapters get it;
@@ -72,7 +72,7 @@ every input would drop focus from the slider mid-drag.
   clamps what is emitted; without `resolveCurrent`, reading that clamped value
   back would destroy the other axes. Tests cover the round trip.
 - **Chart curves are memoised on one input.** A curve never reads chroma, and
-  only one of the other two axes — see `chartKey`. Keying on that means dragging
+  only one of the other two axes. See `chartKey`. Keying on that means dragging
   an unrelated slider reuses the path and its ~65 gradient stops.
 - **The stylesheet is shared and class-based**, and every adapter honours
   `classPrefix`. It lives in `core`.
@@ -89,14 +89,14 @@ every input would drop focus from the slider mid-drag.
   `customElements.define` call away and the element silently never upgrades.
 - **The vanilla element stops its inner inputs' events.** A native `change` from
   the inner `<input>` would otherwise reach a listener above the host looking
-  like the element's own but carrying no `detail`. Only `input` is bound —
-  binding `change` too would emit twice per commit.
+  like the element's own but carrying no `detail`. Only `input` is bound.
+  Binding `change` too would emit twice per commit.
 - **happy-dom has no `ElementInternals`**, so form association cannot be tested
   there. That path is verified in a real browser instead.
 
 ## Conventions
 
-- **British spelling in identifiers and prose** — `colour`, `colourName`,
+- **British spelling in identifiers and prose**, so `colour`, `colourName`,
   `ColourPicker`. The CSS custom properties are the exception: `--okp-*`.
 - Comments explain *why*, not *what*. Match the surrounding density.
 - Conventional commits, sentence case: `feat: Add layouts and a parts prop`.
@@ -105,7 +105,7 @@ every input would drop focus from the slider mid-drag.
 ## Releasing
 
 Changesets, with all six packages in one `fixed` group so they share a version
-number — a core fix cannot leave an adapter behind.
+number. A core fix cannot leave an adapter behind.
 
 ```sh
 npm run changeset          # describe the change

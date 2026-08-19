@@ -7,7 +7,7 @@ body:
       value: |
         The picker deliberately stays small and unopinionated, so the most
         persuasive requests are the ones that describe a problem rather than a
-        solution — what you were trying to build, and where this got in the way.
+        solution. Say what you were trying to build, and where this got in the way.
 
   - type: textarea
     id: problem
@@ -22,7 +22,7 @@ body:
     attributes:
       label: What are you doing instead today?
       description: |
-        Often there is already a way — `parts`, `labels`, `classPrefix`, the
+        Often there is already a way: `parts`, `labels`, `classPrefix`, the
         `--okp-*` variables, or the headless model in `@oklch-picker/core` for
         building your own UI. Knowing what you tried helps rule those out.
     validations:

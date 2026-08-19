@@ -1,0 +1,84 @@
+---
+import CodeTabs from "../../components/CodeTabs.astro";
+import Pager from "../../components/Pager.astro";
+import Picker from "../../components/Picker.astro";
+import Page from "../../layouts/Page.astro";
+---
+
+<Page
+  title="Hiding parts · oklch-picker"
+  description="Everything except the sliders is optional. Turn parts off with the parts prop."
+>
+  <h1>Hiding parts</h1>
+
+  <p class="lede">Everything except the sliders is optional.</p>
+
+  <CodeTabs
+    name="parts"
+    snippets={[
+      {
+        label: "React",
+        lang: "tsx",
+        code: `<ColourPicker
+  value={colour}
+  onChange={setColour}
+  parts={{ charts: false, name: false, notice: false }}
+/>`,
+      },
+      { label: "Vue", lang: "vue", code: `<ColourPicker v-model="colour" :parts="{ charts: false }" />` },
+      {
+        label: "Svelte",
+        lang: "svelte",
+        code: `<ColourPicker bind:value={colour} parts={{ charts: false }} />`,
+      },
+      {
+        label: "Solid",
+        lang: "tsx",
+        code: `<ColourPicker value={colour()} onChange={setColour} parts={{ charts: false }} />`,
+      },
+      {
+        label: "No framework",
+        lang: "html",
+        code: `<oklch-picker parts='{"charts": false}'></oklch-picker>`,
+      },
+    ]}
+  />
+
+  <h2>What each one covers</h2>
+
+  <table>
+    <thead>
+      <tr><th>Part</th><th>Default</th><th>Covers</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>charts</code></td><td>on</td><td>The gamut plots, large or thin</td></tr>
+      <tr><td><code>preview</code></td><td>on</td><td>The swatch in the footer</td></tr>
+      <tr><td><code>hexInput</code></td><td>on</td><td>The hex field in the footer</td></tr>
+      <tr><td><code>name</code></td><td>on</td><td>The colour name in the footer</td></tr>
+      <tr><td><code>notice</code></td><td>on</td><td>The out-of-gamut message</td></tr>
+      <tr><td><code>recents</code></td><td>on</td><td>The recent colours row</td></tr>
+      <tr><td><code>gamutSwitch</code></td><td><strong>off</strong></td><td>The output space switcher</td></tr>
+    </tbody>
+  </table>
+
+  <p>
+    <code>preview</code>, <code>hexInput</code>, and <code>name</code> make up
+    the footer; turning all three off removes it entirely. Presets are
+    controlled by the <code>presets</code> prop itself.
+  </p>
+
+  <h2>Sliders only</h2>
+
+  <p>Everything off, which is as small as the picker gets:</p>
+
+  <Picker
+    parts={{ charts: false, preview: false, hexInput: false, name: false, notice: false, recents: false }}
+    caption="Three sliders and nothing else."
+  />
+
+  <h2>No charts</h2>
+
+  <Picker parts={{ charts: false }} caption="Footer kept, plots dropped." />
+
+  <Pager />
+</Page>

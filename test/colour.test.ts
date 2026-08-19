@@ -99,7 +99,7 @@ describe("gamut", () => {
     expect(inGamut({ l: 0.75, c: 0.35, h: 145 })).toBe(false);
   });
 
-  // Regression: these two disagreed near black — maxChroma returned 0 while
+  // Regression: these two disagreed near black. maxChroma returned 0 while
   // inGamut still said true, so the picker drew a crosshair above the curve and
   // showed no out-of-gamut notice for a colour it could not display.
   test("inGamut and maxChroma agree everywhere, near black included", () => {
@@ -147,7 +147,7 @@ describe("maxChroma", () => {
     }
   });
 
-  test("peak chroma depends on lightness — a fixed slider max is mostly dead", () => {
+  test("peak chroma depends on lightness, so a fixed slider max is mostly dead", () => {
     // This is why the chroma slider is capped dynamically.
     expect(maxChroma(0.1, 145)).toBeLessThan(maxChroma(0.7, 145));
     expect(maxChroma(0.99, 145)).toBeLessThan(maxChroma(0.7, 145));
@@ -168,11 +168,11 @@ describe("maxChroma", () => {
   test("the near-black gamut is small but not flat-zeroed", () => {
     for (const h of [0, 145, 263]) {
       // It opens up gradually rather than switching on at a threshold. How
-      // early depends on the hue — green needs more lightness than blue before
-      // any chroma survives quantisation — so this only pins the ordering.
+      // early depends on the hue. Green needs more lightness than blue before
+      // any chroma survives quantisation, so this only pins the ordering.
       expect(maxChroma(0.08, h)).toBeGreaterThan(0);
       expect(maxChroma(0.08, h)).toBeGreaterThan(maxChroma(0.03, h));
-      // And stays narrow — this is near black, not a phantom peak.
+      // And stays narrow. This is near black, not a phantom peak.
       expect(maxChroma(0.08, h)).toBeLessThan(0.1);
     }
     // Blue reaches furthest at a given low lightness; the old L<=0.06 cutoff
@@ -229,7 +229,7 @@ describe("gamutCurve", () => {
   });
 
   // The charts scaled to MAX_CHROMA, the bisection bound, which no colour
-  // reaches — the top 13% of every chart was permanently empty.
+  // reaches. The top 13% of every chart was permanently empty.
   test("the tallest curve nearly fills the chart, and none overflows", () => {
     let tallest = 0;
     for (let h = 0; h < 360; h += 3) {
@@ -267,7 +267,8 @@ describe("gamutCurve", () => {
   });
 
   // The c chart's vertical axis is lightness, and holding chroma fixed makes
-  // some hues unreachable at every lightness — a column of zero, not a floor.
+  // some hues unreachable at every lightness. That is a column of zero, not a
+  // floor.
   test("the c chart reports zero where the held chroma is unreachable", () => {
     const cols = gamutCurve({ l: 0.7, c: 0.15, h: 255 }, "c", 32);
     expect(cols.some((col) => col.c === 0)).toBe(true);
@@ -282,7 +283,7 @@ describe("colourName", () => {
     expect(colourName("oklch(0.76 0.15 60)")).toBe("Amber");
   });
 
-  test("hue alone is not enough — lightness and chroma qualify it", () => {
+  test("hue alone is not enough, lightness and chroma qualify it", () => {
     // All hue 338, but visibly different colours.
     expect(colourName("oklch(0.43 0.19 338)")).toBe("Dark pink");
     expect(colourName("oklch(0.7 0.15 338)")).toBe("Pink");
@@ -408,7 +409,7 @@ describe("the output gamut", () => {
   test("only warns once the colour leaves the output gamut too", () => {
     const m = pickerModel({ l: 0.7, c: 0.6, h: 145 }, { gamut: P3 });
     expect(m.clipped).toBe(true);
-    expect(m.notice).toBe("Outside Display P3 — the nearest Display P3 colour is used.");
+    expect(m.notice).toBe("Outside Display P3, the nearest Display P3 colour is used.");
   });
 
   test("each message can be replaced, per gamut and in general", () => {
@@ -422,7 +423,7 @@ describe("the output gamut", () => {
   test("parts.notice turns the message off without changing the maths", () => {
     const m = pickerModel(wide, { parts: { notice: false } });
     expect(m.parts.notice).toBe(false);
-    // Still clipped, so the emitted value is still clamped — only the text goes.
+    // Still clipped, so the emitted value is still clamped. Only the text goes.
     expect(m.clipped).toBe(true);
   });
 });

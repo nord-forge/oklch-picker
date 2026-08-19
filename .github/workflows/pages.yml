@@ -3,7 +3,7 @@ name: Pages
 on:
   push:
     branches: [main]
-  # So the site can be redeployed without a commit — useful after changing the
+  # So the site can be redeployed without a commit, useful after changing the
   # Pages settings or the custom domain.
   workflow_dispatch:
 
@@ -35,7 +35,7 @@ jobs:
       - run: npm ci
 
       # The site resolves the packages by `file:` path, so it reads their dist
-      # rather than their source — without this it would document the previous
+      # rather than their source. Without this it would document the previous
       # build, silently and without failing.
       - run: npm run build
 

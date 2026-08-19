@@ -1,0 +1,124 @@
+---
+import Pager from "../components/Pager.astro";
+import Page from "../layouts/Page.astro";
+import { assertProps, defaultFor, readProps } from "../lib/props";
+import { url } from "../lib/url";
+
+// Read from the built declarations at build time, so this table cannot drift
+// from the types. `assertProps` fails the build rather than rendering a table
+// that quietly lost half its rows.
+const props = assertProps(readProps());
+---
+
+<Page
+  title="API · oklch-picker"
+  description="Every prop the picker takes, generated from the published type declarations so the reference cannot drift from the types."
+>
+  <h1>API</h1>
+
+  <p class="lede">
+    Every prop, read from the published type declarations at build time, so
+    this table cannot disagree with what you actually get.
+  </p>
+
+  <h2>Props</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Prop</th>
+        <th>Type</th>
+        <th>Default</th>
+        <th>Notes</th>
+      </tr>
+    </thead>
+    <tbody>
+      {
+        props.map((prop) => (
+          <tr>
+            <td>
+              <code>{prop.name}</code>
+              {prop.required && <span class="req" title="Required"> *</span>}
+            </td>
+            <td><code>{prop.type}</code></td>
+            <td>{defaultFor(prop.name) === "-" ? "-" : <code>{defaultFor(prop.name)}</code>}</td>
+            <td>{prop.description}</td>
+          </tr>
+        ))
+      }
+    </tbody>
+  </table>
+
+  <p><span class="req">*</span> required.</p>
+
+  <h2>Names in each framework</h2>
+
+  <p>
+    The table above uses the React names. The others follow their own idiom for
+    the value binding; everything else is identical.
+  </p>
+
+  <table>
+    <thead>
+      <tr><th>Framework</th><th>Value</th><th>Change</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>React / Preact</td><td><code>value</code></td><td><code>onChange</code></td></tr>
+      <tr><td>Vue</td><td colspan="2"><code>v-model</code>, or <code>:value</code> + <code>@change</code></td></tr>
+      <tr><td>Svelte</td><td colspan="2"><code>bind:value</code></td></tr>
+      <tr><td>Solid</td><td><code>value</code></td><td><code>onChange</code></td></tr>
+      <tr>
+        <td>No framework</td>
+        <td><code>value</code> attribute or property</td>
+        <td><code>change</code> event</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Events on the custom element</h2>
+
+  <p>
+    The element emits three events, each carrying its payload in
+    <code>detail</code>. It deliberately stops its inner inputs' events, so a
+    listener above the host only ever sees these:
+  </p>
+
+  <table>
+    <thead>
+      <tr><th>Event</th><th><code>detail</code></th><th>Fires</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>change</code></td>
+        <td><code>&lbrace; colour: string &rbrace;</code></td>
+        <td>On every value change, canonical and gamut-clamped</td>
+      </tr>
+      <tr>
+        <td><code>gamutchange</code></td>
+        <td><code>&lbrace; gamut: Gamut &rbrace;</code></td>
+        <td>When a switcher button is pressed</td>
+      </tr>
+      <tr>
+        <td><code>recentschange</code></td>
+        <td><code>&lbrace; recents: string[] &rbrace;</code></td>
+        <td>On commit, not during a drag</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Colour utilities</h2>
+
+  <p>
+    The maths is exported separately and documented on
+    <a href={url("/docs/utilities")}>its own page</a>.
+  </p>
+
+  <Pager />
+</Page>
+
+<style>
+  .req {
+    color: var(--site-link);
+    font-weight: 600;
+  }
+</style>

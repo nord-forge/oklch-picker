@@ -1,0 +1,115 @@
+---
+import CodeTabs from "../../components/CodeTabs.astro";
+import Pager from "../../components/Pager.astro";
+import Picker from "../../components/Picker.astro";
+import Page from "../../layouts/Page.astro";
+---
+
+<Page
+  title="Layouts · oklch-picker"
+  description="Four arrangements of the same picker: chart, side-by-side, compact, and stacked. Each is live on this page."
+>
+  <h1>Layouts</h1>
+
+  <p class="lede">
+    Four arrangements of the same controls. Every one below is live, so drag
+    them and compare.
+  </p>
+
+  <div class="note">
+    <p>
+      <strong>The default changed in 1.1</strong>, from <code>stacked</code> to
+      <code>chart</code>. Pass <code>layout="stacked"</code> to keep what 1.0
+      rendered.
+    </p>
+  </div>
+
+  <h2><code>chart</code>, the default</h2>
+
+  <p>
+    One large lightness × chroma plot above all three sliders, reshaping as the
+    hue slider moves. Drag the plot to set lightness and chroma at once.
+  </p>
+
+  <Picker caption="Drag the plot itself, not only the sliders." />
+
+  <h2><code>side-by-side</code></h2>
+
+  <p>
+    The same large plot and sliders, with preview, hex, name, and presets in a
+    right rail. For wide settings panels. It caps itself at
+    <code>--okp-side-by-side-width</code> (560px) so the chart has room to be
+    worth reading; override that and <code>--okp-rail-width</code> to resize it.
+  </p>
+
+  <Picker
+    layout="side-by-side"
+    presets={["oklch(0.75 0.16 145)", "oklch(0.7 0.15 255)", "oklch(0.72 0.19 35)"]}
+  />
+
+  <h2><code>compact</code></h2>
+
+  <p>
+    No charts, tighter spacing, single-letter labels inline with each slider.
+    For popovers and toolbars. Screen readers still get the full labels.
+  </p>
+
+  <Picker layout="compact" />
+
+  <h2><code>stacked</code></h2>
+
+  <p>
+    A thin gamut chart above each axis instead of one large one. Each sweeps the
+    two axes it does not control, so all three show a different slice: the L
+    chart plots hue against chroma, the C chart hue against lightness, and the H
+    chart lightness against chroma.
+  </p>
+
+  <Picker layout="stacked" />
+
+  <h2>Setting it</h2>
+
+  <CodeTabs
+    name="layout"
+    snippets={[
+      {
+        label: "React",
+        lang: "tsx",
+        code: `<ColourPicker value={colour} onChange={setColour} layout="compact" />`,
+      },
+      { label: "Vue", lang: "vue", code: `<ColourPicker v-model="colour" layout="compact" />` },
+      {
+        label: "Svelte",
+        lang: "svelte",
+        code: `<ColourPicker bind:value={colour} layout="compact" />`,
+      },
+      {
+        label: "Solid",
+        lang: "tsx",
+        code: `<ColourPicker value={colour()} onChange={setColour} layout="compact" />`,
+      },
+      { label: "No framework", lang: "html", code: `<oklch-picker layout="compact"></oklch-picker>` },
+    ]}
+  />
+
+  <h2>Dragging the chart</h2>
+
+  <p>
+    In the <code>chart</code> layout the plot is a control, not a picture:
+    dragging it sets lightness and chroma at once, using pointer events so it
+    works under touch as well as a mouse.
+  </p>
+
+  <p>
+    The thin per-axis charts in <code>stacked</code> are read-only. They are
+    34px tall, so a drag would have almost no vertical travel, and it would set
+    two axes at once directly above the slider that sets one precisely.
+  </p>
+
+  <p>
+    Charts are hidden from assistive tech either way. The sliders are the
+    accessible route, and they reach everything a chart can.
+  </p>
+
+  <Pager />
+</Page>

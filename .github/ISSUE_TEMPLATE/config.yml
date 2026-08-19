@@ -1,5 +1,5 @@
 # Blank issues are off so questions arrive with enough context to answer.
-# If you enable Discussions on the repo, move the question link there — the
+# If you enable Discussions on the repo, move the question link there. The
 # `url` below just needs to become .../discussions.
 blank_issues_enabled: false
 contact_links:

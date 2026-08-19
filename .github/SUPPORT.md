@@ -1,6 +1,6 @@
 # Support
 
-Start with the [README](https://github.com/nord-forge/oklch-picker#readme) — it
+Start with the [README](https://github.com/nord-forge/oklch-picker#readme). It
 covers install and usage for every framework, the theming variables, and the
 three layouts. If it is not answered there, open an
 [issue](https://github.com/nord-forge/oklch-picker/issues/new/choose).
@@ -13,7 +13,7 @@ One per framework, so you only download the adapter you use:
 
 | Using | Install |
 | --- | --- |
-| No framework — HTML, HTMX, Alpine, Astro, Rails, Laravel, Django | `oklch-picker` |
+| No framework (HTML, HTMX, Alpine, Astro, Rails, Laravel, Django) | `oklch-picker` |
 | React or Preact | `@oklch-picker/react` |
 | Vue | `@oklch-picker/vue` |
 | Svelte 5 | `@oklch-picker/svelte` |
@@ -27,15 +27,15 @@ on: `import "@oklch-picker/core/styles.css"`.
 
 `oklch-picker` used to be the React component. As of 1.0 it is the
 no-framework custom element, so that `npm i oklch-picker` gives the build that
-works anywhere. Install `@oklch-picker/react` and change the import — the
+works anywhere. Install `@oklch-picker/react` and change the import. The
 component, its props, and its values are otherwise unchanged.
 
 ### Why is the chroma slider's maximum always moving?
 
 Because the sRGB gamut is a lopsided solid in OKLCH: the most saturated colour
 you can actually display depends on both lightness and hue. A fixed `0..0.37`
-slider is up to 87% dead travel at low lightness — the thumb moves and nothing
-changes. The maximum is recomputed as the other axes move so the track stays
+slider is up to 87% dead travel at low lightness. The thumb moves and nothing
+changes. The maximum is recomputed as the other axes move, so the track stays
 useful.
 
 ### Why does my colour come back slightly different from what I set?
@@ -49,17 +49,17 @@ can be. `inGamut()` from `@oklch-picker/core` tells you in advance.
 Yes, without overriding any of the CSS:
 
 - **`--okp-*` custom properties** for colours, sizes, and radii.
-- **`layout`** — `stacked` (default), `compact`, or `side-by-side`.
+- **`layout`** takes `stacked` (default), `compact`, or `side-by-side`.
 - **`parts`** to turn off the charts, preview, hex input, name, or notice.
 - **`classPrefix`** to rename every class, if you would rather style it yourself.
 
 For something further from the default, `@oklch-picker/core` exposes the whole
-headless model — axis ranges, gradients, chart geometry — so you can build your
-own markup on the same maths.
+headless model, meaning axis ranges, gradients, and chart geometry. You can
+build your own markup on the same maths.
 
 ### Does it work without JavaScript?
 
-No — it is an interactive control. The custom element does render a plain
+No. It is an interactive control. The custom element does render a plain
 `value` attribute server-side, and being form-associated it submits under its
 `name` like a built-in input, so a server-rendered form round-trips without any
 JavaScript of your own.

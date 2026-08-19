@@ -24,12 +24,12 @@ interface Props {
   onchange?: (colour: string) => void;
   presets?: string[];
   /** Recently used colours, most recent first. Omit to let the picker keep its
-   * own list for the session; pass one to store them yourself — in a backend,
+   * own list for the session; pass one to store them yourself, in a backend,
    * or shared between pickers. */
   recents?: string[];
   /** Called with the new list when a colour is committed, for the controlled
-   * form above. Fires on commit — a pointer release, a preset, a hex entry —
-   * not on every value a drag passes through. */
+   * form above. Fires on commit, so on a pointer release, a preset, or a hex
+   * entry. Not on every value a drag passes through. */
   onrecentschange?: (recents: string[]) => void;
   /** How many recents to keep. Ignored when `recents` is controlled: the list
    * you pass is the list that renders. */
@@ -55,8 +55,8 @@ interface Props {
   /** What the switcher offers, when `parts.gamutSwitch` is on. Defaults to the
    * output gamut plus its references. */
   gamutChoices?: Gamut[];
-  /** Called when a switcher button is pressed. Omit to leave the buttons inert
-   * — the app is driving `gamut` as a prop either way. */
+  /** Called when a switcher button is pressed. Omit to leave the buttons
+   * inert. The app is driving `gamut` as a prop either way. */
   ongamutchange?: (gamut: Gamut) => void;
   /** Class prefix for every element, so styles can be overridden. */
   classPrefix?: string;
@@ -116,7 +116,7 @@ const recents = $derived(controlledRecents ?? ownRecents);
 
 // A drag calls `onchange` for every value it passes through, so recording
 // there would bury the list in near-identical colours from one gesture. Only a
-// commit — a pointer release, a preset, a hex entry — lands here.
+// commit lands here. That is a pointer release, a preset or a hex entry.
 function commit(colour: string) {
   const next = addRecent(recents, colour, maxRecents);
   ownRecents = next;
@@ -182,7 +182,7 @@ function pick(colour: string) {
     {#each model.axes as axis, i (axis.key)}
       <!-- In the `chart` layout the one chart is hoisted above the axes. -->
       {@const chart = single ? undefined : model.charts[i]}
-      <!-- A div, not a label — the slider has its own aria-label. -->
+      <!-- A div, not a label. The slider has its own aria-label. -->
       <div class="{classPrefix}__axis">
         <span class="{classPrefix}__axis-head">
           <span class="{classPrefix}__axis-label" aria-hidden="true">

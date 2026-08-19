@@ -14,17 +14,18 @@ export interface Oklch {
 
 export type Axis = "l" | "c" | "h";
 
-/** Chroma high enough that no sRGB colour reaches it — the bisection's upper
- * bound, deliberately past the real peak so the search always brackets it. */
+/** Chroma high enough that no sRGB colour reaches it. This is the bisection's
+ * upper bound, deliberately past the real peak so the search always brackets
+ * it. */
 export const MAX_CHROMA = 0.37;
 
 /** The highest chroma sRGB actually reaches, at any lightness and hue (~0.321
  * around h=328, l=0.7), rounded up to a round number.
  *
  * This is the charts' vertical scale rather than `MAX_CHROMA`: scaling to the
- * bisection bound left the top 13% of every chart permanently unreachable, and
- * a hue like teal — whose own peak is ~0.15 — used under half the height. A
- * wider gamut would raise this, which is the one number to change. */
+ * bisection bound left the top 13% of every chart permanently unreachable. A
+ * hue like teal, whose own peak is ~0.15, used under half the height. A wider
+ * gamut would raise this, which is the one number to change. */
 export const CHART_MAX_CHROMA = 0.33;
 
 function srgbToLinear(v: number): number {
@@ -68,7 +69,7 @@ export function oklchToLms({ l, c, h }: Oklch): [number, number, number] {
  *
  * Only sRGB ships with the core. Wider gamuts live in `@oklch-picker/core/
  * gamuts` as plain data, so an app that never imports them never pays for
- * them — the bundler drops the module statically, with no dynamic import and
+ * them. The bundler drops the module statically, with no dynamic import and
  * no async boundary in the render path. */
 export interface Gamut {
   /** Stable id, used for the CSS class on its boundary line. */
@@ -78,7 +79,7 @@ export interface Gamut {
   /** LMS cubes -> that space's linear channels. */
   fromLms: (lms: [number, number, number]) => [number, number, number];
   /** Chroma this space cannot reach, as the bisection's upper bound. Must sit
-   * above the space's true peak or the boundary is silently clipped — Rec. 2020
+   * above the space's true peak or the boundary is silently clipped. Rec. 2020
    * reaches ~0.464, well past what sRGB needs. */
   maxChroma: number;
   /** Chart scale: the space's own reachable peak, rounded up. */
@@ -98,7 +99,7 @@ function oklchToLinearRgb(colour: Oklch): [number, number, number] {
   return lmsToLinearSrgb(oklchToLms(colour));
 }
 
-/** sRGB — what the picker clamps to, and the only gamut bundled by default. */
+/** What the picker clamps to. sRGB is the only gamut bundled by default. */
 export const SRGB: Gamut = {
   id: "srgb",
   label: "sRGB",
@@ -110,14 +111,14 @@ export const SRGB: Gamut = {
 /** True when the colour is representable in sRGB (within a small tolerance).
  *
  * The tolerance is applied to the *encoded* channel, not the linear one. A
- * linear epsilon is wildly asymmetric — 0.0005 of linear light is about 1.6/255
- * near black but 0.06/255 near white — so it used to admit a band of
+ * linear epsilon is wildly asymmetric. 0.0005 of linear light is about 1.6/255
+ * near black but only 0.06/255 near white, so it used to admit a band of
  * unrepresentable near-black colours. An encoded epsilon means the same thing
  * at both ends: a tenth of an 8-bit step, enough to absorb bisection error
  * without letting a visibly different colour through.
  *
  * Fitting inside the cube is necessary but not sufficient. Near black the cube
- * still holds chroma that quantises away — at L=0 every chroma below ~0.039 is
+ * still holds chroma that quantises away. At L=0 every chroma below ~0.039 is
  * `#000000`, indistinguishable from the achromatic colour. Requiring a
  * distinguishable channel is what makes the gamut close to a point at black
  * rather than reporting a width that no screen can show. */
@@ -221,7 +222,7 @@ export const CHART_PLANES: Record<Axis, { x: Axis; y: Axis }> = {
 /** The full-scale value of an axis, for mapping 0..1 chart positions onto it.
  *
  * The curve, the crosshair, and a drag all read this, so it is the one place
- * the chart's scale is decided — change it here or they desync. */
+ * the chart's scale is decided. Change it here or they desync. */
 export function axisMax(axis: Axis, gamut: Gamut = SRGB): number {
   if (axis === "h") return 360;
   if (axis === "c") return gamut.chartMaxChroma;

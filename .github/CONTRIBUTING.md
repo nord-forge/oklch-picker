@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for considering it. Issues and pull requests are both welcome — if the
+Thanks for considering it. Issues and pull requests are both welcome. If the
 change is substantial, an issue first will save you effort in case it does not
 fit the direction.
 
@@ -13,13 +13,13 @@ npm test        # 113 tests across five vitest projects
 npm run dev     # every example at once, ports 5272-5277
 ```
 
-**Node 22.18 or newer** — the build tool needs it. The published packages
+**Node 22.18 or newer**, because the build tool needs it. The published packages
 themselves run on Node 20, which is what their `engines` fields say.
 
 ## The shape of the codebase
 
 Six packages under `packages/`: `core` holds the colour maths and the headless
-model, and five adapters build on it — `react`, `vue`, `svelte`, `solid`, and
+model, and five adapters build on it: `react`, `vue`, `svelte`, `solid`, and
 `vanilla` (published as the bare `oklch-picker` name).
 
 **Behaviour belongs in `core`.** An adapter should only contain markup and state
@@ -37,8 +37,8 @@ npm run typecheck   # tsc, a second pass for Solid, and svelte-check
 npm test
 ```
 
-A behaviour change wants a test. The suites mirror each other deliberately —
-the same assertions run against every adapter — so a change to shared behaviour
+A behaviour change wants a test. The suites mirror each other deliberately, so
+the same assertions run against every adapter. A change to shared behaviour
 usually means the same test in five places.
 
 Add a changeset describing the change:

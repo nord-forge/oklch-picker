@@ -4,8 +4,8 @@ export { GamutChart } from "./GamutChart.js";
 export type { GamutChartProps } from "./GamutChart.js";
 export type { LabelKey, PickerLayout, PickerParts } from "@oklch-picker/core";
 
-// The colour maths is framework-free and useful on its own — for validating
-// stored values on a server, generating palettes, or naming colours in a table.
+// The colour maths is framework-free and useful on its own. It can validate
+// stored values on a server, generate palettes, or name colours in a table.
 export {
   clampToGamut,
   colourName,

@@ -14,7 +14,7 @@ export interface GamutChartProps {
   x: number;
   /** 0..1 up the plot, bottom-up; drives the horizontal crosshair. */
   y: number;
-  /** Unique per instance — SVG gradient ids share a document-wide namespace. */
+  /** Unique per instance. SVG gradient ids share a document-wide namespace. */
   id: string;
   /** Columns to sample. More is smoother; 64 costs well under a millisecond. */
   resolution?: number;

@@ -5,9 +5,9 @@
 
 # oklch-picker
 
-An OKLCH colour picker for React, Preact, Vue, Svelte, Solid — and for no framework at all. Zero runtime dependencies; the component is ~4.8 kB gzipped, and the colour maths alone is ~2.5 kB.
+An OKLCH colour picker for React, Preact, Vue, Svelte, Solid, and for no framework at all. Zero runtime dependencies. The component is ~4.8 kB gzipped, and the colour maths alone is ~2.5 kB.
 
-Every axis is a slider over a **gamut cross-section** — the filled silhouette is the range sRGB can actually show, so the reachable colours are visible instead of something you discover by dragging into a region that does nothing.
+Every axis is a slider over a **gamut cross-section**. The filled silhouette is the range sRGB can actually show, so the reachable colours are visible instead of something you discover by dragging into a region that does nothing.
 
 ![The picker in dark mode, showing blue and amber](https://raw.githubusercontent.com/nord-forge/oklch-picker/main/docs/media/dark.png)
 
@@ -17,7 +17,7 @@ Most pickers work in HSV and convert. If your design tokens are already OKLCH, t
 
 This one works in OKLCH directly, and takes the gamut seriously:
 
-- **The chroma slider is bounded by what is reachable.** The sRGB gamut is a lopsided solid in OKLCH — peak chroma depends on both lightness and hue. A fixed `0..0.37` slider is up to **87% dead travel** at low lightness: the thumb moves and the colour does not change. Here the maximum is recomputed as the other axes move, so 95–100% of the track does something.
+- **The chroma slider is bounded by what is reachable.** The sRGB gamut is a lopsided solid in OKLCH, so peak chroma depends on both lightness and hue. A fixed `0..0.37` slider is up to **87% dead travel** at low lightness. The thumb moves and the colour does not change. Here the maximum is recomputed as the other axes move, so 95 to 100% of the track does something.
 - **Out-of-gamut regions are hatched**, on every axis. Lightness is unreachable at *both* ends at high chroma, and hue can be unreachable in the middle, so a single boundary marker will not do.
 - **Nothing out-of-gamut is ever emitted.** Values are clamped by reducing chroma, keeping lightness and hue.
 
@@ -27,11 +27,11 @@ At chroma 0.22 most hues cannot sustain that saturation, and the picker says so:
 
 ## Install
 
-Install the package for your framework — each pulls in only its own adapter plus the shared core.
+Install the package for your framework. Each pulls in only its own adapter plus the shared core.
 
 | Using | Install | Binding |
 | --- | --- | --- |
-| **No framework** — plain HTML, HTMX, Alpine, Astro, Rails, Laravel, Django, PHP, WordPress | `oklch-picker` | `<oklch-picker>` element |
+| **No framework** (plain HTML, HTMX, Alpine, Astro, Rails, Laravel, Django, PHP, WordPress) | `oklch-picker` | `<oklch-picker>` element |
 | React / Preact | `@oklch-picker/react` | `value` + `onChange` |
 | Vue | `@oklch-picker/vue` | `v-model` |
 | Svelte 5 | `@oklch-picker/svelte` | `bind:value` |
@@ -65,19 +65,19 @@ Your framework is an optional peer dependency; Preact works through `preact/comp
 | `oklch-picker/colour` | `@oklch-picker/core` |
 | `oklch-picker/styles.css` | `@oklch-picker/core/styles.css` |
 
-Nothing else changes — the components, props, and emitted values are identical. The split exists so an app downloads only the adapter it uses instead of all five.
+Nothing else changes. The components, props, and emitted values are identical. The split exists so an app downloads only the adapter it uses instead of all five.
 
 </details>
 
 ### The shared core
 
-`@oklch-picker/core` holds the colour maths and the headless model, with no UI. Every adapter depends on it, and it is worth installing on its own if you want the maths without a picker — validating stored colours on a server, generating palettes, or naming colours in a table:
+`@oklch-picker/core` holds the colour maths and the headless model, with no UI. Every adapter depends on it. It is worth installing on its own if you want the maths without a picker, say for validating stored colours on a server, generating palettes, or naming colours in a table:
 
 ```js
 import { colourName, clampToGamut, maxChroma } from "@oklch-picker/core";
 ```
 
-Whichever you import, the props are the same — `presets`, `layout`, `parts`, `labels`, `classPrefix` — and the value semantics follow each framework's idiom. A runnable app per framework lives in [`examples/`](./examples).
+Whichever you import, the props are the same: `presets`, `layout`, `parts`, `labels`, `classPrefix`. The value semantics follow each framework's idiom. A runnable app per framework lives in [`examples/`](./examples).
 
 ## Usage
 
@@ -138,7 +138,7 @@ export function Example() {
 
 ### No framework
 
-`oklch-picker` is a custom element, so it is just a tag. That covers **plain HTML, HTMX, Alpine, Astro, and any server-rendered page** — Rails, Laravel, Django, PHP, WordPress. No framework, no bundler, and no build step:
+`oklch-picker` is a custom element, so it is just a tag. That covers **plain HTML, HTMX, Alpine, Astro, and any server-rendered page**, including Rails, Laravel, Django, PHP, and WordPress. No framework, no bundler, and no build step:
 
 ```html
 <link rel="stylesheet" href="https://esm.sh/@oklch-picker/core/styles.min.css" />
@@ -154,11 +154,11 @@ export function Example() {
 </script>
 ```
 
-`styles.min.css` is the same stylesheet at 1.3 kB gzipped instead of 2.3 kB — worth using whenever nothing in front of it will minify. With a bundler, import plain `styles.css`: your build minifies it anyway, and the readable file is where the `--okp-*` variables are documented.
+`styles.min.css` is the same stylesheet at 1.3 kB gzipped instead of 2.3 kB. Use it whenever nothing in front of it will minify. With a bundler, import plain `styles.css`. Your build minifies it anyway, and the readable file is where the `--okp-*` variables are documented.
 
-With a bundler, the import is `import "oklch-picker/register"` instead. Either way that one side-effect import defines the tag — that is the whole client-side cost, and nothing else needs wiring.
+With a bundler, the import is `import "oklch-picker/register"` instead. Either way that one side-effect import defines the tag. That is the whole client-side cost, and nothing else needs wiring.
 
-**It works in forms.** The element is form-associated, so it submits under its `name` like a built-in input — no hidden field, and no JavaScript to sync one. A server can render the current value and read the new one straight back from the POST body:
+**It works in forms.** The element is form-associated, so it submits under its `name` like a built-in input. No hidden field, and no JavaScript to sync one. A server can render the current value and read the new one straight back from the POST body:
 
 ```html
 <form method="post">
@@ -169,7 +169,7 @@ With a bundler, the import is `import "oklch-picker/register"` instead. Either w
 
 Resetting the form restores the value the server rendered, again like a built-in input.
 
-In Astro this needs no `client:*` directive, because there is no framework to hydrate — the page ships the markup and the element upgrades itself:
+In Astro this needs no `client:*` directive, because there is no framework to hydrate. The page ships the markup and the element upgrades itself:
 
 ```astro
 ---
@@ -196,7 +196,7 @@ import "@oklch-picker/core/styles.css";
 
 `presets` also takes a plain comma-separated list. From script, all of them are settable as properties (`picker.presets = [...]`), and `picker.value` reads and writes the current colour.
 
-The element renders into the light DOM, so the stylesheet and `--okp-*` overrides apply exactly as they do elsewhere — which also means it is not style-isolated.
+The element renders into the light DOM, so the stylesheet and `--okp-*` overrides apply exactly as they do elsewhere. That also means it is not style-isolated.
 
 ---
 
@@ -214,10 +214,10 @@ Whatever you use, the emitted value is always a canonical, gamut-clamped `oklch(
 
 ### Layouts
 
-- **`chart`** (default) — one large lightness × chroma plot above all three sliders, reshaping as the hue slider moves. Drag it to set lightness and chroma at once.
-- **`side-by-side`** — the same large plot and sliders, with preview, hex, name, and presets in a right rail. For wide settings panels. It caps itself at `--okp-side-by-side-width` (560px) so the chart has room to be worth reading; override that and `--okp-rail-width` to resize it.
-- **`compact`** — no charts, tighter spacing, single-letter labels inline with each slider. For popovers and toolbars. (Screen readers still get the full labels.)
-- **`stacked`** — a thin gamut chart above each axis instead of one large one. Each sweeps the two axes it does not control, so all three show a different slice. This is what 1.0 rendered by default.
+- **`chart`** (default) puts one large lightness × chroma plot above all three sliders, reshaping as the hue slider moves. Drag it to set lightness and chroma at once.
+- **`side-by-side`** keeps the same large plot and sliders, with preview, hex, name, and presets in a right rail. For wide settings panels. It caps itself at `--okp-side-by-side-width` (560px) so the chart has room to be worth reading; override that and `--okp-rail-width` to resize it.
+- **`compact`** drops the charts, tightens the spacing, and puts single-letter labels inline with each slider. For popovers and toolbars. (Screen readers still get the full labels.)
+- **`stacked`** puts a thin gamut chart above each axis instead of one large one. Each sweeps the two axes it does not control, so all three show a different slice. This is what 1.0 rendered by default.
 
 > [!NOTE]
 > The default changed in 1.1: it was `stacked`. Pass `layout="stacked"` to keep
@@ -246,7 +246,7 @@ The thin per-axis charts in the other layouts are read-only. They are 34px tall,
 so a drag would have almost no vertical travel, and it would set two axes at
 once directly above the slider that sets one precisely.
 
-Charts are hidden from assistive tech either way — the sliders are the
+Charts are hidden from assistive tech either way. The sliders are the
 accessible route, and they reach everything a chart can.
 
 ### Wider gamuts
@@ -270,7 +270,7 @@ the safe region stays visible. Override with `references` to draw others, or
 `references={[]}` for none.
 
 `P3` and `REC2020` live behind their own entry point on purpose. An app that
-never imports them never ships the matrices — the bundler drops the module
+never imports them never ships the matrices. The bundler drops the module
 statically, so there is no dynamic import and nothing async in the render path.
 Opting in costs a few hundred bytes.
 
@@ -292,19 +292,19 @@ const [gamut, setGamut] = useState(SRGB);
 ```
 
 `gamutChoices` defaults to the output gamut plus its references. The control
-hides itself when that leaves only one option — one option is not a choice.
+hides itself when that leaves only one option. One option is not a choice.
 
 ### Recently used colours
 
-On by default, and empty until something is committed — so it costs nothing
+On by default, and empty until something is committed, so it costs nothing
 until it has something to show:
 
 ```tsx
 <ColourPicker value={colour} onChange={setColour} />
 ```
 
-That keeps a list for the session, per picker. To store them yourself — in a
-backend, or shared between pickers — pass the list in and take the updates:
+That keeps a list for the session, per picker. To store them yourself, in a
+backend or shared between pickers, pass the list in and take the updates:
 
 ```tsx
 const [recents, setRecents] = useState(loadFromServer);
@@ -320,8 +320,8 @@ const [recents, setRecents] = useState(loadFromServer);
 />
 ```
 
-A colour joins the list when it is **committed** — a pointer release, a preset
-click, a hex entry, leaving a slider — not on every value a drag passes
+A colour joins the list when it is **committed**, meaning a pointer release, a
+preset click, a hex entry, or leaving a slider. Not on every value a drag passes
 through. Dragging the hue slider across the spectrum records one colour, not
 forty. Repeats move to the front rather than appearing twice, and the list is
 capped at `maxRecents` (8 by default).
@@ -333,11 +333,11 @@ capped at `maxRecents` (8 by default).
 When a colour falls outside the output gamut the picker says so. The wording
 comes from `labels`, and there are two keys:
 
-- **`outOfGamut`** — the sRGB message, and the fallback for any space with no
-  wording of its own. Defaults to *"Outside sRGB — the nearest sRGB colour is
+- **`outOfGamut`** is the sRGB message, and the fallback for any space with no
+  wording of its own. Defaults to *"Outside sRGB, the nearest sRGB colour is
   used."*
-- **`outOf:<gamut id>`** — the message for one output space. With `gamut={P3}`
-  the default becomes *"Outside Display P3 — the nearest Display P3 colour is
+- **`outOf:<gamut id>`** is the message for one output space. With `gamut={P3}`
+  the default becomes *"Outside Display P3, the nearest Display P3 colour is
   used."*
 
 Every message names its own space rather than saying "outside what a screen can
@@ -355,8 +355,8 @@ Override either:
 />
 ```
 
-Or turn the message off entirely, leaving the maths untouched — the value is
-still clamped, the hatching still shows, only the text goes:
+Or turn the message off entirely, leaving the maths untouched. The value is
+still clamped and the hatching still shows. Only the text goes:
 
 ```tsx
 <ColourPicker parts={{ notice: false }} />
@@ -380,25 +380,25 @@ Everything except the sliders is optional:
 
 | Prop | Type | Default | |
 |---|---|---|---|
-| `value` | `string \| null` | — | `oklch(L C H)` or hex |
-| `onChange` | `(colour: string) => void` | — | Receives a canonical, clamped `oklch(L C H)` |
-| `presets` | `string[]` | — | Swatches shown above the sliders |
-| `recents` | `string[]` | — | Controlled recent colours; omit to keep a session list |
-| `onRecentsChange` | `(recents: string[]) => void` | — | Fired on commit, not during a drag |
+| `value` | `string \| null` | none | `oklch(L C H)` or hex |
+| `onChange` | `(colour: string) => void` | none | Receives a canonical, clamped `oklch(L C H)` |
+| `presets` | `string[]` | none | Swatches shown above the sliders |
+| `recents` | `string[]` | none | Controlled recent colours; omit to keep a session list |
+| `onRecentsChange` | `(recents: string[]) => void` | none | Fired on commit, not during a drag |
 | `maxRecents` | `number` | `8` | How many to keep when uncontrolled |
 | `layout` | `"chart" \| "side-by-side" \| "compact" \| "stacked"` | `"chart"` | See [Layouts](#layouts) |
 | `parts` | `{ charts?, preview?, hexInput?, name?, notice?, recents?, gamutSwitch?: boolean }` | all `true` except `gamutSwitch` | Turn parts off, e.g. `{ charts: false }` |
-| `labels` | `Partial<Record<LabelKey, string>>` | English | Translation and custom notices — see [Notices](#notices) |
-| `gamut` | `Gamut` | `SRGB` | The output space — clamped and emitted; see [Wider gamuts](#wider-gamuts) |
+| `labels` | `Partial<Record<LabelKey, string>>` | English | Translation and custom notices. See [Notices](#notices) |
+| `gamut` | `Gamut` | `SRGB` | The output space, clamped and emitted. See [Wider gamuts](#wider-gamuts) |
 | `references` | `Gamut[]` | `[SRGB]` when wider | Spaces outlined on the chart but never clamped to |
 | `gamutChoices` | `Gamut[]` | output + references | What the switcher offers |
-| `onGamutChange` | `(gamut: Gamut) => void` | — | Fired by the built-in switcher |
+| `onGamutChange` | `(gamut: Gamut) => void` | none | Fired by the built-in switcher |
 | `classPrefix` | `string` | `"oklch-picker"` | Prefix for every class name |
-| `className` | `string` | — | Added to the root element |
+| `className` | `string` | none | Added to the root element |
 
 ## Styling
 
-`oklch-picker/styles.css` is a starting point, not a requirement — every element has a stable class name, so you can skip it entirely and write your own.
+`oklch-picker/styles.css` is a starting point, not a requirement. Every element has a stable class name, so you can skip it entirely and write your own.
 
 If you do use it, the palette is custom properties on the root:
 
@@ -429,13 +429,13 @@ It follows the system colour scheme by default. Set `data-theme="light"` or `dat
 
 ## Colour utilities
 
-The maths is framework-free and exported separately — useful for validating stored colours on a server, generating palettes, or naming colours in a table:
+The maths is framework-free and exported separately. That is useful for validating stored colours on a server, generating palettes, or naming colours in a table:
 
 ```ts
 import { colourName, maxChroma, clampToGamut, toOklch } from "@oklch-picker/core";
 
 colourName("oklch(0.43 0.19 338)");  // "Dark pink"
-maxChroma(0.7, 255);                 // 0.160 — highest chroma sRGB can show there
+maxChroma(0.7, 255);                 // 0.160, the highest chroma sRGB shows there
 clampToGamut({ l: 0.75, c: 0.35, h: 145 });  // chroma reduced until it fits
 ```
 
@@ -454,7 +454,7 @@ Built on native `<input type="range">`, so keyboard, touch, and screen-reader su
 
 ## Browser support
 
-Needs `oklch()` in CSS for preset swatches — Chrome/Edge 111+, Safari 15.4+, Firefox 113+. The charts, tracks and previews are computed to hex, so they render anywhere.
+Needs `oklch()` in CSS for preset swatches, so Chrome/Edge 111+, Safari 15.4+, Firefox 113+. The charts, tracks and previews are computed to hex, so they render anywhere.
 
 ## Changelog
 

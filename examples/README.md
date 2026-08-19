@@ -15,7 +15,7 @@ reaching into source.
 
 **`vanilla` and `astro` use the same package.** There is no Astro-specific
 adapter: `oklch-picker` is a custom element, so it works in any HTML.
-The two examples exist because they cover different ground — `vanilla` is a
+The two examples exist because they cover different ground. `vanilla` is a
 single `.html` file with no tooling whatsoever, and `astro` shows the same
 element inside a framework that server-renders the surrounding page.
 
@@ -28,7 +28,7 @@ npm run examples:install   # once, and after changing exports
 npm run dev
 ```
 
-Or one at a time — `npm run dev:vanilla`, `dev:astro`, `dev:react`, and so on.
+Or one at a time, with `npm run dev:vanilla`, `dev:astro`, `dev:react`, and so on.
 
 `vanilla` needs no install and no dev server at all; `npm run dev:vanilla` just
 serves the repo so its relative `../../dist/` paths resolve. Opening

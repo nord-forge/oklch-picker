@@ -19,7 +19,7 @@
     },
     "./package.json": "./package.json"
   },
-  "//": "Ships uncompiled .svelte source, the ecosystem convention — the consumer's tooling compiles it, so there is no dist and no build step.",
+  "//": "Ships uncompiled .svelte source, the ecosystem convention. The consumer's tooling compiles it, so there is no dist and no build step.",
   "files": ["src", "README.md", "LICENSE"],
   "publishConfig": {
     "access": "public"

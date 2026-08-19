@@ -259,7 +259,7 @@ describe("ColourPicker (Vue)", () => {
     expect(w.find(".my-picker__axis").exists()).toBe(true);
   });
 
-  // Outside sRGB, inside P3 — the colour the gamut tests turn on.
+  // Outside sRGB, inside P3. This is the colour the gamut tests turn on.
   const wide = "oklch(0.7 0.25 145)";
 
   test("the sRGB default costs nothing: no boundary, no switcher", () => {
@@ -332,7 +332,7 @@ describe("recent colours (Vue)", () => {
     for (const v of ["100", "150", "200", "250", "300"]) {
       await hue.setValue(v);
     }
-    expect(recorded(w)).toHaveLength(0); // nothing yet — the gesture is still running
+    expect(recorded(w)).toHaveLength(0); // nothing yet, the gesture is still running
     await hue.trigger("pointerup");
     expect(recorded(w)).toHaveLength(1);
     expect(recorded(w)[0]).toHaveLength(1);

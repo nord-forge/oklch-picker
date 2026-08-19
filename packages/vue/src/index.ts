@@ -1,6 +1,6 @@
 /**
  * Vue adapter. A render function rather than an SFC, so no Vue compiler enters
- * the build — this is an ordinary TS module with `vue` external.
+ * the build. This is an ordinary TS module with `vue` external.
  */
 import {
   type Axis,
@@ -28,7 +28,7 @@ import type { PropType, VNode } from "vue";
 
 /** One gamut chart: a 2D slice of the sRGB gamut, holding one axis fixed and
  * sweeping the other two, so under the curve is displayable and above it is
- * not. Split out so `computed` memoises each curve separately — dragging an
+ * not. Split out so `computed` memoises each curve separately. Dragging an
  * axis that does not feed a given curve reuses its ~65 stops. */
 const GamutChart = defineComponent({
   name: "GamutChart",
@@ -141,7 +141,7 @@ export const ColourPicker = defineComponent({
     modelValue: { type: String as PropType<string | null>, default: null },
     presets: { type: Array as PropType<string[]>, default: undefined },
     /** Recently used colours, most recent first. Omit to let the picker keep
-     * its own list for the session; pass one to store them yourself — in a
+     * its own list for the session; pass one to store them yourself, in a
      * backend, or shared between pickers. */
     recents: { type: Array as PropType<string[]>, default: undefined },
     /** How many recents to keep. Ignored when `recents` is controlled: the
@@ -181,8 +181,8 @@ export const ColourPicker = defineComponent({
     /** A switcher button was pressed. The app owns `gamut`, so it decides
      * whether to act on this. */
     gamutChange: (gamut: Gamut) => typeof gamut === "object",
-    /** The new recents list, for the controlled form. Fires on commit — a
-     * pointer release, a preset, a hex entry — not on every value a drag
+    /** The new recents list, for the controlled form. Fires on commit, so on
+     * a pointer release, a preset, or a hex entry. Not on every value a drag
      * passes through. */
     recentsChange: (recents: string[]) => Array.isArray(recents),
   },
@@ -218,8 +218,8 @@ export const ColourPicker = defineComponent({
     const recents = computed(() => props.recents ?? ownRecents.value);
 
     // A drag emits for every value it passes through, so recording there would
-    // bury the list in near-identical colours from one gesture. Only a commit —
-    // a pointer release, a preset, a hex entry — lands here.
+    // bury the list in near-identical colours from one gesture. Only a commit
+    // lands here. That is a pointer release, a preset or a hex entry.
     const commit = (colour: string) => {
       const next = addRecent(recents.value, colour, props.maxRecents);
       ownRecents.value = next;
@@ -304,7 +304,7 @@ export const ColourPicker = defineComponent({
           m.axes.map((a, i) => {
             // In the `chart` layout the one chart is hoisted above the axes.
             const chart: ChartSlot | undefined = single ? undefined : m.charts[i];
-            // A div, not a label — the slider has its own aria-label.
+            // A div, not a label. The slider has its own aria-label.
             return h("div", { key: a.key, class: `${p}__axis` }, [
               h("span", { class: `${p}__axis-head` }, [
                 h("span", { class: `${p}__axis-label`, "aria-hidden": "true" }, [

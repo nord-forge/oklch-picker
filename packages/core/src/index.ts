@@ -3,8 +3,8 @@
  * picker model. Framework-free, no DOM.
  *
  * Most of this is consumed by the adapters rather than by applications, but the
- * colour maths is useful on its own — for validating stored values on a server,
- * generating palettes, or naming colours in a table.
+ * colour maths is useful on its own. It can validate stored values on a
+ * server, generate palettes, or name colours in a table.
  */
 export {
   axisMax,

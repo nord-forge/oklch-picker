@@ -23,7 +23,7 @@ colour leaves P3 too. sRGB is outlined on the chart as a reference whenever it
 is not itself the output.
 
 The matrices live in `@oklch-picker/core/gamuts` rather than the main entry, so
-an app that never imports them never ships them — the bundler drops the module
+an app that never imports them never ships them. The bundler drops the module
 statically, with no dynamic import and nothing async in the render path.
 
 `parts.gamutSwitch` (off by default) renders a segmented control for switching
@@ -31,8 +31,8 @@ the output space, driven by `gamutChoices` and `onGamutChange`. It hides itself
 when that leaves only one option.
 
 The default sRGB notice is reworded from "Outside what a screen can display" to
-"Outside sRGB — the nearest sRGB colour is used." The old phrasing was only true
-while sRGB was the only option: P3 is a screen too. Every space now names
+"Outside sRGB, the nearest sRGB colour is used." The old phrasing was only true
+while sRGB was the only option, and P3 is a screen too. Every space now names
 itself. Apps overriding `labels.outOfGamut` are unaffected.
 
 Notices are resolved per output gamut: override `outOfGamut` for the general
@@ -41,5 +41,5 @@ without changing the clamping. Nothing changes for an app that does not pass
 `gamut`.
 
 The gamut bisection bound is now per space. It was a single sRGB-shaped
-constant, and Rec. 2020 reaches chroma ~0.464 — well past it — so its boundary
-would have been silently clipped.
+constant, and Rec. 2020 reaches chroma ~0.464, well past it. Its boundary would
+have been silently clipped.

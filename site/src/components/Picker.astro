@@ -1,0 +1,129 @@
+---
+/**
+ * A live picker, in a framed panel with a value readout.
+ *
+ * Every demo on the site is the `<oklch-picker>` custom element rather than a
+ * framework adapter: the component is identical across all five, so a React
+ * island would demonstrate nothing extra while pulling a runtime onto the page.
+ * The per-framework code lives beside the demo in <CodeTabs>.
+ *
+ * `parts`, `presets`, `labels` and `gamut-choices` are JSON attributes, so a
+ * demo needs no scripting to configure, except `gamut` itself, which is an
+ * object and has to be set as a property. `gamutIds` handles that.
+ */
+interface Props {
+  value?: string;
+  layout?: "chart" | "side-by-side" | "compact" | "stacked";
+  presets?: readonly string[];
+  parts?: Record<string, boolean>;
+  labels?: Record<string, string>;
+  /** Output space, by id. Set as a property on mount. See the script below. */
+  gamut?: "srgb" | "p3" | "rec2020";
+  /** Ids offered by the switcher, when `parts.gamutSwitch` is on. */
+  gamutChoices?: readonly ("srgb" | "p3" | "rec2020")[];
+  /** Shows the emitted value under the picker. On for most demos. */
+  readout?: boolean;
+  /** A caption above the frame, when the demo needs naming. */
+  caption?: string;
+}
+
+const {
+  value = "oklch(0.7 0.15 255)",
+  layout,
+  presets,
+  parts,
+  labels,
+  gamut,
+  gamutChoices,
+  readout = true,
+  caption,
+} = Astro.props;
+
+// Unique per instance: a page can hold several demos, and the readout script
+// has to find its own picker rather than the first on the page.
+const id = `picker-${Math.random().toString(36).slice(2, 9)}`;
+---
+
+<figure class="demo">
+  {caption && <figcaption class="demo__caption">{caption}</figcaption>}
+
+  <div class="demo__frame">
+    <oklch-picker
+      id={id}
+      value={value}
+      layout={layout}
+      presets={presets ? JSON.stringify(presets) : undefined}
+      parts={parts ? JSON.stringify(parts) : undefined}
+      labels={labels ? JSON.stringify(labels) : undefined}
+      data-gamut={gamut}
+      data-gamut-choices={gamutChoices ? gamutChoices.join(",") : undefined}
+    ></oklch-picker>
+  </div>
+
+  {
+    readout && (
+      <output class="demo__readout" for={id} data-readout>
+        <span class="demo__swatch" data-swatch />
+        <code class="demo__value" data-value>
+          {value}
+        </code>
+      </output>
+    )
+  }
+</figure>
+
+<script>
+  // SRGB is the default and lives in the main entry; only the wide gamuts sit
+  // behind `/gamuts`, so an app that never uses them never ships the matrices.
+  import { SRGB } from "@oklch-picker/core";
+  import { P3, REC2020 } from "@oklch-picker/core/gamuts";
+  import "oklch-picker/register";
+
+  const GAMUTS = { srgb: SRGB, p3: P3, rec2020: REC2020 };
+
+  for (const el of document.querySelectorAll("oklch-picker")) {
+    const picker = el as HTMLElement & {
+      value: string;
+      gamut?: unknown;
+      gamutChoices?: unknown[];
+    };
+
+    // A gamut is an object, so it cannot ride in on an attribute like the rest.
+    const id = picker.dataset.gamut as keyof typeof GAMUTS | undefined;
+    if (id && GAMUTS[id]) picker.gamut = GAMUTS[id];
+
+    const choices = picker.dataset.gamutChoices;
+    if (choices) {
+      picker.gamutChoices = choices
+        .split(",")
+        .map((c) => GAMUTS[c.trim() as keyof typeof GAMUTS])
+        .filter(Boolean);
+    }
+
+    // The switcher writes back through the same event, so the demo keeps
+    // working after the visitor changes space.
+    picker.addEventListener("gamutchange", (event) => {
+      const next = (event as CustomEvent<{ gamut: { id: keyof typeof GAMUTS } }>).detail?.gamut;
+      if (next) picker.gamut = next;
+    });
+
+    const readout = picker.closest(".demo")?.querySelector("[data-readout]");
+    if (!readout) continue;
+
+    const swatch = readout.querySelector<HTMLElement>("[data-swatch]");
+    const text = readout.querySelector<HTMLElement>("[data-value]");
+
+    const paint = (colour: string) => {
+      if (text) text.textContent = colour;
+      if (swatch) swatch.style.background = colour;
+    };
+
+    paint(picker.value);
+    // `change`, not `input`: the element contains its inner inputs' events on
+    // purpose, and `change` is the one it raises, carrying the canonical,
+    // gamut-clamped colour in `detail`.
+    picker.addEventListener("change", (event) => {
+      paint((event as CustomEvent<{ colour: string }>).detail.colour);
+    });
+  }
+</script>

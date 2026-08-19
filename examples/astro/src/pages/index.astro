@@ -18,14 +18,14 @@ const PRESETS = [
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>oklch-picker — Astro</title>
+    <title>oklch-picker for Astro</title>
   </head>
   <body>
     <main class="demo">
       <header class="demo__head">
-        <h1 class="demo__title">oklch-picker — Astro</h1>
+        <h1 class="demo__title">oklch-picker for Astro</h1>
         <p class="demo__subtitle">
-          The <code class="demo__code">&lt;oklch-picker&gt;</code> custom element — no framework,
+          The <code class="demo__code">&lt;oklch-picker&gt;</code> custom element. No framework,
           no hydration directive.
         </p>
       </header>
@@ -47,7 +47,7 @@ const PRESETS = [
         </button>
       </div>
 
-      {/* `parts` turns the gamut switcher on — it is off by default, because
+      {/* `parts` turns the gamut switcher on. It is off by default, because
           most pickers target one space. The gamuts themselves are set as a
           property in the script below: a colour space cannot be an attribute. */}
       <div class="demo__panel">
@@ -69,14 +69,14 @@ const PRESETS = [
     <script>
       // Registering the tag is the whole client-side cost.
       import "oklch-picker/register";
-      // Importing the gamuts is what pulls their matrices into the bundle —
-      // a page that never mentions them never ships them.
+      // Importing the gamuts is what pulls their matrices into the bundle.
+      // A page that never mentions them never ships them.
       import { SRGB } from "@oklch-picker/core";
       import { P3, REC2020 } from "@oklch-picker/core/gamuts";
 
       const picker = document.querySelector("oklch-picker");
       // Property, not attribute: a Gamut is an object with a transform on it.
-      // sRGB is listed explicitly because it is the starting output — a switcher
+      // sRGB is listed explicitly because it is the starting output. A switcher
       // whose current space is not among its buttons has nothing pressed.
       if (picker) picker.gamutChoices = [SRGB, P3, REC2020];
       const swatch = document.querySelector<HTMLElement>("#swatch");

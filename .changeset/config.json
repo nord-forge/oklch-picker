@@ -3,7 +3,7 @@
   "//changelog": "The default generator, not changelog-github: that one needs a GITHUB_TOKEN in the environment to resolve commit authors, which makes a release impossible to cut without one.",
   "changelog": "@changesets/cli/changelog",
   "commit": false,
-  "//": "Every package moves together. The adapters are one library published under several names — a core fix that only bumps some of them would let a user end up on @oklch-picker/react@0.4 against core@0.3, which is exactly the version skew a single library does not need. Grouping them keeps one version number and one changelog to reason about.",
+  "//": "Every package moves together. The adapters are one library published under several names. A core fix that only bumps some of them would let a user end up on @oklch-picker/react@0.4 against core@0.3, which is exactly the version skew a single library does not need. Grouping them keeps one version number and one changelog to reason about.",
   "fixed": [["@oklch-picker/*", "oklch-picker"]],
   "linked": [],
   "access": "public",

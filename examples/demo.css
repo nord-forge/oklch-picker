@@ -1,4 +1,4 @@
-/* Shared chrome for the examples — deliberately plain, so what stands out is
+/* Shared chrome for the examples, deliberately plain, so what stands out is
    the picker rather than the page around it. Each example imports this plus
    `oklch-picker/styles.css`. */
 
@@ -61,7 +61,7 @@ body {
   border: 1px solid light-dark(#e4e4e7, #3f3f46);
 }
 
-/* Which colour space the value above belongs to — quieter than the value,
+/* Which colour space the value above belongs to. Quieter than the value,
    since it is context rather than the thing being read. */
 .demo__note {
   color: light-dark(#71717a, #a1a1aa);

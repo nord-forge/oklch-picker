@@ -10,13 +10,13 @@ live pickers on every page that describes one.
 | Framework | Astro 7 (current latest, 7.2.4) |
 | Location | `site/` at the repo root, its own npm workspace |
 | Hosting | GitHub Pages at `nord-forge.github.io/oklch-picker`, custom domain later |
-| Live demos | The `<oklch-picker>` custom element only — no framework islands |
+| Live demos | The `<oklch-picker>` custom element only, no framework islands |
 | Scope | All 25 README sections ported; README shrinks to an intro that links out |
 
 ### Why Astro, and why 7
 
 `examples/astro` already renders the vanilla element with no integration and no
-hydration directive — Astro ships the markup plus one small module that upgrades
+hydration directive. Astro ships the markup plus one small module that upgrades
 it. That is exactly what every demo on the site needs, so the riskiest part of
 the build is a pattern this repo has already shipped and CI already checks.
 
@@ -26,7 +26,7 @@ picker with no runtime dependencies should not itself boot React to show one.
 The site takes **Astro 7.2.4**, the current `latest`. Two things follow:
 
 - **The site builds on Node 24.** Astro 7's own floor is `>=22.12.0`, but the
-  site targets 24: it is a leaf that nothing depends on, so it can take the
+  site targets 24. It is a leaf that nothing depends on, so it can take the
   current release without asking anything else to follow. `site/package.json`
   declares `"engines": { "node": ">=24.11.0" }`, and the Pages workflow pins
   `node-version: 24`.
@@ -34,28 +34,28 @@ The site takes **Astro 7.2.4**, the current `latest`. Two things follow:
   `"node": ">=20"`, the workspace root keeps `^22.18.0 || >=24.11.0`, and the
   existing `ci.yml` jobs stay on Node 22. Raising a published `engines` floor
   is a breaking change for consumers and belongs in a major, decided on its own
-  terms — not carried in as a side effect of building a docs site.
+  terms. It should not be carried in as a side effect of building a docs site.
 - **Astro 7 depends on Vite 8**, while the adapter examples are on earlier Vite
   majors through their own framework plugins. `site/` is a separate workspace
-  with its own tree, so the two do not have to agree — but npm hoisting can
+  with its own tree, so the two do not have to agree. But npm hoisting can
   still surprise, so phase 1 checks that `examples:build` stays green after the
   site is installed.
 
-`examples/astro` stays on 5.18.2 for now: it exists to prove the element works
+`examples/astro` stays on 5.18.2 for now. It exists to prove the element works
 in a consumer's Astro app, and pinning it to whatever is newest is a separate
 question from what the site is built with. Worth bumping later, on its own.
 
 ### Why the vanilla element for every demo
 
 One dependency, no islands, fastest pages. Framework-specific code appears
-beside each demo as a static highlighted snippet — the tab switches the code
+beside each demo as a static highlighted snippet. The tab switches the code
 shown, not the picker. The picker is identical across adapters, so a live React
 instance would demonstrate nothing a vanilla one does not.
 
 The per-framework `examples/*` apps stay as they are. They already prove the
 adapters in CI via `examples:build`.
 
-## Path handling — the one thing to get right up front
+## Path handling, the one thing to get right up front
 
 The site starts at a project path (`/oklch-picker/`) and moves to a domain root
 later. Every asset URL depends on that. To make the move a one-line change:
@@ -103,7 +103,7 @@ Each phase leaves the repo green and is worth committing on its own.
 ### 1. Scaffold and deploy an empty site
 
 Astro workspace, `base` handling, the page shell, and a Pages workflow. Deploy a
-placeholder before writing content — hosting problems surface while there is
+placeholder before writing content. Hosting problems surface while there is
 nothing to debug but hosting.
 
 - `site/` workspace on `astro@^7.2.4`, `"engines": { "node": ">=24.11.0" }`,
@@ -115,8 +115,8 @@ nothing to debug but hosting.
 - `Page.astro`: nav, sidebar, footer, theme toggle honouring `data-theme`
 - `.github/workflows/pages.yml`: `node-version: 24`, build on push to `main`,
   deploy via `actions/deploy-pages`, needs `pages: write` and `id-token: write`.
-  A separate workflow from `ci.yml`, which keeps its Node 22 jobs — so the site
-  can move to a newer Node whenever it likes without touching what verifies the
+  A separate workflow from `ci.yml`, which keeps its Node 22 jobs. The site can
+  then move to a newer Node whenever it likes without touching what verifies the
   packages.
 - Repo setting: Pages source set to GitHub Actions (manual, one-time)
 
@@ -136,7 +136,7 @@ The 25 README sections become the `docs/` pages above, each with a live picker
 demonstrating what it describes rather than only a snippet. `CodeTabs.astro`
 carries the per-framework code.
 
-Prose is lifted from the README, not rewritten — it is already good. The work is
+Prose is lifted from the README, not rewritten. It is already good. The work is
 splitting, cross-linking, and adding the demos.
 
 **Done when** every README section has a home on the site.
@@ -149,7 +149,7 @@ framework switcher. This is the page people link to.
 ### 5. API reference
 
 `PropsTable.astro` reading the built `.d.mts` so the table cannot drift from the
-types — the current hand-maintained README table already has to be updated by
+types. The current hand-maintained README table already has to be updated by
 hand on every prop change.
 
 If parsing the declarations proves fiddly, fall back to a hand-written table for

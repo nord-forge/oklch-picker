@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>oklch-picker — plain HTML</title>
+    <title>oklch-picker in plain HTML</title>
 
     <!-- No npm install, no bundler, no build step. Two files and a script tag.
          The minified stylesheet, since nothing here will compress it for us.
@@ -13,7 +13,7 @@
     <link rel="stylesheet" href="../demo.css" />
 
     <!-- Loading the files straight off disk, a browser cannot resolve the bare
-         `@oklch-picker/core` specifier the package imports — that is npm's job.
+         `@oklch-picker/core` specifier the package imports. That is npm's job.
          One import map stands in for it. From a CDN this is unnecessary: esm.sh
          resolves the dependency itself. -->
     <script type="importmap">
@@ -27,9 +27,9 @@
   <body>
     <main class="demo">
       <header class="demo__head">
-        <h1 class="demo__title">oklch-picker — plain HTML</h1>
+        <h1 class="demo__title">oklch-picker in plain HTML</h1>
         <p class="demo__subtitle">
-          No framework, no bundler, no build step — this file runs straight from disk.
+          No framework, no bundler, no build step. This file runs straight from disk.
         </p>
       </header>
 
@@ -69,7 +69,7 @@
     <script type="module">
       // Defining the tag is the whole client-side cost.
       import "../../packages/vanilla/dist/register.mjs";
-      // Importing the gamuts is what pulls their matrices in — a page that
+      // Importing the gamuts is what pulls their matrices in. A page that
       // never mentions them never ships them.
       import { SRGB } from "../../packages/core/dist/index.mjs";
       import { P3, REC2020 } from "../../packages/core/dist/gamuts.mjs";
