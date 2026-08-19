@@ -1,4 +1,6 @@
 <script>
+  import { SRGB } from "@oklch-picker/core";
+  import { P3, REC2020 } from "@oklch-picker/core/gamuts";
   import { ColourPicker } from "@oklch-picker/svelte";
 
   const LAYOUTS = ["chart", "side-by-side", "compact", "stacked"];
@@ -13,6 +15,9 @@
   // `bind:value` writes straight back into this rune.
   let colour = $state("oklch(0.7 0.15 255)");
   let layout = $state("chart");
+  // The output space, not a display setting: picking P3 widens what
+  // `bind:value` receives, so the emitted string itself changes.
+  let gamut = $state(SRGB);
 </script>
 
 <main class="demo">
@@ -38,11 +43,20 @@
   </div>
 
   <div class="demo__panel">
-    <ColourPicker bind:value={colour} {layout} presets={PRESETS} />
+    <ColourPicker
+      bind:value={colour}
+      {layout}
+      presets={PRESETS}
+      {gamut}
+      ongamutchange={(g) => (gamut = g)}
+      gamutChoices={[SRGB, P3, REC2020]}
+      parts={{ gamutSwitch: true }}
+    />
   </div>
 
   <p class="demo__value">
     <span class="demo__swatch" style:background={colour}></span>
     <code class="demo__code">{colour}</code>
+    <span class="demo__note">in {gamut.label}</span>
   </p>
 </main>

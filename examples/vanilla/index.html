@@ -55,27 +55,44 @@
           id="picker"
           value="oklch(0.7 0.15 255)"
           presets='["oklch(0.72 0.19 35)", "oklch(0.8 0.17 85)", "oklch(0.75 0.16 145)", "oklch(0.7 0.15 255)", "oklch(0.65 0.22 305)"]'
+          parts='{"gamutSwitch": true}'
         ></oklch-picker>
       </div>
 
       <p class="demo__value">
         <span class="demo__swatch" id="swatch" style="background: oklch(0.7 0.15 255)"></span>
         <code class="demo__code" id="readout">oklch(0.7 0.15 255)</code>
+        <span class="demo__note">in <span id="gamut">sRGB</span></span>
       </p>
     </main>
 
     <script type="module">
       // Defining the tag is the whole client-side cost.
       import "../../packages/vanilla/dist/register.mjs";
+      // Importing the gamuts is what pulls their matrices in — a page that
+      // never mentions them never ships them.
+      import { SRGB } from "../../packages/core/dist/index.mjs";
+      import { P3, REC2020 } from "../../packages/core/dist/gamuts.mjs";
 
       const picker = document.getElementById("picker");
       const swatch = document.getElementById("swatch");
       const readout = document.getElementById("readout");
 
+      // Property, not attribute: a colour space is an object with a transform
+      // on it. sRGB is listed because it is the starting output, and a switcher
+      // whose current space is not among its buttons has nothing pressed.
+      picker.gamutChoices = [SRGB, P3, REC2020];
+
       picker.addEventListener("change", (event) => {
         const { colour } = event.detail;
         readout.textContent = colour;
         swatch.style.background = colour;
+      });
+
+      // Switching the output space changes what the picker can emit, not just
+      // what it draws, so the readout names the space the value belongs to.
+      picker.addEventListener("gamutchange", (event) => {
+        document.getElementById("gamut").textContent = event.detail.gamut.label;
       });
 
       for (const button of document.querySelectorAll("[data-layout]")) {

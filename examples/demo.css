@@ -61,6 +61,12 @@ body {
   border: 1px solid light-dark(#e4e4e7, #3f3f46);
 }
 
+/* Which colour space the value above belongs to — quieter than the value,
+   since it is context rather than the thing being read. */
+.demo__note {
+  color: light-dark(#71717a, #a1a1aa);
+}
+
 .demo__code {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }

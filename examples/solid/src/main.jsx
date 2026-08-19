@@ -1,3 +1,5 @@
+import { SRGB } from "@oklch-picker/core";
+import { P3, REC2020 } from "@oklch-picker/core/gamuts";
 import { ColourPicker } from "@oklch-picker/solid";
 import "@oklch-picker/core/styles.css";
 import { For, createSignal } from "solid-js";
@@ -16,6 +18,9 @@ const PRESETS = [
 function App() {
   const [colour, setColour] = createSignal("oklch(0.7 0.15 255)");
   const [layout, setLayout] = createSignal("chart");
+  // The output space, not a display setting: picking P3 widens what `onChange`
+  // is allowed to hand back, so the emitted string itself changes.
+  const [gamut, setGamut] = createSignal(SRGB);
 
   return (
     <main class="demo">
@@ -48,12 +53,17 @@ function App() {
           onChange={setColour}
           layout={layout()}
           presets={PRESETS}
+          gamut={gamut()}
+          onGamutChange={setGamut}
+          gamutChoices={[SRGB, P3, REC2020]}
+          parts={{ gamutSwitch: true }}
         />
       </div>
 
       <p class="demo__value">
         <span class="demo__swatch" style={{ background: colour() }} />
         <code class="demo__code">{colour()}</code>
+        <span class="demo__note">in {gamut().label}</span>
       </p>
     </main>
   );
