@@ -29,7 +29,7 @@ on Node 20.
 
 ```sh
 npm run build       # all packages, in dependency order
-npm test            # 163 tests across 5 vitest projects
+npm test            # 245 tests across 5 vitest projects
 npm run typecheck   # tsc + a second pass for Solid + svelte-check
 npm run lint        # biome; lint:fix to write
 npm run dev         # all six examples at once, ports 5272-5277
