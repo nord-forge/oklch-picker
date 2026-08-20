@@ -53,6 +53,24 @@ import "@oklch-picker/core/styles.css";
 Your framework is an optional peer dependency; Preact works through `preact/compat`, which most Preact setups already alias.
 
 <details>
+<summary><strong>Upgrading from 1.0? Four things moved.</strong></summary>
+
+1.1 is a minor release, but it changes what an existing picker draws. Every previous arrangement is still reachable by passing a prop.
+
+| What changed | To keep 1.0's behaviour |
+| --- | --- |
+| The hex field is off, an editable `oklch()` field takes its place | `parts={{ hexInput: true }}` |
+| The default layout is `chart`, not `stacked` | `layout="stacked"` |
+| Presets sit below the chart rather than above it | Not configurable; see [Layouts](#layouts) for the arrangements |
+| An alpha slider is on by default | `parts={{ alpha: false }}` |
+
+Hex went off by default because it is sRGB only, so it cannot carry a P3 or Rec. 2020 colour at all, which makes it a poor lead for a picker whose point is the gamut. It is one prop away.
+
+**Nothing you have stored changes.** An opaque colour still emits `oklch(0.7 0.15 255)` exactly as it did, hex stays six digits, and the alpha forms appear only when a colour is actually transparent.
+
+</details>
+
+<details>
 <summary><strong>Coming from <code>oklch-picker</code> 0.2 or earlier?</strong></summary>
 
 `oklch-picker` used to be the React component; it is now the no-framework custom element, so that `npm i oklch-picker` gives the build that works anywhere. Framework users move to a scoped package:
