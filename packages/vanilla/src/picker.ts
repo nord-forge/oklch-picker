@@ -35,6 +35,13 @@ import {
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 
+/** Instances upgraded so far, for the per-element gradient id below. A counter
+ * would be wrong in the framework adapters, where the server and the client
+ * each count from zero and hydration then mismatches. Nothing renders this
+ * element into HTML: it upgrades in the browser, so the count only ever runs
+ * once per document. */
+let instances = 0;
+
 /** Set an attribute only when it changed. Untouched DOM is not re-laid-out. */
 function attr(el: Element, name: string, value: string): void {
   if (el.getAttribute(name) !== value) el.setAttribute(name, value);
@@ -135,6 +142,10 @@ export class OklchPickerElement extends HTMLElement {
   /** Submit with a surrounding form, like any built-in input, so a
    * server-rendered page can round-trip the colour through a plain POST. */
   static formAssociated = true;
+
+  /** This element's share of the document-wide SVG id namespace. URL-safe,
+   * because the gradient id it prefixes goes inside `url(#...)`. */
+  #uid = `p${++instances}`;
 
   /** Undefined where ElementInternals is missing; the element still works,
    * it just does not take part in form submission. */
@@ -787,9 +798,10 @@ export class OklchPickerElement extends HTMLElement {
 
     const defs = svg("defs");
     const gradient = svg("linearGradient");
-    // Gradient ids share a document-wide namespace, and a page may hold more
-    // than one picker. Qualify with the element's own id when it has one.
-    gradient.setAttribute("id", `${p}-gamut-${this.id ? `${this.id}-` : ""}${axis}`);
+    // Gradient ids share a document-wide namespace, so two pickers both
+    // emitting `oklch-picker-gamut-h` left the second chart filling from the
+    // first one's gradient. The per-instance uid keeps them apart.
+    gradient.setAttribute("id", `${p}-gamut-${this.#uid}-${axis}`);
     gradient.setAttribute("x1", "0");
     gradient.setAttribute("x2", "1");
     gradient.setAttribute("y1", "0");

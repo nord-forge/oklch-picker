@@ -1,6 +1,6 @@
 {
   "name": "@oklch-picker/core",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "OKLCH colour maths and the headless picker model shared by every oklch-picker adapter. Zero dependencies.",
   "keywords": ["oklch", "colour", "color", "gamut", "srgb"],
   "license": "MIT",

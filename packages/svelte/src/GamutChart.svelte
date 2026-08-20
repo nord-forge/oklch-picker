@@ -9,6 +9,9 @@ import { CHART_H, CHART_W, chartBase, gamutChartModel, labelTransform } from "@o
 interface Props {
   /** The axis held fixed; the chart sweeps the other two. */
   axis: Axis;
+  /** Unique per picker instance. SVG gradient ids share a document-wide
+   * namespace, so the axis alone is not enough to tell two pickers apart. */
+  uid: string;
   /** Memo key: the single input this curve depends on. */
   curveKey: number;
   /** 0..1 across the plot; drives the vertical crosshair. */
@@ -34,6 +37,7 @@ interface Props {
 
 const {
   axis,
+  uid,
   curveKey,
   x,
   y,
@@ -51,7 +55,7 @@ const {
 const curve = $derived(
   gamutChartModel(chartBase(curveKey, axis), axis, resolution, references, gamut, scaleGamuts),
 );
-const gradId = $derived(`${classPrefix}-gamut-${axis}`);
+const gradId = $derived(`${classPrefix}-gamut-${uid}-${axis}`);
 const crossY = $derived(CHART_H - Math.min(1, Math.max(0, y)) * CHART_H);
 
 // The chart's rendered pixel size, for the labels' counter-scale. Measured

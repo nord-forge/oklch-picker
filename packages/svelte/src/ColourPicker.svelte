@@ -82,6 +82,12 @@ let {
   class: className,
 }: Props = $props();
 
+// SVG ids share one document-wide namespace, so two pickers on a page both
+// emitting `oklch-picker-gamut-h` made the second chart fill from the first
+// one's gradient. `$props.id()` is stable across server and client, so this
+// fixes the collision without breaking hydration.
+const uid = $props.id();
+
 // What was dialled, not what was emitted: dragging through an out-of-gamut
 // region must not destroy the other axes.
 let draft = $state<Oklch | null>(null);
@@ -189,6 +195,7 @@ function slideAlpha(event: Event & { currentTarget: HTMLInputElement }) {
   {#if single}
     <GamutChart
       axis={single.axis}
+      {uid}
       curveKey={single.key}
       x={single.x}
       y={single.y}
@@ -223,6 +230,7 @@ function slideAlpha(event: Event & { currentTarget: HTMLInputElement }) {
         {#if chart}
           <GamutChart
             axis={chart.axis}
+            {uid}
             curveKey={chart.key}
             x={chart.x}
             y={chart.y}
