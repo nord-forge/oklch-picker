@@ -17,5 +17,5 @@
   // Solid is typechecked by packages/solid/tsconfig.json. Its JSX needs
   // `jsxImportSource: solid-js`, which cannot coexist with React's in one pass.
   "include": ["packages/*/src/**/*.ts", "packages/*/src/**/*.tsx", "test/**/*.ts", "test/**/*.tsx"],
-  "exclude": ["packages/solid", "test/solid.test.tsx", "**/dist"]
+  "exclude": ["packages/solid", "test/*solid*.test.tsx", "**/dist"]
 }
