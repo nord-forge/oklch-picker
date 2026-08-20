@@ -38,6 +38,15 @@ export default defineConfig({
         },
       },
       {
+        // No DOM at all: this is what a server looks like, and the point is to
+        // fail on a `document` reference rather than find a happy-dom global.
+        test: {
+          name: "ssr",
+          environment: "node",
+          include: ["test/ssr.test.ts"],
+        },
+      },
+      {
         plugins: [vue()],
         test: {
           name: "vue",

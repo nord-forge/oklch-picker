@@ -128,7 +128,23 @@ interface ChartNodes {
   anchors: { x: number; y: number }[];
 }
 
-export class OklchPickerElement extends HTMLElement {
+/** `HTMLElement` where there is one, an empty class where there is not.
+ *
+ * `class X extends HTMLElement` evaluates at import time, so without this the
+ * module cannot be loaded on a server: importing it in Node threw
+ * `HTMLElement is not defined` before any code ran. That broke JavaScript SSR
+ * (Astro, Next, Nuxt, SvelteKit) for a package whose README recommends it for
+ * server-rendered pages. Template languages were never affected, since they
+ * serve the tag as text and never import the module.
+ *
+ * The server-side class is inert and nobody can construct it, which is correct:
+ * there is no DOM to upgrade and `register` already returns early without
+ * `customElements`. The cast keeps that honest rather than modelling a second
+ * shape in the types. */
+const ElementBase: typeof HTMLElement =
+  typeof HTMLElement === "undefined" ? (class {} as unknown as typeof HTMLElement) : HTMLElement;
+
+export class OklchPickerElement extends ElementBase {
   static observedAttributes = [
     "value",
     "layout",
