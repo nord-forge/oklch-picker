@@ -1,0 +1,201 @@
+---
+import CodeTabs from "../../components/CodeTabs.astro";
+import Pager from "../../components/Pager.astro";
+import Page from "../../layouts/Page.astro";
+---
+
+<Page
+  title="Server rendering · oklch-picker"
+  description="Every adapter renders on a server, and the markup it sends is the finished picker rather than an empty shell that fills in on the client."
+>
+  <h1>Server rendering</h1>
+
+  <p class="lede">
+    Every adapter renders on a server. The markup it sends is the finished
+    picker, sliders and chart and value, rather than an empty shell that fills
+    in once JavaScript arrives.
+  </p>
+
+  <p>
+    That matters because the chart is the expensive part. A picker that renders
+    blank and paints on hydration flashes on every page load, which is most of
+    the reason to server-render it at all.
+  </p>
+
+  <h2>Nothing to configure</h2>
+
+  <p>
+    There is no server entry point and no <code>client:only</code> to remember.
+    The colour maths is framework-free and touches no DOM, so it runs the same
+    on a server as in a browser, and each adapter renders through its own
+    framework's usual server renderer.
+  </p>
+
+  <CodeTabs
+    name="ssr"
+    snippets={[
+      {
+        label: "React",
+        lang: "tsx",
+        code: `import { renderToString } from "react-dom/server";
+import { ColourPicker } from "@oklch-picker/react";
+
+// Nothing special. The picker is a component like any other.
+renderToString(<ColourPicker value={colour} onChange={setColour} />);`,
+      },
+      {
+        label: "Vue",
+        lang: "js",
+        code: `import { renderToString } from "vue/server-renderer";
+import { ColourPicker } from "@oklch-picker/vue";
+
+await renderToString(createSSRApp({ /* ... */ }));`,
+      },
+      {
+        label: "Svelte",
+        lang: "js",
+        code: `import { render } from "svelte/server";
+import { ColourPicker } from "@oklch-picker/svelte";
+
+const { body } = render(ColourPicker, { props: { value: colour } });`,
+      },
+      {
+        label: "Solid",
+        lang: "tsx",
+        code: `import { renderToString } from "solid-js/web";
+import { ColourPicker } from "@oklch-picker/solid";
+
+renderToString(() => <ColourPicker value={colour()} onChange={setColour} />);`,
+      },
+    ]}
+  />
+
+  <h2>The custom element is different</h2>
+
+  <p>
+    <code>&lt;oklch-picker&gt;</code> is a custom element, so it upgrades in the
+    browser rather than being rendered to HTML on a server. Server-render the
+    tag and the element fills it in once its module loads:
+  </p>
+
+  <CodeTabs
+    name="ssr-element"
+    snippets={[
+      {
+        label: "Astro",
+        lang: "astro",
+        code: `---
+import "@oklch-picker/core/styles.css";
+---
+
+<oklch-picker value="oklch(0.7 0.15 255)"></oklch-picker>
+
+<script>
+  // A <script> block, so Astro bundles this for the browser. The element
+  // needs a DOM to upgrade into.
+  import "oklch-picker/register";
+<\/script>`,
+      },
+      {
+        label: "Next",
+        lang: "tsx",
+        code: `"use client";
+import { useEffect } from "react";
+
+export function Picker() {
+  // The import runs in the browser, where customElements exists.
+  useEffect(() => {
+    import("oklch-picker/register");
+  }, []);
+  return <oklch-picker value="oklch(0.7 0.15 255)" />;
+}`,
+      },
+      {
+        label: "Nuxt",
+        lang: "vue",
+        code: `<script setup>
+import { onMounted } from "vue";
+
+onMounted(() => import("oklch-picker/register"));
+<\/script>
+
+<template>
+  <oklch-picker value="oklch(0.7 0.15 255)" />
+</template>`,
+      },
+    ]}
+  />
+
+  <div class="note">
+    <p>
+      Importing <code>oklch-picker/register</code> on a server is safe: the
+      module loads and <code>register()</code> returns without doing anything,
+      since there is nothing to upgrade. Earlier versions threw
+      <code>HTMLElement is not defined</code> and took the render down with
+      them, so the client-only import above was mandatory rather than merely
+      tidy.
+    </p>
+  </div>
+
+  <h2>Template languages were never affected</h2>
+
+  <p>
+    Rails, Laravel, Django, PHP and WordPress serve the tag as text and never
+    import the module on the server, so none of the above applies. Write the
+    tag, ship the script, done.
+  </p>
+
+  <h2>Hydration</h2>
+
+  <p>
+    What the server sends has to match what the client renders first, or the
+    framework throws the markup away and renders again, costing exactly the
+    flash the server render was meant to avoid.
+  </p>
+
+  <p>
+    The picker holds to that. <code>pickerModel()</code> is a pure function of
+    the current colour, so two renders of the same value are identical: the same
+    chart path, the same gradient stops, the same crosshair position. Nothing is
+    randomised, and the draft state that only exists after a drag resolves to
+    the stored value on both sides.
+  </p>
+
+  <p>
+    The one thing that has to be unique per picker is the SVG gradient id, since
+    those share a document-wide namespace. Each adapter takes it from its own
+    framework's id hook, which is stable across the server render and the
+    hydration that follows.
+  </p>
+
+  <h3>What is tested</h3>
+
+  <p>
+    Every adapter has a server-rendering suite running in a real Node
+    environment with no DOM, asserting the markup is the finished picker rather
+    than an empty shell. That part is a tested promise rather than a hope.
+  </p>
+
+  <p>
+    Hydration itself is covered less evenly, because the frameworks differ in
+    what they will tell you. Vue and Svelte hydrate over real server markup and
+    genuinely detect a mismatch, which the suite checks by feeding them markup
+    that is wrong on purpose. React hydrates too, but Preact neither warns on a
+    mismatched value nor repairs it, so that test records the behaviour instead
+    of asserting a guarantee it cannot make. Solid matches server nodes by
+    hydration keys that only line up inside a real page, so its suite compares
+    the server and client trees rather than calling <code>hydrate()</code>.
+  </p>
+
+  <div class="note">
+    <p>
+      What holds across all five is the property underneath:
+      <code>pickerModel()</code> is pure, so the server and the client compute
+      the same picker from the same value. That is what the trees and the
+      determinism tests pin down. A browser is the honest place to verify the
+      rest, the same way form association is.
+    </p>
+  </div>
+
+  <Pager />
+</Page>

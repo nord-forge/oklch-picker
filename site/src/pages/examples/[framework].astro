@@ -1,0 +1,129 @@
+---
+/**
+ * One complete page per framework.
+ *
+ * The guides teach one idea at a time across all five, which is right for
+ * learning but means someone using Vue reads past four other languages on every
+ * page. This is the other question: show me all of it, in mine.
+ *
+ * Every snippet comes from `lib/examples.ts`, so the five pages cannot drift
+ * apart and a fix lands once.
+ */
+import { Code } from "astro:components";
+import FrameworkIcon from "../../components/FrameworkIcon.astro";
+import Pager from "../../components/Pager.astro";
+import Picker from "../../components/Picker.astro";
+import Page from "../../layouts/Page.astro";
+import { THEMES } from "../../lib/code";
+import { EXAMPLES, FRAMEWORKS } from "../../lib/examples";
+import { url } from "../../lib/url";
+
+export function getStaticPaths() {
+  return FRAMEWORKS.map((framework) => ({
+    params: { framework: framework.id },
+    props: { framework },
+  }));
+}
+
+const { framework } = Astro.props;
+
+// Markdown in the blurbs is a single level of backticks and nothing else, so a full parser would be more machinery than the job needs.
+const ticks = (text: string) => text.replace(/`([^`]+)`/g, "<code>$1</code>");
+---
+
+<Page
+  title={`${framework.name} examples · oklch-picker`}
+  description={`Every oklch-picker example in ${framework.name}: install, presets, wider gamuts, alpha, recent colours, and server rendering.`}
+>
+  <h1>{framework.name}</h1>
+
+  <p class="lede">
+    Everything the picker does, in {framework.name}, on one page. The value
+    binding is <Fragment set:html={ticks(framework.binding)} />.
+  </p>
+
+  <nav class="switch" aria-label="Other frameworks">
+    {
+      FRAMEWORKS.map((other) => (
+        <a
+          class="switch__link"
+          href={url(`/examples/${other.id}`)}
+          aria-current={other.id === framework.id ? "page" : undefined}
+        >
+          <FrameworkIcon name={other.name} />
+          <span>{other.name}</span>
+        </a>
+      ))
+    }
+  </nav>
+
+  <h2>Install</h2>
+
+  <Code code={`npm install ${framework.pkg}`} lang="sh" themes={THEMES} />
+
+  <p>
+    The stylesheet lives in the shared core, which the adapter already depends
+    on. Import it once, anywhere.
+  </p>
+
+  <Code code={`import "@oklch-picker/core/styles.css";`} lang="js" themes={THEMES} />
+
+  <Picker caption="This is the result, feel free to drag and experiment" />
+
+  {
+    EXAMPLES.map((example) => (
+      <>
+        <h2>{example.title}</h2>
+        <p set:html={ticks(example.blurb)} />
+        <Code code={example.code[framework.id].trim()} lang={framework.lang} themes={THEMES} />
+      </>
+    ))
+  }
+
+  <h2>Where next</h2>
+
+  <ul>
+    <li><a href={url("/api")}>Every prop</a>, generated from the type declarations</li>
+    <li><a href={url("/docs/layouts")}>The four layouts</a>, each running live</li>
+    <li><a href={url("/playground")}>The playground</a>, which emits code for this framework</li>
+    <li><a href={url("/docs/ssr")}>Server rendering</a> in more detail</li>
+  </ul>
+
+  <Pager />
+</Page>
+
+<style>
+  /* A row of the other frameworks, so landing on the wrong one is one click
+     from the right one rather than a trip back to the sidebar. */
+  .switch {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin: 0 0 2rem;
+  }
+
+  .switch__link {
+    /* The icon and the label are separate boxes, so the link has to centre
+       them. Without this the icon sits on the text baseline and rides low. */
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.3rem 0.7rem;
+    font-size: 0.85rem;
+    color: var(--site-text-muted);
+    text-decoration: none;
+    border: 1px solid var(--site-line);
+    border-radius: 0.35rem;
+  }
+
+  .switch__link:hover {
+    color: var(--site-text);
+    background: var(--site-surface);
+  }
+
+  .switch__link[aria-current="page"] {
+    color: var(--site-text);
+    background: var(--site-surface);
+    font-weight: 600;
+  }
+</style>

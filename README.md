@@ -518,6 +518,21 @@ alphaOf(fitted);                        // 0.4
 formatOklch(fitted);                    // "oklch(0.75 0.2359 145 / 0.4)"
 ```
 
+## Server rendering
+
+Every adapter renders on a server, and the markup it sends is the finished picker rather than an empty shell that fills in on the client. There is no server entry point and nothing to configure: the colour maths touches no DOM, so it runs the same in both places.
+
+```tsx
+import { renderToString } from "react-dom/server";
+renderToString(<ColourPicker value={colour} onChange={setColour} />);
+```
+
+The custom element is the exception. It upgrades in the browser rather than being rendered to HTML, so server-render the tag and import `oklch-picker/register` from a client-only block. Importing it on a server is safe and does nothing, but the element cannot upgrade there.
+
+Rails, Laravel, Django, PHP and WordPress serve the tag as text and never import the module, so none of that applies to them.
+
+**[The full guide](https://nord-forge.github.io/oklch-picker/docs/ssr/)** covers Astro, Next and Nuxt, and what hydration depends on.
+
 ## Accessibility
 
 Built on native `<input type="range">`, so keyboard, touch, and screen-reader support come from the platform. Each slider carries its own label, and the visible label is `aria-hidden` so controls are not announced twice.
