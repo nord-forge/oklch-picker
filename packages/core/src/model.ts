@@ -49,6 +49,10 @@ export interface PickerParts {
   /** The alpha slider. On by default, since OKLCH carries alpha and a picker
    * that silently drops it would lose part of a value passed in. */
   alpha?: boolean;
+  /** The dashed outlines of narrower spaces on the chart, with their labels.
+   * On by default. Turning them off leaves the chart plain: the output gamut
+   * is unchanged, only the reference lines go. */
+  gamutLines?: boolean;
   name?: boolean;
   notice?: boolean;
   /** A control for switching the output gamut. Off by default: most pickers
@@ -67,6 +71,7 @@ export const DEFAULT_PARTS: Required<PickerParts> = {
   rgbInput: false,
   hexInput: false,
   alpha: true,
+  gamutLines: true,
   name: true,
   notice: true,
   gamutSwitch: false,
@@ -238,6 +243,18 @@ export function emitValue(next: Oklch, gamut: Gamut = SRGB): string {
   return formatOklch(clampToGamut(next, gamut));
 }
 
+/** The value to record in recents for a dialled colour, or null to record
+ * nothing.
+ *
+ * A commit that lands outside the gamut records nothing. `emitValue` clamps, so
+ * committing it would file the nearest reachable colour under a colour the user
+ * never chose, and repeated drags into the same unreachable region would stack
+ * near-identical swatches. Recents is a list of colours someone picked and could
+ * actually see. */
+export function recentValue(next: Oklch, gamut: Gamut = SRGB): string | null {
+  return inGamut(next, gamut) ? emitValue(next, gamut) : null;
+}
+
 /** The single input a chart's curve depends on, for memoisation. A chart sweeps
  * the two axes it does not control, so its silhouette depends only on the one
  * it holds fixed. Keying on that means dragging either swept axis moves the
@@ -268,17 +285,49 @@ export function chartAxes(layout: PickerLayout): Axis[] {
 
 /** Where the current colour sits in one chart's slice plane, 0..1 on each
  * screen axis with y measured bottom-up. */
-export function chartSlot(current: Oklch, axis: Axis, gamut: Gamut = SRGB): ChartSlot {
+export function chartSlot(
+  current: Oklch,
+  axis: Axis,
+  gamut: Gamut = SRGB,
+  references: Gamut[] = [],
+): ChartSlot {
   const { x, y } = CHART_PLANES[axis];
-  const at = (a: Axis) => Math.min(1, Math.max(0, current[a] / axisMax(a, gamut)));
-  return { axis, key: chartKey(current, axis), x: at(x), y: at(y) };
+  // The vertical axis uses the same shared scale the curve is drawn on, or the
+  // crosshair drifts off the silhouette as soon as a wider space is outlined.
+  // The horizontal axis is lightness or hue, which every gamut shares.
+  const scaleY = chartScale(axis, gamut, references);
+  const at = (a: Axis, max: number) => Math.min(1, Math.max(0, current[a] / max));
+  return {
+    axis,
+    key: chartKey(current, axis),
+    x: at(x, axisMax(x, gamut)),
+    y: at(y, scaleY),
+  };
 }
 
 /** The colour a point in a chart maps to, for click and drag. `x` and `y` are
- * 0..1 across the plot with y bottom-up; the fixed axis is held from `base`. */
-export function chartPick(base: Oklch, axis: Axis, x: number, y: number): Oklch {
+ * 0..1 across the plot with y bottom-up; the fixed axis is held from `base`.
+ *
+ * `scale` must be the same vertical scale `chartSlot` reads back on, which is
+ * `chartScale` over every space in view. Picking on one scale and positioning
+ * the crosshair on another left it aligned at the bottom of the plot and
+ * drifting further the higher the pointer went, in proportion to the ratio
+ * between the two. */
+export function chartPick(
+  base: Oklch,
+  axis: Axis,
+  x: number,
+  y: number,
+  gamut: Gamut = SRGB,
+  references: Gamut[] = [],
+): Oklch {
   const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
-  return chartColour(base, axis, clamp01(x), clamp01(y));
+  const { x: xAxis, y: yAxis } = CHART_PLANES[axis];
+  return {
+    ...base,
+    [xAxis]: clamp01(x) * axisMax(xAxis, gamut),
+    [yAxis]: clamp01(y) * chartScale(axis, gamut, references),
+  } as Oklch;
 }
 
 /** Everything a picker derives from its current colour, in one place, so an
@@ -307,8 +356,14 @@ export interface PickerModel {
   notice: string;
   /** The output space: what is clamped, emitted, and measured against. */
   gamut: Gamut;
-  /** Spaces drawn as reference outlines but never clamped to. */
+  /** Spaces drawn as reference outlines but never clamped to. Only those
+   * narrower than the output: a line for the output would trace its own
+   * boundary, and a wider one would mark colours this picker cannot reach. */
   references: Gamut[];
+  /** Every space in view, drawn or not, which is what sets the chart's
+   * vertical scale. A wider space that draws no line still widens the scale, so
+   * two pickers given the same list stay comparable by height. */
+  scaleGamuts: Gamut[];
   /** The spaces the switcher offers, in order. Empty when it is off, or when
    * fewer than two were given, because one option is not a choice. */
   gamutChoices: Gamut[];
@@ -382,7 +437,24 @@ export function pickerModel(current: Oklch, options: PickerOptions = {}): Picker
   // Reference spaces are drawn but never clamped to. sRGB earns a line
   // whenever it is not itself the output, so a wider picker still shows where
   // the safe region ends.
-  const references = options.references ?? (gamut === SRGB ? [] : [SRGB]);
+  //
+  // Only spaces narrower than the output are drawn. A line for the output
+  // itself would trace its own boundary, and a wider one would sit outside the
+  // fill marking colours this picker cannot reach, which says nothing useful
+  // about where the safe region ends. Passing a whole list is therefore safe:
+  // each picker keeps the ones that apply to it.
+  //
+  // `gamutChoices` counts as spaces in view. A switcher offering sRGB, P3 and
+  // Rec. 2020 puts all three on screen, so on Rec. 2020 the P3 line belongs
+  // too, and the scale must not move as the reader switches or the chart
+  // renormalises under them and a narrower space can look taller.
+  const inView = options.references ?? options.gamutChoices ?? (gamut === SRGB ? [] : [SRGB]);
+  const offeredReferences = inView;
+  // `gamutLines` removes the drawn lines only. The spaces stay in view for the
+  // scale, so turning the lines off does not resize the chart under the reader.
+  const references = parts.gamutLines
+    ? offeredReferences.filter((g) => g.id !== gamut.id && g.chartMaxChroma < gamut.chartMaxChroma)
+    : [];
 
   const notice = clipped
     ? (labels[gamutNoticeKey(gamut)] ?? defaultOutOfGamutNotice(gamut, labels.outOfGamut))
@@ -390,7 +462,11 @@ export function pickerModel(current: Oklch, options: PickerOptions = {}): Picker
 
   // Narrowest-first, and deduplicated by id so passing sRGB as both the output
   // and a reference does not offer it twice.
-  const offered = options.gamutChoices ?? [...references, gamut];
+  //
+  // Built from the unfiltered list, not from `references`. Those are only the
+  // spaces narrow enough to draw a line on this chart, so switching *up* from
+  // sRGB to P3 would be impossible if the choices came from them.
+  const offered = options.gamutChoices ?? [...offeredReferences, gamut];
   const seen = new Set<string>();
   const gamutChoices = offered.filter((g) => !seen.has(g.id) && seen.add(g.id));
   // One option is not a choice, so the control needs at least two.
@@ -400,6 +476,7 @@ export function pickerModel(current: Oklch, options: PickerOptions = {}): Picker
     current,
     gamut,
     references,
+    scaleGamuts: [...offeredReferences, gamut],
     gamutChoices: withGamutSwitch ? gamutChoices : [],
     withGamutSwitch,
     hex: oklchToHex(current),
@@ -414,7 +491,11 @@ export function pickerModel(current: Oklch, options: PickerOptions = {}): Picker
     name: colourName(emitValue(current, gamut)),
     reachable,
     axes,
-    charts: withCharts ? chartAxes(layout).map((axis) => chartSlot(current, axis, gamut)) : [],
+    charts: withCharts
+      ? chartAxes(layout).map((axis) =>
+          chartSlot(current, axis, gamut, [...offeredReferences, gamut]),
+        )
+      : [],
     spans: axes.map((a) => outOfGamutSpans(current, a.key, a.max, gamut)),
     gradients: axes.map((a) => trackGradient(current, a.key, a.max, gamut)),
     labels,
@@ -436,44 +517,106 @@ export interface GamutChartModel {
   stops: { offset: number; hex: string }[];
   /** One outline per wider gamut, in the order given. Empty unless `gamuts`
    * was passed, so an app that never opts in draws exactly what it did. */
-  boundaries: { id: string; path: string }[];
+  boundaries: {
+    id: string;
+    path: string;
+    /** The space's name, for a label on the line. */
+    label: string;
+    /** Where to anchor that label: the line's highest point, in viewBox units,
+     * so the text sits on the boundary rather than floating. */
+    labelX: number;
+    labelY: number;
+  }[];
+}
+
+/** The transform that draws a label at its CSS pixel size inside a chart whose
+ * viewBox is stretched non-uniformly.
+ *
+ * The chart is CHART_W x CHART_H scaled to fill its container with
+ * `preserveAspectRatio: none`, so one user unit is several pixels across and a
+ * different number down. Text placed straight into that is huge and squashed.
+ * Translating to the anchor and undoing the scale puts the glyphs back at the
+ * size the stylesheet asks for. `width` and `height` are the chart's rendered
+ * pixel size; before it has been measured, no transform is better than a wrong
+ * one, so the label is simply not drawn. */
+export function labelTransform(x: number, y: number, width: number, height: number): string | null {
+  if (!width || !height) return null;
+  return `translate(${x} ${y}) scale(${CHART_W / width} ${CHART_H / height})`;
+}
+
+/** The chart's vertical scale: the widest space in view, output or reference.
+ *
+ * Every space must share one scale or height stops meaning anything. Scaling
+ * each to its own peak made Rec. 2020 draw *lower* than P3 despite reaching
+ * further, because its curve was divided by a larger number. Taking the widest
+ * means a wider gamut genuinely draws taller, at the cost of a Rec. 2020
+ * picker using less of the chart's height than an sRGB one does.
+ *
+ * Only a chroma axis varies by gamut. Lightness and hue are shared, so those
+ * planes return the same scale whatever is in view. */
+export function chartScale(axis: Axis, gamut: Gamut = SRGB, references: Gamut[] = []): number {
+  const y = CHART_PLANES[axis].y;
+  return Math.max(...[gamut, ...references].map((g) => axisMax(y, g)));
 }
 
 /** The curve and gradient of one gamut chart, in CHART_W x CHART_H viewBox
- * units. The curve is plotted on the vertical axis' own scale, not normalised
- * to its peak: the crosshair is positioned on that same scale, so rescaling
- * here would drift the two apart. */
+ * units. Everything drawn here shares `chartScale`, and `chartSlot` positions
+ * the crosshair on it too, so the two cannot drift apart. */
 export function gamutChartModel(
   base: Oklch,
   axis: Axis,
   resolution = 64,
   gamuts: Gamut[] = [],
+  gamut: Gamut = SRGB,
+  /** Every space in view, drawn or not. Defaults to what is drawn plus the
+   * output, so the scale still works when a caller passes nothing extra. A
+   * wider space that draws no line belongs here: it keeps two pickers given the
+   * same list comparable by height. */
+  scaleGamuts: Gamut[] = [...gamuts, gamut],
 ): GamutChartModel {
-  const cols = gamutCurve(base, axis, resolution);
+  // The filled region is the *output* gamut, not always sRGB. Leaving this
+  // hardcoded drew a P3 picker's silhouette at sRGB's reach, so passing a wider
+  // gamut only added a dotted outline while the plot underneath never moved.
+  const cols = gamutCurve(base, axis, resolution, gamut);
   const toPath = (points: { t: number; c: number }[]) =>
     points
       .map((c) => `${(c.t * CHART_W).toFixed(2)},${(CHART_H - c.c * CHART_H).toFixed(2)}`)
       .join(" L");
 
-  // A wider gamut's curve is measured in its own space but must be drawn on
-  // this chart's scale, so the outline sits above the filled region rather
-  // than being renormalised back onto it. Only a chroma-vertical plane needs
-  // that conversion: `gamutCurve` already divides chroma by the chart scale,
-  // whereas a lightness-vertical column is a plain 0..1 fraction of an axis
-  // that every gamut shares. Anything past the top is clipped to it.
+  // Every curve arrives normalised by its own space's peak, so each is
+  // multiplied back into absolute chroma and re-divided by the shared scale.
+  // Without that, the spaces are plotted against different rulers.
   const rescale = CHART_PLANES[axis].y === "c";
-  const boundaries = gamuts.map((g) => ({
-    id: g.id,
-    path: toPath(
-      gamutCurve(base, axis, resolution, g).map((c) => ({
-        t: c.t,
-        c: rescale ? Math.min(1, c.c) : c.c,
-      })),
-    ),
-  }));
+  const scale = chartScale(axis, gamut, scaleGamuts);
+  const onScale = (g: Gamut, c: number) =>
+    rescale ? Math.min(1, (c * axisMax(CHART_PLANES[axis].y, g)) / scale) : c;
+
+  const boundaries = gamuts.map((g) => {
+    const points = gamutCurve(base, axis, resolution, g).map((c) => ({
+      t: c.t,
+      c: onScale(g, c.c),
+    }));
+    // Anchor the label at the line's peak. That is where two boundaries are
+    // furthest apart, so labels are least likely to collide, and it reads as
+    // belonging to the line rather than to the fill under it.
+    const peak = points.reduce(
+      (a, b) => (b.c > a.c ? b : a),
+      points[0] as { t: number; c: number },
+    );
+    return {
+      id: g.id,
+      label: g.label,
+      path: toPath(points),
+      labelX: peak.t * CHART_W,
+      labelY: CHART_H - peak.c * CHART_H,
+    };
+  });
 
   return {
-    path: toPath(cols),
+    // The fill goes onto the shared scale too. It arrives normalised by the
+    // output gamut's own peak, which only equals the scale when nothing wider
+    // is outlined over it.
+    path: toPath(cols.map((c) => ({ t: c.t, c: onScale(gamut, c.c) }))),
     stops: cols.map((c) => ({ offset: c.t * 100, hex: c.hex })),
     boundaries,
   };

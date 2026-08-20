@@ -165,6 +165,25 @@
 /* Where a reference space ends. Dashed, so it reads as a landmark rather than
    as another edge of the filled region, and drawn after the fill so it sits
    above it. */
+/* The space's name, sitting on its line. A dashed outline with no label leaves
+   the reader guessing which gamut it marks.
+
+   The chart is a 100x34 viewBox stretched to its container with
+   `preserveAspectRatio: none`, so one user unit is roughly 7px across and 5px
+   down, and unequally. Text sized in user units would be enormous and
+   horizontally squashed. The label is therefore positioned in viewBox units but
+   drawn in screen pixels, via a counter-scale the adapters set per chart. */
+.oklch-picker__gamut-label {
+  fill: rgb(255 255 255 / 0.9);
+  stroke: rgb(0 0 0 / 0.6);
+  stroke-width: 3px;
+  paint-order: stroke;
+  font-size: 10px;
+  font-family: inherit;
+  font-weight: 500;
+  pointer-events: none;
+}
+
 .oklch-picker__gamut-boundary {
   fill: none;
   /* The fallback covers a gamut with no modifier rule of its own. */
@@ -378,8 +397,10 @@
   outline: 2px solid var(--okp-focus);
   outline-offset: 2px;
 }
+/* Square, and the same height as the field beside it, so the footer reads as
+   one row rather than a swatch of its own proportions. */
 .oklch-picker__preview {
-  width: 34px;
+  width: 26px;
   height: 26px;
   border-radius: var(--okp-radius);
   border: 1px solid var(--okp-line);
@@ -474,8 +495,9 @@
 }
 /* The preview fills the rail's width instead of sitting as a 34px chip beside
    a hex field it no longer shares a row with. */
+/* Larger in the rail, which has the room, but still square. */
 .oklch-picker--side-by-side .oklch-picker__preview {
-  width: auto;
+  width: 44px;
   height: 44px;
 }
 .oklch-picker--side-by-side .oklch-picker__hex {

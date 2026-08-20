@@ -10,6 +10,7 @@ import {
   colourName,
   emitValue,
   pickerModel,
+  recentValue,
   resolveCurrent,
   toOklch,
   withSingleChart,
@@ -101,7 +102,12 @@ export function ColourPicker(props: ColourPickerProps) {
     setOwnRecents(next);
     props.onRecentsChange?.(next);
   };
-  const commitCurrent = () => commit(emitValue(current, model.gamut));
+  // Null while the dialled colour is outside the gamut, so a drag released in
+  // a hatched region records nothing rather than the clamped near-miss.
+  const commitCurrent = () => {
+    const colour = recentValue(current, model.gamut);
+    if (colour) commit(colour);
+  };
 
   const emit = (next: Oklch) => {
     setDraft(next);
@@ -177,7 +183,11 @@ export function ColourPicker(props: ColourPickerProps) {
           x={single.x}
           y={single.y}
           references={model.references}
-          onPick={(x, y) => emit(chartPick(current, single.axis, x, y))}
+          gamut={model.gamut}
+          scaleGamuts={model.scaleGamuts}
+          onPick={(x, y) =>
+            emit(chartPick(current, single.axis, x, y, model.gamut, model.scaleGamuts))
+          }
           onPicked={commitCurrent}
           classPrefix={prefix}
         />
@@ -213,6 +223,8 @@ export function ColourPicker(props: ColourPickerProps) {
                   x={chart.x}
                   y={chart.y}
                   references={model.references}
+                  gamut={model.gamut}
+                  scaleGamuts={model.scaleGamuts}
                   classPrefix={prefix}
                 />
               )}

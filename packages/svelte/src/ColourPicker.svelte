@@ -11,6 +11,7 @@ import {
   colourName,
   emitValue,
   pickerModel,
+  recentValue,
   resolveCurrent,
   toOklch,
   withSingleChart,
@@ -123,7 +124,10 @@ function commit(colour: string) {
   onrecentschange?.(next);
 }
 function commitCurrent() {
-  commit(emitValue(model.current, model.gamut));
+  // Null while the dialled colour is outside the gamut, so a drag released in
+  // a hatched region records nothing rather than the clamped near-miss.
+  const colour = recentValue(model.current, model.gamut);
+  if (colour) commit(colour);
 }
 function pick(colour: string) {
   draft = null;
@@ -189,7 +193,10 @@ function slideAlpha(event: Event & { currentTarget: HTMLInputElement }) {
       x={single.x}
       y={single.y}
       references={model.references}
-      onpick={(x, y) => dial(chartPick(model.current, single.axis, x, y))}
+      gamut={model.gamut}
+      scaleGamuts={model.scaleGamuts}
+      onpick={(x, y) =>
+        dial(chartPick(model.current, single.axis, x, y, model.gamut, model.scaleGamuts))}
       onpicked={commitCurrent}
       {classPrefix}
     />
@@ -220,6 +227,8 @@ function slideAlpha(event: Event & { currentTarget: HTMLInputElement }) {
             x={chart.x}
             y={chart.y}
             references={model.references}
+      gamut={model.gamut}
+      scaleGamuts={model.scaleGamuts}
             {classPrefix}
           />
         {/if}

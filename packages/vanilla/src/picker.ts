@@ -25,7 +25,9 @@ import {
   colourName,
   emitValue,
   gamutChartModel,
+  labelTransform,
   pickerModel,
+  recentValue,
   resolveCurrent,
   toOklch,
   withSingleChart,
@@ -101,10 +103,22 @@ interface ChartNodes {
    * Built once and mutated, like every other node here; a change to the gamut
    * configuration rebuilds. */
   boundaries: SVGPathElement[];
+  /** The wrapper each label sits in, aligned by the same index. The counter-
+   * scale that keeps the glyphs readable goes on the group, so the text keeps
+   * its own untransformed coordinates. */
+  labelGroups: SVGGElement[];
   vertical: SVGLineElement;
   horizontal: SVGLineElement;
   /** Last curve key rendered, so the ~65 stops rebuild only when it changes. */
   key: number | null;
+  /** The chart's rendered pixel size, written by the resize observer. The
+   * labels' counter-scale needs it, and it cannot be assumed: the chart is
+   * fluid, so the ratio moves with it. */
+  width: number;
+  height: number;
+  /** The boundary anchors from the last curve, in viewBox units. Kept so a
+   * resize can re-place the labels without recomputing the sweep. */
+  anchors: { x: number; y: number }[];
 }
 
 export class OklchPickerElement extends HTMLElement {
@@ -155,6 +169,9 @@ export class OklchPickerElement extends HTMLElement {
   /** The reference spaces the current tree was built for, so #updateChart can
    * write a `d` per index without re-deriving them. */
   #builtReferences: Gamut[] = [];
+  /** Every space in view, drawn or not. Held separately from the drawn ones so
+   * a wider space still sets the chart's scale without adding a line. */
+  #builtScaleGamuts: Gamut[] = [];
 
   // Built once, then mutated. Rebuilding the tree per input would drop focus
   // from the slider mid-drag.
@@ -167,6 +184,13 @@ export class OklchPickerElement extends HTMLElement {
   #rows: AxisRow[] = [];
   /** The `chart` layout's single plot, above the axes rather than inside one. */
   #chart: ChartNodes | undefined;
+  /** Every chart in the tree, hoisted plot and per-axis strips alike, so one
+   * observer can serve them all and a rebuild can drop them together. */
+  #charts: ChartNodes[] = [];
+  /** Created with the first chart, disconnected when the element leaves the
+   * document. Charts are fluid, and the labels' counter-scale needs the
+   * rendered pixel size rather than an assumed one. */
+  #resize: ResizeObserver | undefined;
   #gamutButtons: { button: HTMLButtonElement; gamut: Gamut }[] = [];
   /** The alpha row's mutable parts. Built once like every other row. */
   #alphaRow: { output: HTMLOutputElement; ramp: HTMLElement; slider: HTMLInputElement } | undefined;
@@ -328,6 +352,15 @@ export class OklchPickerElement extends HTMLElement {
     this.#rebuild();
   }
 
+  /** Leaving the document should not leave an observer watching detached
+   * nodes. Reconnecting runs connectedCallback, which rebuilds the tree and
+   * observes the fresh charts, so nothing is lost by dropping it here. */
+  disconnectedCallback(): void {
+    this.#resize?.disconnect();
+    this.#resize = undefined;
+    this.#charts = [];
+  }
+
   /** Form reset restores the server-rendered `value`, like a built-in input.
    * Assigning through the setter would be a no-op whenever the dialled colour
    * has already been reflected onto the attribute, so reset the state here. */
@@ -445,7 +478,12 @@ export class OklchPickerElement extends HTMLElement {
 
   /** The colour showing right now, committed. Bound once at build time, so the
    * colour is read back rather than closed over. */
-  #commitCurrent = () => this.#commit(emitValue(this.#currentColour(), this.#gamut));
+  // Null while the dialled colour is outside the gamut, so a drag released in
+  // a hatched region records nothing rather than the clamped near-miss.
+  #commitCurrent = () => {
+    const colour = recentValue(this.#currentColour(), this.#gamut);
+    if (colour) this.#commit(colour);
+  };
 
   #publish(colour: string): void {
     this.#value = colour;
@@ -482,6 +520,10 @@ export class OklchPickerElement extends HTMLElement {
     this.#gamutButtons = [];
     this.#rows = [];
     this.#chart = undefined;
+    // The old chart nodes are gone with the tree; stop watching them, or the
+    // observer holds detached SVG alive and the fresh charts land behind them.
+    this.#resize?.disconnect();
+    this.#charts = [];
     this.#alphaRow = undefined;
     this.#preview = undefined;
     this.#oklchField = undefined;
@@ -514,6 +556,7 @@ export class OklchPickerElement extends HTMLElement {
     // wider output gamut gets for free. The boundary nodes are cut from that
     // list rather than from the raw property.
     this.#builtReferences = model.references;
+    this.#builtScaleGamuts = model.scaleGamuts;
 
     if (this.#presets && this.#presets.length > 0) {
       const row = el("div", `${p}__presets`);
@@ -726,6 +769,8 @@ export class OklchPickerElement extends HTMLElement {
             axis,
             (event.clientX - r.left) / r.width,
             (r.bottom - event.clientY) / r.height,
+            this.#gamut,
+            this.#builtScaleGamuts,
           ),
         );
       };
@@ -762,6 +807,25 @@ export class OklchPickerElement extends HTMLElement {
       path.setAttribute("fill", "none");
       return path;
     });
+    // Named on the line, one node per reference so #updateChart can move them
+    // by index like everything else here. Each sits in a group because the
+    // viewBox is stretched non-uniformly: text placed straight into it is huge
+    // and squashed, so the group carries the counter-scale and the text keeps
+    // plain coordinates.
+    const labels: SVGTextElement[] = [];
+    const labelGroups = this.#builtReferences.map((g) => {
+      const group = svg("g");
+      // Hidden until the observer has a size. A wrongly scaled label for a
+      // frame reads worse than no label at all.
+      group.style.display = "none";
+      const text = svg("text", `${p}__gamut-label`);
+      text.setAttribute("text-anchor", "middle");
+      text.setAttribute("y", "-5");
+      text.textContent = g.label;
+      group.append(text);
+      labels.push(text);
+      return group;
+    });
     const vertical = svg("line", `${p}__crosshair`);
     vertical.setAttribute("y1", "0");
     vertical.setAttribute("y2", String(CHART_H));
@@ -769,8 +833,64 @@ export class OklchPickerElement extends HTMLElement {
     horizontal.setAttribute("x1", "0");
     horizontal.setAttribute("x2", String(CHART_W));
 
-    root.append(defs, area, line, ...boundaries, vertical, horizontal);
-    return { root, gradient, area, line, boundaries, vertical, horizontal, key: null };
+    root.append(defs, area, line, ...boundaries, ...labelGroups, vertical, horizontal);
+    const nodes: ChartNodes = {
+      root,
+      gradient,
+      area,
+      line,
+      boundaries,
+      labelGroups,
+      vertical,
+      horizontal,
+      key: null,
+      width: 0,
+      height: 0,
+      anchors: [],
+    };
+    // Observed rather than measured once: the chart is fluid, and only a live
+    // size keeps the labels at the stylesheet's pixel size as it stretches.
+    this.#observe(nodes);
+    return nodes;
+  }
+
+  /** Watch one chart for size changes and re-place its labels. Only the label
+   * groups move; the tree itself is never rebuilt, because rebuilding it would
+   * drop focus from a slider mid-drag. */
+  #observe(nodes: ChartNodes): void {
+    this.#charts.push(nodes);
+    this.#resize ??= new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const chart = this.#charts.find((c) => c.root === entry.target);
+        if (!chart) continue;
+        const r = entry.contentRect;
+        if (chart.width === r.width && chart.height === r.height) continue;
+        chart.width = r.width;
+        chart.height = r.height;
+        this.#placeLabels(chart);
+      }
+    });
+    this.#resize.observe(nodes.root);
+  }
+
+  /** Put each label on its boundary's peak at the chart's current size. Called
+   * both when the curve moves and when the chart is resized, since the
+   * counter-scale depends on the rendered pixel size. */
+  #placeLabels(nodes: ChartNodes): void {
+    for (const [i, group] of nodes.labelGroups.entries()) {
+      const anchor = nodes.anchors[i];
+      const transform = anchor
+        ? labelTransform(anchor.x, anchor.y, nodes.width, nodes.height)
+        : null;
+      if (transform) {
+        attr(group, "transform", transform);
+        group.style.display = "";
+      } else {
+        // No size yet, or no curve yet. A wrongly scaled label is worse than
+        // none, so the group stays out of the picture entirely.
+        group.style.display = "none";
+      }
+    }
   }
 
   #update(model: ReturnType<typeof pickerModel>): void {
@@ -847,7 +967,17 @@ export class OklchPickerElement extends HTMLElement {
     const axis = slot.axis;
     // The curve and its stops depend on one input; rebuild only when it moves.
     if (nodes.key !== slot.key) {
-      const m = gamutChartModel(chartBase(slot.key, axis), axis, undefined, this.#builtReferences);
+      const m = gamutChartModel(
+        chartBase(slot.key, axis),
+        axis,
+        undefined,
+        this.#builtReferences,
+        this.#gamut,
+        // Every space in view, not just the drawn ones. Without this the chart
+        // falls back to scaling by what it draws, so a Rec. 2020 picker and a
+        // P3 picker use different rulers and the wider one can look shorter.
+        this.#builtScaleGamuts,
+      );
       nodes.area.setAttribute("d", `M0,${CHART_H} L${m.path} L${CHART_W},${CHART_H} Z`);
       nodes.line.setAttribute("d", `M${m.path}`);
       // Aligned by construction: both lists come from #builtReferences, and a
@@ -855,6 +985,11 @@ export class OklchPickerElement extends HTMLElement {
       for (const [i, b] of m.boundaries.entries()) {
         nodes.boundaries[i]?.setAttribute("d", `M${b.path}`);
       }
+      // The labels move with the curve, but their transform also depends on the
+      // chart's pixel size, so the anchors are stored and the placing is shared
+      // with the resize path.
+      nodes.anchors = m.boundaries.map((b) => ({ x: b.labelX, y: b.labelY }));
+      this.#placeLabels(nodes);
       nodes.gradient.replaceChildren(
         ...m.stops.map((s) => {
           const stop = svg("stop");

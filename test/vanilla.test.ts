@@ -1,5 +1,5 @@
 /** The custom element, driven through real DOM. No framework involved. */
-import { SRGB, parseOklch } from "@oklch-picker/core";
+import { type Gamut, SRGB, parseOklch } from "@oklch-picker/core";
 import { P3, REC2020 } from "@oklch-picker/core/gamuts";
 import { type OklchPickerElement, register } from "oklch-picker";
 import { afterEach, beforeAll, describe, expect, test, vi } from "vitest";
@@ -596,5 +596,29 @@ describe("<oklch-picker> recent colours", () => {
 
     picker.querySelector<HTMLButtonElement>(".oklch-picker__recent")?.click();
     expect(seen).toEqual(["oklch(0.75 0.16 145)"]);
+  });
+});
+
+describe("the chart scale follows every space in view", () => {
+  /** Peak height of the filled curve, of the 34-unit viewBox. */
+  const height = (picker: OklchPickerElement) => {
+    const d = picker.querySelector(".oklch-picker__chart path")?.getAttribute("d") ?? "";
+    const ys = [...d.matchAll(/[\d.]+,([\d.]+)/g)].map((m) => Number(m[1]));
+    return 34 - Math.min(...ys);
+  };
+
+  // Regression: the element passed the output gamut but not `scaleGamuts`, so
+  // each chart fell back to scaling by what it happened to draw. A Rec. 2020
+  // picker and a P3 picker then used different rulers, and the wider one drew
+  // shorter, which is the opposite of what height should mean.
+  test("a wider output gamut draws taller, given the same spaces", () => {
+    const at = (gamut: Gamut) => {
+      const picker = mount({ value: "oklch(0.7 0.2 145)" });
+      picker.references = [SRGB, P3, REC2020];
+      picker.gamut = gamut;
+      return height(picker);
+    };
+    expect(at(P3)).toBeGreaterThan(at(SRGB));
+    expect(at(REC2020)).toBeGreaterThan(at(P3));
   });
 });

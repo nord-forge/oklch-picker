@@ -18,12 +18,14 @@ import {
   colourName,
   emitValue,
   gamutChartModel,
+  labelTransform,
   pickerModel,
+  recentValue,
   resolveCurrent,
   toOklch,
   withSingleChart,
 } from "@oklch-picker/core";
-import { For, Index, Show, createMemo, createSignal } from "solid-js";
+import { For, Index, Show, createMemo, createSignal, onCleanup, onMount } from "solid-js";
 
 interface GamutChartProps {
   /** The axis held fixed; the chart sweeps the other two. */
@@ -42,6 +44,11 @@ interface GamutChartProps {
   onPicked?: () => void;
   /** Reference spaces to outline over the filled region. Omit for none. */
   references?: Gamut[] | undefined;
+  /** The output space. The filled region is this gamut's reach, so a P3 picker
+   * plots P3 rather than sRGB with an outline drawn over it. */
+  gamut?: Gamut | undefined;
+  /** Every space in view, drawn or not, which sets the vertical scale. */
+  scaleGamuts?: Gamut[] | undefined;
   classPrefix: string;
   resolution?: number;
 }
@@ -59,10 +66,26 @@ function GamutChart(props: GamutChartProps) {
       props.axis,
       props.resolution ?? 64,
       props.references,
+      props.gamut,
+      props.scaleGamuts,
     ),
   );
   const gradId = () => `${props.classPrefix}-gamut-${props.axis}`;
   const crossY = () => CHART_H - Math.min(1, Math.max(0, props.y)) * CHART_H;
+
+  // The chart's rendered pixel size, for the labels' counter-scale. Measured
+  // rather than assumed: the chart is fluid, so the ratio moves with it.
+  let root: SVGSVGElement | undefined;
+  const [size, setSize] = createSignal({ w: 0, h: 0 });
+  onMount(() => {
+    if (!root) return;
+    const observer = new ResizeObserver(([entry]) => {
+      const r = entry?.contentRect;
+      if (r) setSize({ w: r.width, h: r.height });
+    });
+    observer.observe(root);
+    onCleanup(() => observer.disconnect());
+  });
 
   // Pointer capture keeps a drag alive once it leaves the chart, so the value
   // still tracks rather than sticking at the edge.
@@ -76,6 +99,7 @@ function GamutChart(props: GamutChartProps) {
 
   return (
     <svg
+      ref={root}
       class={`${props.classPrefix}__chart${props.onPick ? ` ${props.classPrefix}__chart--interactive` : ""}`}
       viewBox={`0 0 ${CHART_W} ${CHART_H}`}
       preserveAspectRatio="none"
@@ -109,11 +133,30 @@ function GamutChart(props: GamutChartProps) {
       <path d={`M${curve().path}`} fill="none" class={`${props.classPrefix}__chart-line`} />
       <For each={curve().boundaries}>
         {(b) => (
-          <path
-            d={`M${b.path}`}
-            fill="none"
-            class={`${props.classPrefix}__gamut-boundary ${props.classPrefix}__gamut-boundary--${b.id}`}
-          />
+          <>
+            <path
+              d={`M${b.path}`}
+              fill="none"
+              class={`${props.classPrefix}__gamut-boundary ${props.classPrefix}__gamut-boundary--${b.id}`}
+            />
+            {/* Named on the line: a dashed outline with no label leaves the
+                reader guessing which space it marks.
+
+                The viewBox is stretched non-uniformly, so text placed straight
+                into it is huge and squashed. `labelTransform` undoes the scale
+                so the glyphs land at the size the stylesheet asks for. It is
+                null until the chart has been measured, and no label beats a
+                wrong one for a frame. */}
+            <Show when={labelTransform(b.labelX, b.labelY, size().w, size().h)}>
+              {(transform) => (
+                <g transform={transform()}>
+                  <text class={`${props.classPrefix}__gamut-label`} text-anchor="middle" y="-5">
+                    {b.label}
+                  </text>
+                </g>
+              )}
+            </Show>
+          </>
         )}
       </For>
 
@@ -224,7 +267,12 @@ export function ColourPicker(props: ColourPickerProps) {
     setOwnRecents(next);
     props.onRecentsChange?.(next);
   };
-  const commitCurrent = () => commit(emitValue(model().current, model().gamut));
+  // Null while the dialled colour is outside the gamut, so a drag released in
+  // a hatched region records nothing rather than the clamped near-miss.
+  const commitCurrent = () => {
+    const colour = recentValue(model().current, model().gamut);
+    if (colour) commit(colour);
+  };
 
   const pick = (colour: string) => {
     setDraft(null);
@@ -284,7 +332,13 @@ export function ColourPicker(props: ColourPickerProps) {
             x={slot().x}
             y={slot().y}
             references={model().references}
-            onPick={(x, y) => dial(chartPick(model().current, slot().axis, x, y))}
+            gamut={model().gamut}
+            scaleGamuts={model().scaleGamuts}
+            onPick={(x, y) =>
+              dial(
+                chartPick(model().current, slot().axis, x, y, model().gamut, model().scaleGamuts),
+              )
+            }
             onPicked={commitCurrent}
             classPrefix={prefix()}
           />
@@ -324,6 +378,8 @@ export function ColourPicker(props: ColourPickerProps) {
                       x={slot().x}
                       y={slot().y}
                       references={model().references}
+                      gamut={model().gamut}
+                      scaleGamuts={model().scaleGamuts}
                       classPrefix={prefix()}
                     />
                   )}

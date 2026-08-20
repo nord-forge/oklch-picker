@@ -1,8 +1,15 @@
 /** A 2D slice of the sRGB gamut: the chart holds one axis fixed and sweeps the
  * other two, so under the curve is displayable and above it is not. */
 import type { Axis, Gamut, Oklch } from "@oklch-picker/core";
-import { CHART_H, CHART_W, chartBase, chartKey, gamutChartModel } from "@oklch-picker/core";
-import { useMemo, useRef } from "react";
+import {
+  CHART_H,
+  CHART_W,
+  chartBase,
+  chartKey,
+  gamutChartModel,
+  labelTransform,
+} from "@oklch-picker/core";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 export interface GamutChartProps {
   base: Oklch;
@@ -10,6 +17,11 @@ export interface GamutChartProps {
   axis: Axis;
   /** Reference spaces to outline over the filled region. Omit for none. */
   references?: Gamut[] | undefined;
+  /** The output space. The filled region is this gamut's reach, so a P3 picker
+   * plots P3 rather than sRGB with an outline drawn over it. */
+  gamut?: Gamut | undefined;
+  /** Every space in view, drawn or not, which sets the vertical scale. */
+  scaleGamuts?: Gamut[] | undefined;
   /** 0..1 across the plot; drives the vertical crosshair. */
   x: number;
   /** 0..1 up the plot, bottom-up; drives the horizontal crosshair. */
@@ -31,6 +43,19 @@ export function GamutChart(props: GamutChartProps) {
   const { axis, onPick, onPicked } = props;
   const resolution = props.resolution ?? 64;
   const svg = useRef<SVGSVGElement>(null);
+  // The chart's rendered pixel size, for the label counter-scale. Observed
+  // rather than assumed: the chart is fluid, and the ratio changes with it.
+  const [size, setSize] = useState({ w: 0, h: 0 });
+  useEffect(() => {
+    const node = svg.current;
+    if (!node) return;
+    const observer = new ResizeObserver(([entry]) => {
+      const r = entry?.contentRect;
+      if (r) setSize({ w: r.width, h: r.height });
+    });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
   // Keying the memo on the axis the chart holds fixed means dragging either
   // swept axis reuses the curve and its ~65 gradient stops.
   const curveInput = chartKey(props.base, axis);
@@ -38,14 +63,23 @@ export function GamutChart(props: GamutChartProps) {
   // are computed from the same sweep, so recomputing them separately would
   // walk the axis twice for one render.
   const references = props.references;
+  const gamut = props.gamut;
+  const scaleGamuts = props.scaleGamuts;
   const { path, stops, boundaries } = useMemo(() => {
-    const m = gamutChartModel(chartBase(curveInput, axis), axis, resolution, references);
+    const m = gamutChartModel(
+      chartBase(curveInput, axis),
+      axis,
+      resolution,
+      references,
+      gamut,
+      scaleGamuts,
+    );
     return {
       path: m.path,
       stops: m.stops.map((s) => <stop key={s.offset} offset={`${s.offset}%`} stopColor={s.hex} />),
       boundaries: m.boundaries,
     };
-  }, [axis, curveInput, resolution, references]);
+  }, [axis, curveInput, resolution, references, gamut, scaleGamuts]);
   const gradId = `${props.classPrefix}-gamut-${props.id}`;
   const crossY = CHART_H - Math.min(1, Math.max(0, props.y)) * CHART_H;
 
@@ -89,12 +123,32 @@ export function GamutChart(props: GamutChartProps) {
       <path d={`M0,${CHART_H} L${path} L${CHART_W},${CHART_H} Z`} fill={`url(#${gradId})`} />
       <path d={`M${path}`} fill="none" className={`${props.classPrefix}__chart-line`} />
       {boundaries.map((b) => (
-        <path
-          key={b.id}
-          d={`M${b.path}`}
-          fill="none"
-          className={`${props.classPrefix}__gamut-boundary ${props.classPrefix}__gamut-boundary--${b.id}`}
-        />
+        <g key={b.id}>
+          <path
+            d={`M${b.path}`}
+            fill="none"
+            className={`${props.classPrefix}__gamut-boundary ${props.classPrefix}__gamut-boundary--${b.id}`}
+          />
+          {/* Named on the line, because a dashed outline with no label leaves
+              the reader guessing which space it marks.
+
+              The chart's viewBox is stretched non-uniformly, so text placed
+              directly in it would be huge and squashed. Translating to the
+              anchor and then resetting the scale draws the glyphs at their CSS
+              pixel size regardless of the chart's aspect ratio. */}
+          {/* The viewBox is stretched non-uniformly, so text placed straight
+              into it is huge and squashed. `labelTransform` undoes the scale
+              so the glyphs land at the size the stylesheet asks for. Null
+              until the chart has been measured, since no label beats a wrong
+              one for a frame. */}
+          {labelTransform(b.labelX, b.labelY, size.w, size.h) && (
+            <g transform={labelTransform(b.labelX, b.labelY, size.w, size.h) as string}>
+              <text className={`${props.classPrefix}__gamut-label`} textAnchor="middle" y="-5">
+                {b.label}
+              </text>
+            </g>
+          )}
+        </g>
       ))}
 
       <line

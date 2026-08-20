@@ -32,7 +32,15 @@ export const MAX_CHROMA = 0.37;
  * This is the charts' vertical scale rather than `MAX_CHROMA`: scaling to the
  * bisection bound left the top 13% of every chart permanently unreachable. A
  * hue like teal, whose own peak is ~0.15, used under half the height. A wider
- * gamut would raise this, which is the one number to change. */
+ * gamut would raise this, which is the one number to change.
+ *
+ * One scale for every hue, deliberately. A hue below the peak leaves the top of
+ * its chart empty, and green at ~0.27 leaves about 18%. That empty band is the
+ * point: the vertical axis means absolute chroma, so a green slice reaching
+ * less far than a magenta one is a fact the chart should show. Rescaling per
+ * hue would fill the frame at every hue, but the axis would then mean something
+ * different at each one, the plot would breathe under a hue drag, and two hues
+ * could no longer be compared. */
 export const CHART_MAX_CHROMA = 0.33;
 
 function srgbToLinear(v: number): number {

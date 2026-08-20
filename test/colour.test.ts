@@ -24,7 +24,12 @@ import {
   DEFAULT_LABELS,
   DEFAULT_MAX_RECENTS,
   addRecent,
+  chartBase,
+  chartPick,
+  chartScale,
+  gamutChartModel,
   pickerModel,
+  recentValue,
 } from "../packages/core/src/model.js";
 
 describe("parse / format", () => {
@@ -561,5 +566,193 @@ describe("recent colours", () => {
     const before = ["a", "b"];
     addRecent(before, "c");
     expect(before).toEqual(["a", "b"]);
+  });
+});
+
+describe("the chart follows the output gamut", () => {
+  // Regression: `gamutChartModel` computed the filled curve without a gamut, so
+  // it always drew sRGB. Passing P3 added a dotted outline while the plot
+  // underneath never moved, which read as the gamut being ignored.
+  test("the filled curve differs per output space", () => {
+    const srgb = gamutChartModel(chartBase(145, "h"), "h", 32, [], SRGB);
+    const p3 = gamutChartModel(chartBase(145, "h"), "h", 32, [], P3);
+    expect(p3.path).not.toBe(srgb.path);
+  });
+
+  test("a wider gamut reaches further in absolute chroma", () => {
+    // The chart renormalises per gamut, so compare the reach it represents
+    // rather than the drawn height.
+    const at = (g: typeof SRGB) => maxChroma(0.7, 145, g);
+    expect(at(P3)).toBeGreaterThan(at(SRGB));
+    expect(at(REC2020)).toBeGreaterThan(at(P3));
+  });
+
+  // Every curve arrives normalised by its own space's scale, so drawing them
+  // together without conversion would put a narrower gamut above a wider one.
+  test("a reference outline sits above the filled region, not below it", () => {
+    const m = gamutChartModel(chartBase(145, "h"), "h", 32, [P3], SRGB);
+    const y = (path: string) => path.split(" L").map((p) => Number(p.split(",")[1]));
+    const filled = y(m.path);
+    const outline = y(m.boundaries[0]?.path ?? "");
+    expect(outline).toHaveLength(filled.length);
+    // Lower y is higher on the chart, and P3 reaches past sRGB at this hue.
+    const peakFilled = Math.min(...filled);
+    const peakOutline = Math.min(...outline);
+    expect(peakOutline).toBeLessThan(peakFilled);
+  });
+});
+
+describe("recents only record reachable colours", () => {
+  // Regression: the commit path ran the dialled colour through `emitValue`,
+  // which clamps, so releasing a drag in a hatched region filed the nearest
+  // reachable colour under one the user never chose.
+  test("an out-of-gamut colour records nothing", () => {
+    expect(recentValue({ l: 0.7, c: 0.28, h: 145 })).toBeNull();
+  });
+
+  test("a reachable colour records its canonical string", () => {
+    expect(recentValue({ l: 0.7, c: 0.15, h: 255 })).toBe("oklch(0.7 0.15 255)");
+  });
+
+  test("what counts as reachable follows the output gamut", () => {
+    // Inside P3, outside sRGB, so it records under P3 and not under sRGB.
+    const wide = { l: 0.7, c: 0.26, h: 145 };
+    expect(recentValue(wide, SRGB)).toBeNull();
+    expect(recentValue(wide, P3)).not.toBeNull();
+  });
+
+  test("alpha rides along and does not affect reachability", () => {
+    expect(recentValue({ l: 0.7, c: 0.15, h: 255, a: 0.5 })).toBe("oklch(0.7 0.15 255 / 0.5)");
+  });
+});
+
+describe("chart scale", () => {
+  const height = (path: string) =>
+    34 - Math.min(...path.split(" L").map((p) => Number(p.split(",")[1])));
+
+  // Regression: each chart normalised to its own gamut's peak, so Rec. 2020
+  // was divided by a larger number than P3 and drew *lower* despite reaching
+  // further. Height has to mean absolute reach or it means nothing.
+  test("on one shared scale, a wider gamut draws taller", () => {
+    const refs = [SRGB, P3, REC2020];
+    const m = gamutChartModel(chartBase(145, "h"), "h", 64, refs, SRGB);
+    const [srgb, p3, rec] = m.boundaries.map((b) => height(b.path));
+    expect(p3).toBeGreaterThan(srgb as number);
+    expect(rec).toBeGreaterThan(p3 as number);
+  });
+
+  test("the scale is the widest space in view, not the output one", () => {
+    expect(chartScale("h", SRGB, [])).toBe(SRGB.chartMaxChroma);
+    expect(chartScale("h", SRGB, [REC2020])).toBe(REC2020.chartMaxChroma);
+    expect(chartScale("h", P3, [SRGB])).toBe(P3.chartMaxChroma);
+  });
+
+  // Lightness and hue are shared by every space, so only a chroma axis moves.
+  test("a non-chroma vertical axis has one scale for every gamut", () => {
+    expect(chartScale("c", SRGB, [REC2020])).toBe(chartScale("c", SRGB, []));
+  });
+
+  test("the crosshair sits on the same scale as the curve", () => {
+    const current = { l: 0.7, c: 0.2, h: 145 };
+    const wide = pickerModel(current, { gamut: SRGB, references: [REC2020] });
+    const alone = pickerModel(current, { gamut: SRGB, references: [] });
+    // Same colour, but the wider scale puts the crosshair lower in the frame.
+    expect(wide.charts[0]?.y).toBeLessThan(alone.charts[0]?.y as number);
+  });
+});
+
+describe("which reference lines are drawn", () => {
+  const ALL = [SRGB, P3, REC2020];
+
+  // A line for the output would trace its own boundary, and a wider one would
+  // mark colours the picker cannot reach.
+  test("only spaces narrower than the output draw a line", () => {
+    const ids = (g: typeof SRGB) =>
+      pickerModel({ l: 0.7, c: 0.2, h: 145 }, { gamut: g, references: ALL }).references.map(
+        (r) => r.id,
+      );
+    expect(ids(SRGB)).toEqual([]);
+    expect(ids(P3)).toEqual(["srgb"]);
+    expect(ids(REC2020)).toEqual(["srgb", "p3"]);
+  });
+
+  // Regression: filtering the lines must not filter the switcher, or a picker
+  // could never switch up from sRGB.
+  test("the switcher still offers wider spaces", () => {
+    const m = pickerModel(
+      { l: 0.7, c: 0.2, h: 145 },
+      { gamut: SRGB, references: ALL, parts: { gamutSwitch: true } },
+    );
+    expect(m.references).toEqual([]);
+    expect(m.gamutChoices.map((g) => g.id)).toEqual(["srgb", "p3", "rec2020"]);
+  });
+
+  // A wider space sets the scale even when it draws nothing, so two pickers
+  // given the same list stay comparable by height.
+  test("a space that draws no line still widens the scale", () => {
+    const m = pickerModel({ l: 0.7, c: 0.2, h: 145 }, { gamut: SRGB, references: ALL });
+    expect(m.references).toEqual([]);
+    expect(chartScale("h", SRGB, m.scaleGamuts)).toBe(REC2020.chartMaxChroma);
+  });
+});
+
+describe("reference lines carry a label", () => {
+  test("each boundary names its space and anchors on its own peak", () => {
+    const m = gamutChartModel(chartBase(145, "h"), "h", 32, [SRGB, P3], REC2020);
+    expect(m.boundaries.map((b) => b.label)).toEqual([SRGB.label, P3.label]);
+    for (const b of m.boundaries) {
+      expect(b.labelX).toBeGreaterThanOrEqual(0);
+      expect(b.labelY).toBeGreaterThanOrEqual(0);
+    }
+    // The wider space peaks higher, so its label sits above the other's.
+    const [srgb, p3] = m.boundaries;
+    expect(p3?.labelY).toBeLessThan(srgb?.labelY as number);
+  });
+
+  test("parts.gamutLines removes the lines without moving the scale", () => {
+    const opts = { gamut: REC2020, gamutChoices: [SRGB, P3, REC2020] };
+    const on = pickerModel({ l: 0.7, c: 0.2, h: 145 }, opts);
+    const off = pickerModel({ l: 0.7, c: 0.2, h: 145 }, { ...opts, parts: { gamutLines: false } });
+    expect(on.references.map((g) => g.id)).toEqual(["srgb", "p3"]);
+    expect(off.references).toEqual([]);
+    // Turning the lines off must not resize the chart under the reader.
+    expect(chartScale("h", REC2020, off.scaleGamuts)).toBe(
+      chartScale("h", REC2020, on.scaleGamuts),
+    );
+  });
+
+  // Regression: the switcher's choices are spaces in view, so on Rec. 2020 the
+  // P3 line belongs too, and the scale must not move as the reader switches.
+  test("the switcher's choices count as spaces in view", () => {
+    const at = (g: typeof SRGB) =>
+      pickerModel({ l: 0.7, c: 0.2, h: 145 }, { gamut: g, gamutChoices: [SRGB, P3, REC2020] });
+    expect(at(REC2020).references.map((g) => g.id)).toEqual(["srgb", "p3"]);
+    const scales = [SRGB, P3, REC2020].map((g) => chartScale("h", g, at(g).scaleGamuts));
+    expect(new Set(scales).size).toBe(1);
+  });
+});
+
+describe("clicking the chart lands where the pointer is", () => {
+  // Regression: `chartPick` converted on sRGB's scale while `chartSlot` read
+  // back on the shared one, so the crosshair sat under the pointer at the
+  // bottom of the plot and drifted further the higher it went, in proportion
+  // to the ratio between the two scales.
+  test("the crosshair returns to the y that was clicked", () => {
+    const base = { l: 0.84, c: 0.2, h: 145 };
+    const references = [SRGB, P3, REC2020];
+    for (const y of [0.1, 0.3, 0.5, 0.7, 0.9]) {
+      const picked = chartPick(base, "h", 0.5, y, SRGB, references);
+      const back = pickerModel(picked, { gamut: SRGB, references }).charts[0]?.y;
+      expect(back).toBeCloseTo(y, 5);
+    }
+  });
+
+  test("it round-trips for every output space", () => {
+    const references = [SRGB, P3, REC2020];
+    for (const gamut of references) {
+      const picked = chartPick({ l: 0.7, c: 0.2, h: 145 }, "h", 0.5, 0.8, gamut, references);
+      const back = pickerModel(picked, { gamut, references }).charts[0]?.y;
+      expect(back).toBeCloseTo(0.8, 5);
+    }
   });
 });
