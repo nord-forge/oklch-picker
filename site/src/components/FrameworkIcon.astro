@@ -3,6 +3,14 @@
  * The framework marks, inline so they cost no requests and take their colour
  * from the page.
  *
+ * Deliberately separate from `Icon.astro`, which holds the page furniture
+ * (GitHub, npm, changelog). The two answer different questions. This one is
+ * driven by a tab's label, and its `PAD` map doubles as the registry deciding
+ * whether a tab shows a mark at all, since plenty of tab sets are not framework
+ * tabs (Colours, Metrics, sRGB). Folding the furniture in here would mean a tab
+ * labelled "GitHub" silently picking up an icon, and would need a second
+ * allowlist to prevent, which is this split again wearing a different hat.
+ *
  * Drawn in `currentColor` rather than brand colours. Five saturated logos in a
  * row on a colour picker's docs would compete with the thing being
  * demonstrated, and monochrome stays legible in both themes. They are
