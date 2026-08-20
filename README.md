@@ -384,6 +384,7 @@ Everything except the sliders is optional:
 | `rgbInput` | **off** | The editable `rgb()` field |
 | `hexInput` | **off** | The editable hex field |
 | `alpha` | on | The alpha slider |
+| `gamutLines` | on | Dashed outlines of narrower spaces on the chart, with their labels |
 | `name` | on | The colour name in the footer |
 | `notice` | on | The out-of-gamut message |
 | `recents` | on | The recent colours row |
@@ -430,7 +431,7 @@ An opaque colour is unchanged in every format: `oklch(0.7 0.15 255)` stays exact
 | `onRecentsChange` | `(recents: string[]) => void` | none | Fired on commit, not during a drag |
 | `maxRecents` | `number` | `8` | How many to keep when uncontrolled |
 | `layout` | `"chart" \| "side-by-side" \| "compact" \| "stacked"` | `"chart"` | See [Layouts](#layouts) |
-| `parts` | `{ charts?, preview?, oklchInput?, rgbInput?, hexInput?, alpha?, name?, notice?, recents?, gamutSwitch?: boolean }` | on except `rgbInput`, `hexInput`, `gamutSwitch` | Turn parts off, e.g. `{ charts: false }` |
+| `parts` | `{ charts?, preview?, oklchInput?, rgbInput?, hexInput?, alpha?, gamutLines?, name?, notice?, recents?, gamutSwitch?: boolean }` | on except `rgbInput`, `hexInput`, `gamutSwitch` | Turn parts off, e.g. `{ charts: false }` |
 | `labels` | `Partial<Record<LabelKey, string>>` | English | Translation and custom notices. See [Notices](#notices) |
 | `gamut` | `Gamut` | `SRGB` | The output space, clamped and emitted. See [Wider gamuts](#wider-gamuts) |
 | `references` | `Gamut[]` | `[SRGB]` when wider | Spaces outlined on the chart but never clamped to |

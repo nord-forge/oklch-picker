@@ -252,26 +252,6 @@ code {
   background: var(--site-surface);
 }
 
-.demo__readout {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  font-size: 0.85rem;
-}
-
-.demo__swatch {
-  width: 1.6rem;
-  height: 1.6rem;
-  flex: none;
-  border-radius: 0.35rem;
-  border: 1px solid var(--site-line);
-}
-
-.demo__value {
-  font-family: var(--site-mono);
-  color: var(--site-text-muted);
-}
-
 /* --- Code tabs ------------------------------------------------------------ */
 
 .tabs {
@@ -549,7 +529,25 @@ code {
   margin: 0 auto;
   display: flex;
   flex-wrap: wrap;
-  gap: 1rem;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+/* The icon and the label are separate boxes, so the link has to centre them.
+   Without this the icon sits on the text baseline and rides low. */
+.footer__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  /* Underlining the whole row would strike through the icon, so only the text
+     is underlined, on hover. */
+  text-decoration: none;
+}
+
+/* On the text only. An underline across the whole link would run through the
+   icon, since the icon is a child of the anchor. */
+.footer__link:hover span {
+  text-decoration: underline;
 }
 
 @media (max-width: 60rem) {

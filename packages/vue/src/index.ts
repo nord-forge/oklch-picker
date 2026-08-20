@@ -18,12 +18,14 @@ import {
   colourName,
   emitValue,
   gamutChartModel,
+  labelTransform,
   pickerModel,
+  recentValue,
   resolveCurrent,
   toOklch,
   withSingleChart,
 } from "@oklch-picker/core";
-import { computed, defineComponent, h, ref } from "vue";
+import { computed, defineComponent, h, onBeforeUnmount, onMounted, ref } from "vue";
 import type { PropType, VNode } from "vue";
 
 /** One gamut chart: a 2D slice of the sRGB gamut, holding one axis fixed and
@@ -49,6 +51,11 @@ const GamutChart = defineComponent({
     onPicked: { type: Function as PropType<() => void>, default: undefined },
     /** Reference spaces to outline over the filled region. Omit for none. */
     references: { type: Array as PropType<Gamut[] | undefined>, default: undefined },
+    /** The output space. The filled region is this gamut's reach, so a P3 picker
+     * plots P3 rather than sRGB with an outline drawn over it. */
+    gamut: { type: Object as PropType<Gamut | undefined>, default: undefined },
+    /** Every space in view, drawn or not, which sets the vertical scale. */
+    scaleGamuts: { type: Array as PropType<Gamut[] | undefined>, default: undefined },
     classPrefix: { type: String, required: true },
     resolution: { type: Number, default: 64 },
   },
@@ -61,8 +68,26 @@ const GamutChart = defineComponent({
         props.axis,
         props.resolution,
         props.references,
+        props.gamut,
+        props.scaleGamuts,
       ),
     );
+
+    // The chart's rendered pixel size, for the labels' counter-scale. Measured
+    // rather than assumed: the chart is fluid, so the ratio moves with it.
+    const root = ref<SVGSVGElement | null>(null);
+    const size = ref({ w: 0, h: 0 });
+    let observer: ResizeObserver | undefined;
+    onMounted(() => {
+      const node = root.value;
+      if (!node) return;
+      observer = new ResizeObserver(([entry]) => {
+        const r = entry?.contentRect;
+        if (r) size.value = { w: r.width, h: r.height };
+      });
+      observer.observe(node);
+    });
+    onBeforeUnmount(() => observer?.disconnect());
 
     // Pointer capture keeps a drag alive once it leaves the chart, so the value
     // still tracks rather than sticking at the edge.
@@ -84,6 +109,7 @@ const GamutChart = defineComponent({
       return h(
         "svg",
         {
+          ref: root,
           class: `${props.classPrefix}__chart${interactive ? ` ${props.classPrefix}__chart--interactive` : ""}`,
           viewBox: `0 0 ${CHART_W} ${CHART_H}`,
           preserveAspectRatio: "none",
@@ -118,14 +144,41 @@ const GamutChart = defineComponent({
             fill: `url(#${gradId})`,
           }),
           h("path", { d: `M${path}`, fill: "none", class: `${props.classPrefix}__chart-line` }),
-          ...boundaries.map((b) =>
-            h("path", {
-              key: b.id,
-              d: `M${b.path}`,
-              fill: "none",
-              class: `${props.classPrefix}__gamut-boundary ${props.classPrefix}__gamut-boundary--${b.id}`,
-            }),
-          ),
+          // Named on the line: a dashed outline with no label leaves the
+          // reader guessing which space it marks.
+          //
+          // The viewBox is stretched non-uniformly, so text placed straight
+          // into it is huge and squashed. `labelTransform` undoes the scale so
+          // the glyphs land at the size the stylesheet asks for. It is null
+          // until the chart has been measured, and no label beats a wrong one
+          // for a frame.
+          ...boundaries.flatMap((b) => {
+            const transform = labelTransform(b.labelX, b.labelY, size.value.w, size.value.h);
+            const nodes: VNode[] = [
+              h("path", {
+                key: b.id,
+                d: `M${b.path}`,
+                fill: "none",
+                class: `${props.classPrefix}__gamut-boundary ${props.classPrefix}__gamut-boundary--${b.id}`,
+              }),
+            ];
+            if (transform) {
+              nodes.push(
+                h("g", { key: `${b.id}-label`, transform }, [
+                  h(
+                    "text",
+                    {
+                      class: `${props.classPrefix}__gamut-label`,
+                      "text-anchor": "middle",
+                      y: "-5",
+                    },
+                    [b.label],
+                  ),
+                ]),
+              );
+            }
+            return nodes;
+          }),
           h("line", { x1: x, x2: x, y1: 0, y2: CHART_H, class: `${props.classPrefix}__crosshair` }),
           h("line", { x1: 0, x2: CHART_W, y1: y, y2: y, class: `${props.classPrefix}__crosshair` }),
         ],
@@ -225,7 +278,12 @@ export const ColourPicker = defineComponent({
       ownRecents.value = next;
       emit("recentsChange", next);
     };
-    const commitCurrent = () => commit(emitValue(model.value.current, model.value.gamut));
+    // Null while the dialled colour is outside the gamut, so a drag released
+    // in a hatched region records nothing rather than the clamped near-miss.
+    const commitCurrent = () => {
+      const colour = recentValue(model.value.current, model.value.gamut);
+      if (colour) commit(colour);
+    };
 
     const pick = (colour: string) => {
       draft.value = null;
@@ -290,7 +348,10 @@ export const ColourPicker = defineComponent({
             x: single.x,
             y: single.y,
             references: m.references,
-            onPick: (x: number, y: number) => dial(chartPick(m.current, single.axis, x, y)),
+            gamut: m.gamut,
+            scaleGamuts: m.scaleGamuts,
+            onPick: (x: number, y: number) =>
+              dial(chartPick(m.current, single.axis, x, y, m.gamut, m.scaleGamuts)),
             onPicked: commitCurrent,
             classPrefix: p,
           }),
@@ -321,6 +382,8 @@ export const ColourPicker = defineComponent({
                 x: chart.x,
                 y: chart.y,
                 references: m.references,
+                gamut: m.gamut,
+                scaleGamuts: m.scaleGamuts,
                 classPrefix: p,
               })
             : null,

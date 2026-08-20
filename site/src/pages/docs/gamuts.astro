@@ -75,18 +75,54 @@ document.querySelector("oklch-picker").gamut = P3;`,
 
   <p>
     The same colour in each space. Drag chroma to the top of its track in each
-    and watch how much further it reaches. Note that sRGB stays outlined on
-    the wider charts as a reference, so the safe region remains visible.
+    and watch how much further it reaches. sRGB stays outlined on the wider
+    charts as a reference, so the safe region remains visible.
   </p>
 
-  <Picker value="oklch(0.7 0.2 145)" caption="sRGB, the default." />
-  <Picker value="oklch(0.7 0.2 145)" gamut="p3" caption="Display P3." />
-  <Picker value="oklch(0.7 0.2 145)" gamut="rec2020" caption="Rec. 2020." />
+  {/* All three are given the same `references`, which gives them one shared
+      vertical scale. Left to their defaults each chart normalises to its own
+      peak and fills its own frame, so a wider gamut can draw no taller than a
+      narrower one and the three cannot be compared by eye. */}
+  <Picker
+    value="oklch(0.7 0.2 145)"
+    references={["srgb", "p3", "rec2020"]}
+    caption="sRGB, the default."
+  />
+  <Picker
+    value="oklch(0.7 0.2 145)"
+    gamut="p3"
+    references={["srgb", "p3", "rec2020"]}
+    caption="Display P3, reaching further into green."
+  />
+  <Picker
+    value="oklch(0.7 0.2 145)"
+    gamut="rec2020"
+    references={["srgb", "p3", "rec2020"]}
+    caption="Rec. 2020, the widest of the three."
+  />
 
   <p>
-    Override the reference outlines with <code>references</code>, or
-    <code>references=&lbrace;[]&rbrace;</code> for none.
+    Only spaces <em>narrower</em> than the output draw a line. A line for the
+    output itself would trace its own boundary, and a wider one would mark
+    colours the picker cannot reach. So sRGB draws none, P3 draws sRGB, and
+    Rec. 2020 draws both.
   </p>
+
+  <p>
+    Override which spaces are outlined with <code>references</code>, or turn the
+    lines off entirely with
+    <code>parts=&lbrace;&lbrace; gamutLines: false &rbrace;&rbrace;</code>. The
+    chart keeps its scale either way, so turning them off does not resize the
+    plot.
+  </p>
+
+  <Picker
+    value="oklch(0.7 0.2 145)"
+    gamut="rec2020"
+    references={["srgb", "p3", "rec2020"]}
+    parts={{ gamutLines: false }}
+    caption="Rec. 2020 with the reference lines off."
+  />
 
   <div class="note">
     <p>
@@ -207,10 +243,18 @@ picker.addEventListener("gamutchange", (event) => {
     still clamped, the hatching still shows, only the text goes:
   </p>
 
+  {/* Two pickers on the same out-of-gamut colour. Showing the notice first
+      makes the second one legible: without the pair, a lone silent picker
+      reads as a missing message rather than a demonstrated setting. */}
+  <Picker
+    value="oklch(0.7 0.28 145)"
+    caption="The notice on, which is the default."
+  />
+
   <Picker
     value="oklch(0.7 0.28 145)"
     parts={{ notice: false }}
-    caption="An out-of-gamut colour with parts.notice off: still clamped, just silent."
+    caption="The same colour with parts.notice off. Still clamped, just silent."
   />
 
   <Pager />
