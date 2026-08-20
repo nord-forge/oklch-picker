@@ -1,3 +1,4 @@
+import { qwikVite } from "@builder.io/qwik/optimizer";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
 import vue from "@vitejs/plugin-vue";
 import solid from "vite-plugin-solid";
@@ -66,6 +67,18 @@ export default defineConfig({
           name: "recipes",
           environment: "happy-dom",
           include: ["test/recipes.test.ts"],
+        },
+      },
+      {
+        /* Qwik's optimizer has to run: `$()` is not a runtime function but a
+         * build-time marker the plugin rewrites into separately loadable
+         * chunks. Without it every `component$` throws "Optimizer should
+         * replace all usages of $()". */
+        plugins: [qwikVite({ srcDir: "packages/qwik/src" })],
+        test: {
+          name: "qwik",
+          environment: "node",
+          include: ["test/qwik.test.tsx"],
         },
       },
       {
@@ -145,6 +158,15 @@ export default defineConfig({
           sequence: { groupOrder: 0 },
           environment: "node",
           include: ["test/ssr-solid-fixture.test.tsx", "test/ssr-solid.test.tsx"],
+        },
+      },
+      {
+        /* Qwik's optimizer again, this time producing server output. */
+        plugins: [qwikVite({ srcDir: "packages/qwik/src" })],
+        test: {
+          name: "ssr-qwik",
+          environment: "node",
+          include: ["test/ssr-qwik.test.tsx"],
         },
       },
       {

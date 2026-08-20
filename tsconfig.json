@@ -12,11 +12,12 @@
       "oklch-picker": ["./packages/vanilla/src/index.ts"],
       "@oklch-picker/svelte": ["./packages/svelte/src/index.ts"],
       "@oklch-picker/solid": ["./packages/solid/src/index.tsx"],
-      "@oklch-picker/angular": ["./packages/angular/src/index.ts"]
+      "@oklch-picker/angular": ["./packages/angular/src/index.ts"],
+      "@oklch-picker/qwik": ["./packages/qwik/src/index.ts"]
     }
   },
-  // Solid is typechecked by packages/solid/tsconfig.json. Its JSX needs
-  // `jsxImportSource: solid-js`, which cannot coexist with React's in one pass.
+  // Solid and Qwik are typechecked by their own tsconfigs. Each needs its own
+  // `jsxImportSource`, and one pass cannot hold three JSX settings.
   //
   // Angular is typechecked by its own `ngc` build instead. `tsc` alone reports
   // its templates as untyped strings and misses the signal inputs entirely, so
@@ -25,7 +26,9 @@
   "exclude": [
     "packages/solid",
     "packages/angular",
+    "packages/qwik",
     "test/*solid*.test.tsx",
+    "test/*qwik*.test.tsx",
     "test/angular.test.ts",
     "**/dist"
   ]

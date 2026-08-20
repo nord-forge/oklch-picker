@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "@builder.io/qwik",
+    "noEmit": true
+  },
+  "include": [
+    "src/**/*.tsx",
+    "src/**/*.ts",
+    "../../test/qwik.test.tsx",
+    "../../test/ssr-qwik.test.tsx"
+  ]
+}

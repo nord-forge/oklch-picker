@@ -14,7 +14,7 @@
     "build": "npm run build --workspace=packages --if-present",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p packages/solid && npm run build --workspace=@oklch-picker/angular && svelte-check --threshold error",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p packages/solid && tsc --noEmit -p packages/qwik && npm run build --workspace=@oklch-picker/angular && svelte-check --threshold error",
     "logo": "node .demo/logo.mjs",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
@@ -43,6 +43,7 @@
     "@angular/platform-browser-dynamic": "^21.2.21",
     "@angular/platform-server": "^21.2.21",
     "@biomejs/biome": "^1.9.4",
+    "@builder.io/qwik": "^1.20.0",
     "@changesets/cli": "^2.27.0",
     "@solidjs/testing-library": "^0.8.10",
     "@sveltejs/vite-plugin-svelte": "^7.3.0",
@@ -65,6 +66,7 @@
     "tsdown": "^0.22.14",
     "typescript": "^5.6.0",
     "unrun": "^0.3.1",
+    "vite": "^8.2.2",
     "vite-plugin-solid": "^2.11.14",
     "vitest": "^4.1.10",
     "vue": "^3.5.41",
@@ -73,5 +75,11 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/nord-forge/oklch-picker.git"
-  }
+  },
+  "overrides": {
+    "@builder.io/qwik": {
+      "vite": "$vite"
+    }
+  },
+  "//overrides": "Qwik 1.20 caps its vite peer at <8 and this repo runs vite 8, which Astro 7 and the Svelte plugin both require. The optimizer runs fine on 8: it compiles the $() boundaries and the adapter's tests pass. The range is conservative metadata rather than a real incompatibility, so it is pinned to the repo's own vite instead of everyone passing --legacy-peer-deps. Revisit when Qwik 2 is stable; it accepts vite 8 but wants vitest <4 and this repo is on 4."
 }
