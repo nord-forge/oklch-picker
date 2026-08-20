@@ -519,6 +519,26 @@ alphaOf(fitted);                        // 0.4
 formatOklch(fitted);                    // "oklch(0.75 0.2359 145 / 0.4)"
 ```
 
+## Lit, Alpine and HTMX
+
+None of these needs an adapter. `<oklch-picker>` is a custom element, so it already works in all three, and a wrapper package would add a version to keep in lockstep in exchange for syntax you can write today.
+
+Lit binds properties with a leading dot, which is what the object props want:
+
+```js
+html`<oklch-picker .value=${this.colour} .gamut=${P3} @change=${(e) => (this.colour = e.detail.colour)}></oklch-picker>`
+```
+
+Alpine needs `x-effect` rather than `x-model`. `x-model` recognises built-in form controls, so on a custom element it sets the initial value and then never updates:
+
+```html
+<oklch-picker x-effect="$el.value = colour" @change="colour = $event.detail.colour"></oklch-picker>
+```
+
+HTMX needs nothing at all. The element is form-associated, so a `name` is enough for it to submit like any other field.
+
+**[The full recipes](https://nord-forge.github.io/oklch-picker/docs/recipes/)** cover the stylesheet in a shadow root, binding objects in Alpine, and coalescing HTMX requests.
+
 ## Server rendering
 
 Every adapter renders on a server, and the markup it sends is the finished picker rather than an empty shell that fills in on the client. There is no server entry point and nothing to configure: the colour maths touches no DOM, so it runs the same in both places.

@@ -33,6 +33,7 @@ export const NAV: readonly NavSection[] = [
       { title: "Hiding parts", path: "/docs/parts" },
       { title: "Styling", path: "/docs/styling" },
       { title: "Server rendering", path: "/docs/ssr" },
+      { title: "Lit, Alpine and HTMX", path: "/docs/recipes" },
       { title: "Accessibility", path: "/docs/accessibility" },
     ],
   },

@@ -58,6 +58,17 @@ export default defineConfig({
         },
       },
       {
+        /* The Lit and Alpine recipes on /docs/recipes, pinned. A docs page
+         * cannot fail CI, so the bindings it tells people to write live here
+         * too. Reads the built element through its exports map, like the
+         * vanilla suite. */
+        test: {
+          name: "recipes",
+          environment: "happy-dom",
+          include: ["test/recipes.test.ts"],
+        },
+      },
+      {
         test: {
           name: "vanilla",
           environment: "happy-dom",
