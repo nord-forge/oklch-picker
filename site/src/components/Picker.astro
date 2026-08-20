@@ -1,6 +1,6 @@
 ---
 /**
- * A live picker, in a framed panel with a value readout.
+ * A live picker, in a framed panel.
  *
  * Every demo on the site is the `<oklch-picker>` custom element rather than a
  * framework adapter: the component is identical across all five, so a React
@@ -21,8 +21,9 @@ interface Props {
   gamut?: "srgb" | "p3" | "rec2020";
   /** Ids offered by the switcher, when `parts.gamutSwitch` is on. */
   gamutChoices?: readonly ("srgb" | "p3" | "rec2020")[];
-  /** Shows the emitted value under the picker. On for most demos. */
-  readout?: boolean;
+  /** Spaces outlined but never clamped to. Setting the same list on several
+   * demos gives them one shared vertical scale, so their heights compare. */
+  references?: readonly ("srgb" | "p3" | "rec2020")[];
   /** A caption above the frame, when the demo needs naming. */
   caption?: string;
 }
@@ -35,12 +36,12 @@ const {
   labels,
   gamut,
   gamutChoices,
-  readout = true,
+  references,
   caption,
 } = Astro.props;
 
-// Unique per instance: a page can hold several demos, and the readout script
-// has to find its own picker rather than the first on the page.
+// Unique per instance: a page can hold several demos, so each needs its own id
+// rather than sharing one.
 const id = `picker-${Math.random().toString(36).slice(2, 9)}`;
 ---
 
@@ -57,19 +58,9 @@ const id = `picker-${Math.random().toString(36).slice(2, 9)}`;
       labels={labels ? JSON.stringify(labels) : undefined}
       data-gamut={gamut}
       data-gamut-choices={gamutChoices ? gamutChoices.join(",") : undefined}
+      data-references={references ? references.join(",") : undefined}
     ></oklch-picker>
   </div>
-
-  {
-    readout && (
-      <output class="demo__readout" for={id} data-readout>
-        <span class="demo__swatch" data-swatch />
-        <code class="demo__value" data-value>
-          {value}
-        </code>
-      </output>
-    )
-  }
 </figure>
 
 <script>
@@ -86,11 +77,20 @@ const id = `picker-${Math.random().toString(36).slice(2, 9)}`;
       value: string;
       gamut?: unknown;
       gamutChoices?: unknown[];
+      references?: unknown[];
     };
 
     // A gamut is an object, so it cannot ride in on an attribute like the rest.
     const id = picker.dataset.gamut as keyof typeof GAMUTS | undefined;
     if (id && GAMUTS[id]) picker.gamut = GAMUTS[id];
+
+    const refs = picker.dataset.references;
+    if (refs) {
+      picker.references = refs
+        .split(",")
+        .map((c) => GAMUTS[c.trim() as keyof typeof GAMUTS])
+        .filter(Boolean);
+    }
 
     const choices = picker.dataset.gamutChoices;
     if (choices) {
@@ -107,23 +107,5 @@ const id = `picker-${Math.random().toString(36).slice(2, 9)}`;
       if (next) picker.gamut = next;
     });
 
-    const readout = picker.closest(".demo")?.querySelector("[data-readout]");
-    if (!readout) continue;
-
-    const swatch = readout.querySelector<HTMLElement>("[data-swatch]");
-    const text = readout.querySelector<HTMLElement>("[data-value]");
-
-    const paint = (colour: string) => {
-      if (text) text.textContent = colour;
-      if (swatch) swatch.style.background = colour;
-    };
-
-    paint(picker.value);
-    // `change`, not `input`: the element contains its inner inputs' events on
-    // purpose, and `change` is the one it raises, carrying the canonical,
-    // gamut-clamped colour in `detail`.
-    picker.addEventListener("change", (event) => {
-      paint((event as CustomEvent<{ colour: string }>).detail.colour);
-    });
   }
 </script>
