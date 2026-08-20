@@ -372,3 +372,29 @@ describe("recent colours (Vue)", () => {
     expect(w.find(".oklch-picker__recents").exists()).toBe(false);
   });
 });
+
+describe("gradient ids", () => {
+  // Regression: every chart built its id from the class prefix and the axis, so
+  // two pickers on a page both emitted `oklch-picker-gamut-h` and the second
+  // chart filled from the first one's gradient.
+  //
+  // Mounted into one app, which is the case that was broken and the one the
+  // docs site hits. Vue counts `useId` per app root, so two pickers mounted as
+  // separate apps still collide; that limitation is in the 1.1.1 changelog and
+  // `classPrefix` separates them when it matters.
+  test("two pickers in one app do not collide", () => {
+    const w = mount(
+      {
+        components: { ColourPicker },
+        template: `<div>
+          <ColourPicker model-value="oklch(0.7 0.15 255)" />
+          <ColourPicker model-value="oklch(0.5 0.1 30)" />
+        </div>`,
+      },
+      { global: { components: { ColourPicker } } },
+    );
+    const ids = w.findAll("linearGradient").map((g) => g.attributes("id") as string);
+    expect(ids.length).toBeGreaterThan(1);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+});
