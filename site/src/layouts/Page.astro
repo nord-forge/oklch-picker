@@ -52,12 +52,23 @@ const pathname = Astro.url.pathname;
 
     <header class="header">
       <a class="header__brand" href={url("/")}>
-        {/* Inline, so the mark is not a second request and can swap with the
-            colour scheme via CSS rather than a media query on <img>. */}
-        <picture>
-          <source srcset={url("/mark-dark.svg")} media="(prefers-color-scheme: dark)" />
-          <img class="header__mark" src={url("/mark-light.svg")} alt="" width="28" height="28" />
-        </picture>
+        {/* Both marks ship and CSS picks one. A `<source media="(prefers-color
+            -scheme: dark)">` follows the system, so pinning the theme changed
+            the page and left the mark on whatever the OS said. */}
+        <img
+          class="header__mark header__mark--light"
+          src={url("/mark-light.svg")}
+          alt=""
+          width="28"
+          height="28"
+        />
+        <img
+          class="header__mark header__mark--dark"
+          src={url("/mark-dark.svg")}
+          alt=""
+          width="28"
+          height="28"
+        />
         oklch-picker
       </a>
 
@@ -66,8 +77,13 @@ const pathname = Astro.url.pathname;
       <a class="header__link" href={url("/playground")}>Playground</a>
       <a class="header__link" href="https://github.com/nord-forge/oklch-picker">GitHub</a>
 
+      {/* Both icons ship and CSS shows one, rather than the script swapping
+          SVG on every click and keeping the markup in two places. The icon is
+          the scheme a click would switch to, not the current one. */}
       <button class="theme" type="button" data-theme-toggle aria-live="polite">
-        <span data-theme-label>Theme</span>
+        <span class="theme__icon theme__icon--light"><Icon name="light" /></span>
+        <span class="theme__icon theme__icon--dark"><Icon name="dark" /></span>
+        <span class="theme__label" data-theme-label>Theme</span>
       </button>
     </header>
 
@@ -161,35 +177,42 @@ const pathname = Astro.url.pathname;
     </script>
 
     <script>
-      // Three states, not two: "system" is the default and is stored as the
-      // absence of a key, so a visitor who never chooses follows their OS.
+      // Light and dark only. "System" is still the starting point, as the
+      // absence of a stored key, so a first visit follows the OS. It stops
+      // being reachable once a choice is made, because a three-way cycle made
+      // the button hard to read: two of its states looked identical whenever
+      // the system already matched the chosen one.
       const root = document.documentElement;
       const button = document.querySelector("[data-theme-toggle]");
       const label = document.querySelector("[data-theme-label]");
-      const ORDER = ["system", "light", "dark"] as const;
 
-      function current(): (typeof ORDER)[number] {
-        const t = root.dataset.theme;
-        return t === "light" || t === "dark" ? t : "system";
+      /** What the page is showing now, resolving "system" through the OS. */
+      function current(): "light" | "dark" {
+        if (root.dataset.theme === "light") return "light";
+        if (root.dataset.theme === "dark") return "dark";
+        return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
       }
 
       function paint() {
-        const now = current();
-        if (label) label.textContent = now[0].toUpperCase() + now.slice(1);
-        button?.setAttribute("aria-label", `Theme: ${now}. Click to change.`);
+        // The button offers the other scheme, so it is labelled with that
+        // rather than with the current one.
+        const next = current() === "dark" ? "light" : "dark";
+        if (label) label.textContent = next === "dark" ? "Dark" : "Light";
+        button?.setAttribute("aria-label", `Switch to ${next} mode`);
       }
 
       button?.addEventListener("click", () => {
-        const next = ORDER[(ORDER.indexOf(current()) + 1) % ORDER.length];
-        if (next === "system") {
-          delete root.dataset.theme;
-          localStorage.removeItem("okp-theme");
-        } else {
-          root.dataset.theme = next;
-          localStorage.setItem("okp-theme", next);
-        }
+        const next = current() === "dark" ? "light" : "dark";
+        root.dataset.theme = next;
+        localStorage.setItem("okp-theme", next);
         paint();
       });
+
+      // A visitor who has not chosen still follows the OS, so repaint if it
+      // changes under them.
+      window
+        .matchMedia("(prefers-color-scheme: dark)")
+        .addEventListener("change", () => !root.dataset.theme && paint());
 
       paint();
     </script>
