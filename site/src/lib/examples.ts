@@ -1,7 +1,7 @@
 /**
  * Every example, once, keyed by framework.
  *
- * The guides teach one idea at a time across all five frameworks, which is
+ * The guides teach one idea at a time across every framework, which is
  * right for learning but means someone using Vue reads past four other
  * languages on every page. These pages answer the other question: show me all
  * of it, in mine.
@@ -11,7 +11,7 @@
  * a snippet is edited in exactly one place.
  */
 
-export type FrameworkId = "react" | "vue" | "svelte" | "solid" | "vanilla";
+export type FrameworkId = "react" | "vue" | "svelte" | "solid" | "angular" | "vanilla";
 
 export interface FrameworkMeta {
   id: FrameworkId;
@@ -22,7 +22,7 @@ export interface FrameworkMeta {
   /** How the value is bound, in one phrase, for the intro. */
   binding: string;
   /** Highlighting language for every snippet on the page. */
-  lang: "tsx" | "vue" | "svelte" | "html";
+  lang: "tsx" | "vue" | "svelte" | "html" | "ts";
 }
 
 export const FRAMEWORKS: readonly FrameworkMeta[] = [
@@ -53,6 +53,13 @@ export const FRAMEWORKS: readonly FrameworkMeta[] = [
     pkg: "@oklch-picker/solid",
     binding: "`value` and `onChange`, reading the signal at the call site",
     lang: "tsx",
+  },
+  {
+    id: "angular",
+    name: "Angular",
+    pkg: "@oklch-picker/angular",
+    binding: "`[value]` and `(valueChange)`, the usual Angular pair",
+    lang: "ts",
   },
   {
     id: "vanilla",
@@ -110,6 +117,21 @@ export function Example() {
   const [colour, setColour] = createSignal("oklch(0.7 0.15 255)");
   return <ColourPicker value={colour()} onChange={setColour} />;
 }`,
+      angular: `import { Component, signal } from "@angular/core";
+import { ColourPickerComponent } from "@oklch-picker/angular";
+import "@oklch-picker/core/styles.css";
+
+@Component({
+  selector: "app-example",
+  standalone: true,
+  imports: [ColourPickerComponent],
+  template: \`
+    <oklch-colour-picker [value]="colour()" (valueChange)="colour.set($event)" />
+  \`,
+})
+export class ExampleComponent {
+  readonly colour = signal("oklch(0.7 0.15 255)");
+}`,
       vanilla: `<link rel="stylesheet" href="https://esm.sh/@oklch-picker/core/styles.min.css" />
 
 <oklch-picker id="picker" value="oklch(0.7 0.15 255)"></oklch-picker>
@@ -136,6 +158,11 @@ export function Example() {
       vue: '<ColourPicker v-model="colour" :presets="presets" />',
       svelte: "<ColourPicker bind:value={colour} {presets} />",
       solid: "<ColourPicker value={colour()} onChange={setColour} presets={presets} />",
+      angular: `<oklch-colour-picker
+  [value]="colour()"
+  [presets]="['oklch(0.75 0.16 145)', 'oklch(0.7 0.15 255)']"
+  (valueChange)="colour.set($event)"
+/>`,
       vanilla: `<oklch-picker
   presets='["oklch(0.75 0.16 145)", "oklch(0.7 0.15 255)"]'
 ></oklch-picker>`,
@@ -164,6 +191,14 @@ import { P3 } from "@oklch-picker/core/gamuts";
       solid: `import { P3 } from "@oklch-picker/core/gamuts";
 
 <ColourPicker value={colour()} onChange={setColour} gamut={P3} />`,
+      angular: `import { P3 } from "@oklch-picker/core/gamuts";
+
+// A gamut is an object, so it is bound as a property.
+export class ExampleComponent {
+  readonly P3 = P3;
+}
+
+// <oklch-colour-picker [value]="colour()" [gamut]="P3" (valueChange)="colour.set($event)" />`,
       vanilla: `import { P3 } from "@oklch-picker/core/gamuts";
 
 // A gamut is an object, so it is a property rather than an attribute.
@@ -207,6 +242,14 @@ document.querySelector("oklch-picker").gamut = P3;`,
   gamutChoices={[SRGB, P3, REC2020]}
   parts={{ gamutSwitch: true }}
 />`,
+      angular: `<oklch-colour-picker
+  [value]="colour()"
+  [gamut]="gamut()"
+  [gamutChoices]="[SRGB, P3, REC2020]"
+  [parts]="{ gamutSwitch: true }"
+  (valueChange)="colour.set($event)"
+  (gamutChange)="gamut.set($event)"
+/>`,
       vanilla: `const picker = document.querySelector("oklch-picker");
 picker.gamutChoices = [SRGB, P3, REC2020];
 picker.parts = { gamutSwitch: true };
@@ -229,6 +272,8 @@ picker.addEventListener("gamutchange", (event) => {
       vue: '<ColourPicker v-model="colour" :parts="{ alpha: false }" />',
       svelte: "<ColourPicker bind:value={colour} parts={{ alpha: false }} />",
       solid: "<ColourPicker value={colour()} onChange={setColour} parts={{ alpha: false }} />",
+      angular:
+        '<oklch-colour-picker [value]="colour()" [parts]="{ alpha: false }" (valueChange)="colour.set($event)" />',
       vanilla: `<oklch-picker
   value="oklch(0.7 0.15 255 / 0.4)"
   parts='{"alpha": false}'
@@ -270,6 +315,12 @@ picker.addEventListener("gamutchange", (event) => {
   recents={recents()}
   onRecentsChange={setRecents}
 />`,
+      angular: `<oklch-colour-picker
+  [value]="colour()"
+  [recents]="recents()"
+  (valueChange)="colour.set($event)"
+  (recentsChange)="save($event)"
+/>`,
       vanilla: `const picker = document.querySelector("oklch-picker");
 picker.recents = loadFromServer();
 
@@ -295,6 +346,9 @@ const { body } = render(ColourPicker, { props: { value: colour } });`,
       solid: `import { renderToString } from "solid-js/web";
 
 renderToString(() => <ColourPicker value={colour()} onChange={setColour} />);`,
+      angular: `import { renderApplication } from "@angular/platform-server";
+
+await renderApplication(bootstrap, { document });`,
       vanilla: `<!-- The element upgrades in the browser, so render the tag on the
      server and import the module from a client-only block. -->
 <oklch-picker value="oklch(0.7 0.15 255)"></oklch-picker>

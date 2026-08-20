@@ -67,6 +67,15 @@ import { ColourPicker } from "@oklch-picker/solid";
 
 renderToString(() => <ColourPicker value={colour()} onChange={setColour} />);`,
       },
+      {
+        label: "Angular",
+        lang: "ts",
+        code: `import { renderApplication } from "@angular/platform-server";
+
+// Angular renders on a server through its own platform, as any
+// standalone component does. The picker needs nothing extra.
+await renderApplication(bootstrap, { document });`,
+      },
     ]}
   />
 
@@ -185,11 +194,13 @@ onMounted(() => import("oklch-picker/register"));
     of asserting a guarantee it cannot make. Solid matches server nodes by
     hydration keys that only line up inside a real page, so its suite compares
     the server and client trees rather than calling <code>hydrate()</code>.
+    Angular renders through its own server platform, which its suite covers, and
+    its hydration is Angular's to verify rather than ours.
   </p>
 
   <div class="note">
     <p>
-      What holds across all five is the property underneath:
+      What holds across every adapter is the property underneath:
       <code>pickerModel()</code> is pure, so the server and the client compute
       the same picker from the same value. That is what the trees and the
       determinism tests pin down. A browser is the honest place to verify the

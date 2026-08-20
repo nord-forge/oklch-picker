@@ -101,14 +101,14 @@ clampToGamut({ l: 0.7, c: 0.35, h: 145 }, P3);`,
   <p>
     <code>pickerModel()</code> returns everything a picker needs for one
     render: axis ranges, track gradients, chart geometry, and the draft/emit
-    resolution. It is what the five adapters are built on, and it is exported
+    resolution. It is what every adapter is built on, and it is exported
     for anyone building a sixth.
   </p>
 
   <div class="note">
     <p>
       Behaviour lives in the model rather than in any adapter, so a change there
-      reaches all five at once. If you are wiring up your own UI, that is the
+      reaches them all at once. If you are wiring up your own UI, that is the
       layer to build against.
     </p>
   </div>

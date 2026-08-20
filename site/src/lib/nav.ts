@@ -46,6 +46,7 @@ export const NAV: readonly NavSection[] = [
       { title: "Vue", path: "/examples/vue" },
       { title: "Svelte", path: "/examples/svelte" },
       { title: "Solid", path: "/examples/solid" },
+      { title: "Angular", path: "/examples/angular" },
       { title: "No framework", path: "/examples/vanilla" },
     ],
   },

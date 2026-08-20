@@ -6,7 +6,7 @@
  * code block, and again on the next page, is the kind of friction that is
  * invisible to whoever built it and constant for whoever reads it.
  */
-export const FRAMEWORKS = ["React", "Vue", "Svelte", "Solid", "No framework"] as const;
+export const FRAMEWORKS = ["React", "Vue", "Svelte", "Solid", "Angular", "No framework"] as const;
 
 export type Framework = (typeof FRAMEWORKS)[number];
 
