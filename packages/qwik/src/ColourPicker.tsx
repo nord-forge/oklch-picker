@@ -1,5 +1,5 @@
 /** An OKLCH colour picker: one slider per axis, each over a gamut cross-section. */
-import { $, type QRL, component$, useComputed$, useSignal, useStore } from "@builder.io/qwik";
+import { $, type QRL, component$, useComputed$, useId, useStore } from "@builder.io/qwik";
 import type { Axis, LabelKey, Oklch, PickerLayout, PickerParts } from "@oklch-picker/core";
 import {
   addRecent,
@@ -14,10 +14,6 @@ import {
 } from "@oklch-picker/core";
 import { GamutChart } from "./GamutChart.js";
 import { type GamutId, gamutFrom, gamutsFrom, idOf } from "./gamuts.js";
-
-/** Counts per module, so two pickers stay distinct however they are mounted.
- * The id only has to be unique within the document. */
-let instances = 0;
 
 export interface ColourPickerProps {
   /** `oklch(L C H)` or hex. */
@@ -58,7 +54,12 @@ export interface ColourPickerProps {
 
 export const ColourPicker = component$<ColourPickerProps>((props) => {
   const prefix = props.classPrefix ?? "oklch-picker";
-  const uid = useSignal(`q${instances++}`);
+  // `useId` rather than a module counter. The optimizer splits each `$()` into
+  // its own chunk, and a counter there becomes an imported binding that cannot
+  // be incremented: "Illegal reassignment of import". Only a production build
+  // surfaces that, so the example app is what caught it. `useId` is also stable
+  // across the server render and the resumption that follows.
+  const uid = useId();
 
   /** What was dialled, not what was emitted: dragging through an out-of-gamut
    * region must not destroy the other axes.
@@ -202,7 +203,7 @@ export const ColourPicker = component$<ColourPickerProps>((props) => {
         <GamutChart
           base={current.value}
           axis={axis}
-          id={`${uid.value}-${single.axis}`}
+          id={`${uid}-${single.axis}`}
           x={single.x}
           y={single.y}
           references={props.references}
@@ -252,7 +253,7 @@ export const ColourPicker = component$<ColourPickerProps>((props) => {
                 <GamutChart
                   base={current.value}
                   axis={a.key}
-                  id={`${uid.value}-${a.key}`}
+                  id={`${uid}-${a.key}`}
                   x={chart.x}
                   y={chart.y}
                   references={props.references}

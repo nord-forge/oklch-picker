@@ -21,8 +21,8 @@
     "changeset": "changeset",
     "version-packages": "changeset version && npm install --package-lock-only",
     "release": "npm run build && changeset publish",
-    "examples:install": "npm run build && npm --prefix examples/react install && npm --prefix examples/vue install && npm --prefix examples/svelte install && npm --prefix examples/solid install && npm --prefix examples/astro install",
-    "dev": "npm run build && concurrently -k -n vanilla,astro,react,vue,svelte,solid -c cyan,yellow,red,green,magenta,blue \"npm:dev:vanilla\" \"npm:dev:astro\" \"npm:dev:react\" \"npm:dev:vue\" \"npm:dev:svelte\" \"npm:dev:solid\"",
+    "examples:install": "npm run build && npm --prefix examples/react install && npm --prefix examples/vue install && npm --prefix examples/svelte install && npm --prefix examples/solid install && npm --prefix examples/angular install && npm --prefix examples/qwik install && npm --prefix examples/astro install",
+    "dev": "npm run build && concurrently -k -n vanilla,astro,react,vue,svelte,solid,angular,qwik -c cyan,yellow,red,green,magenta,blue,white,gray \"npm:dev:vanilla\" \"npm:dev:astro\" \"npm:dev:react\" \"npm:dev:vue\" \"npm:dev:svelte\" \"npm:dev:solid\" \"npm:dev:angular\" \"npm:dev:qwik\"",
     "dev:vanilla": "npx --yes http-server . -p 5272 -c-1 -o /examples/vanilla/",
     "dev:astro": "npm --prefix examples/astro run dev -- --port 5277",
     "dev:react": "npm --prefix examples/react run dev -- --port 5273 --strictPort",
@@ -32,7 +32,9 @@
     "examples:build": "npm run build && npm --prefix examples/react run build && npm --prefix examples/vue run build && npm --prefix examples/svelte run build && npm --prefix examples/solid run build && npm --prefix examples/astro run build",
     "site:dev": "npm run build && npm run dev --workspace=@oklch-picker/site",
     "site:build": "npm run build && npm run build --workspace=@oklch-picker/site",
-    "site:check": "npm run check --workspace=@oklch-picker/site"
+    "site:check": "npm run check --workspace=@oklch-picker/site",
+    "dev:angular": "npm --prefix examples/angular run dev -- --port 5278 --strictPort",
+    "dev:qwik": "npm --prefix examples/qwik run dev -- --port 5279 --strictPort"
   },
   "devDependencies": {
     "@angular/common": "^21.2.21",
