@@ -22,10 +22,7 @@
     "url": "https://github.com/nord-forge/oklch-picker/issues"
   },
   "type": "module",
-  "sideEffects": [
-    "**/*.css",
-    "./dist/register.mjs"
-  ],
+  "sideEffects": ["**/*.css", "./dist/register.mjs"],
   "exports": {
     ".": {
       "types": "./dist/index.d.mts",
@@ -37,11 +34,7 @@
     },
     "./package.json": "./package.json"
   },
-  "files": [
-    "dist",
-    "README.md",
-    "LICENSE"
-  ],
+  "files": ["dist", "README.md", "LICENSE"],
   "publishConfig": {
     "access": "public"
   },

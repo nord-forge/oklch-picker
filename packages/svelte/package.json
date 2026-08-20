@@ -2,13 +2,7 @@
   "name": "@oklch-picker/svelte",
   "version": "1.1.0",
   "description": "An OKLCH colour picker for Svelte 5, with gamut-aware sliders. Works with bind:value.",
-  "keywords": [
-    "oklch",
-    "colour",
-    "color-picker",
-    "svelte",
-    "gamut"
-  ],
+  "keywords": ["oklch", "colour", "color-picker", "svelte", "gamut"],
   "license": "MIT",
   "author": "Nick Bevers <hello@nickbevers.dev>",
   "homepage": "https://nord-forge.github.io/oklch-picker/",
@@ -26,11 +20,7 @@
     "./package.json": "./package.json"
   },
   "//": "Ships uncompiled .svelte source, the ecosystem convention. The consumer's tooling compiles it, so there is no dist and no build step.",
-  "files": [
-    "src",
-    "README.md",
-    "LICENSE"
-  ],
+  "files": ["src", "README.md", "LICENSE"],
   "publishConfig": {
     "access": "public"
   },
