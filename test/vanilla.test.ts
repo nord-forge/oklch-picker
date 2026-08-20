@@ -622,3 +622,37 @@ describe("the chart scale follows every space in view", () => {
     expect(at(REC2020)).toBeGreaterThan(at(P3));
   });
 });
+
+describe("gradient ids are unique per picker", () => {
+  // Regression: every chart built its id from the class prefix and the axis, so
+  // two pickers on a page both emitted `oklch-picker-gamut-h`. SVG ids share
+  // one document-wide namespace, so the second picker's `fill="url(#...)"`
+  // resolved to the first one's gradient and its chart drew the wrong colours.
+  const gradientIds = (picker: OklchPickerElement) =>
+    [...picker.querySelectorAll("linearGradient")].map((g) => g.getAttribute("id"));
+
+  test("two pickers on one page do not collide", () => {
+    const a = mount({ value: "oklch(0.7 0.15 255)" });
+    const b = mount({ value: "oklch(0.5 0.1 30)" });
+    const ids = [...gradientIds(a), ...gradientIds(b)];
+    expect(ids.length).toBeGreaterThan(1);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  test("every url(#id) resolves to a gradient in the same picker", () => {
+    const picker = mount({ value: "oklch(0.7 0.15 255)" });
+    const defined = new Set(gradientIds(picker));
+    const refs = [...picker.querySelectorAll("path")]
+      .map((p) => p.getAttribute("fill"))
+      .filter((f): f is string => Boolean(f?.startsWith("url(#")))
+      .map((f) => f.slice(5, -1));
+    expect(refs.length).toBeGreaterThan(0);
+    for (const ref of refs) expect(defined.has(ref)).toBe(true);
+  });
+
+  test("the ids stay url-safe, since they sit inside url(#...)", () => {
+    for (const id of gradientIds(mount({ value: "oklch(0.7 0.15 255)" }))) {
+      expect(id).toMatch(/^[A-Za-z0-9_:.-]+$/);
+    }
+  });
+});

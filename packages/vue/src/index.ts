@@ -25,7 +25,7 @@ import {
   toOklch,
   withSingleChart,
 } from "@oklch-picker/core";
-import { computed, defineComponent, h, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, defineComponent, h, onBeforeUnmount, onMounted, ref, useId } from "vue";
 import type { PropType, VNode } from "vue";
 
 /** One gamut chart: a 2D slice of the sRGB gamut, holding one axis fixed and
@@ -37,6 +37,9 @@ const GamutChart = defineComponent({
   props: {
     /** The axis held fixed; the chart sweeps the other two. */
     axis: { type: String as PropType<Axis>, required: true },
+    /** Unique per picker instance. SVG gradient ids share a document-wide
+     * namespace, so the axis alone is not enough to tell two pickers apart. */
+    uid: { type: String, required: true },
     /** Memo key: the single input this curve depends on. */
     curveKey: { type: Number, required: true },
     /** 0..1 across the plot; drives the vertical crosshair. */
@@ -100,7 +103,7 @@ const GamutChart = defineComponent({
     };
 
     return () => {
-      const gradId = `${props.classPrefix}-gamut-${props.axis}`;
+      const gradId = `${props.classPrefix}-gamut-${props.uid}-${props.axis}`;
       const interactive = Boolean(props.onPick);
       const x = props.x * CHART_W;
       const y = CHART_H - Math.min(1, Math.max(0, props.y)) * CHART_H;
@@ -240,6 +243,12 @@ export const ColourPicker = defineComponent({
     recentsChange: (recents: string[]) => Array.isArray(recents),
   },
   setup(props, { emit }) {
+    // SVG ids share one document-wide namespace, so two pickers on a page both
+    // emitting `oklch-picker-gamut-h` made the second chart fill from the first
+    // one's gradient. `useId` is stable across server and client, so this fixes
+    // the collision without breaking hydration.
+    const uid = useId() ?? "";
+
     // What was dialled, not what was emitted: dragging through an out-of-gamut
     // region must not destroy the other axes.
     const draft = ref<Oklch | null>(null);
@@ -344,6 +353,7 @@ export const ColourPicker = defineComponent({
         children.push(
           h(GamutChart, {
             axis: single.axis,
+            uid,
             curveKey: single.key,
             x: single.x,
             y: single.y,
@@ -378,6 +388,7 @@ export const ColourPicker = defineComponent({
           chart
             ? h(GamutChart, {
                 axis: chart.axis,
+                uid,
                 curveKey: chart.key,
                 x: chart.x,
                 y: chart.y,

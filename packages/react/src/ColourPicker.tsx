@@ -15,7 +15,7 @@ import {
   toOklch,
   withSingleChart,
 } from "@oklch-picker/core";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { GamutChart } from "./GamutChart.js";
 
 export interface ColourPickerProps {
@@ -66,6 +66,11 @@ export interface ColourPickerProps {
 
 export function ColourPicker(props: ColourPickerProps) {
   const prefix = props.classPrefix ?? "oklch-picker";
+  // SVG ids share one document-wide namespace, so two pickers on a page both
+  // emitting `oklch-picker-gamut-h` made the second chart fill from the first
+  // one's gradient. `useId` is stable across server and client, so this fixes
+  // the collision without breaking hydration.
+  const uid = useId();
 
   // What was dialled, not what was emitted: dragging through an out-of-gamut
   // region must not destroy the other axes.
@@ -179,7 +184,7 @@ export function ColourPicker(props: ColourPickerProps) {
         <GamutChart
           base={current}
           axis={single.axis}
-          id={single.axis}
+          id={`${uid}-${single.axis}`}
           x={single.x}
           y={single.y}
           references={model.references}
@@ -219,7 +224,7 @@ export function ColourPicker(props: ColourPickerProps) {
                 <GamutChart
                   base={current}
                   axis={a.key}
-                  id={a.key}
+                  id={`${uid}-${a.key}`}
                   x={chart.x}
                   y={chart.y}
                   references={model.references}

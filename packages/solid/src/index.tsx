@@ -25,11 +25,23 @@ import {
   toOklch,
   withSingleChart,
 } from "@oklch-picker/core";
-import { For, Index, Show, createMemo, createSignal, onCleanup, onMount } from "solid-js";
+import {
+  For,
+  Index,
+  Show,
+  createMemo,
+  createSignal,
+  createUniqueId,
+  onCleanup,
+  onMount,
+} from "solid-js";
 
 interface GamutChartProps {
   /** The axis held fixed; the chart sweeps the other two. */
   axis: Axis;
+  /** Unique per picker instance. SVG gradient ids share a document-wide
+   * namespace, so the axis alone is not enough to tell two pickers apart. */
+  uid: string;
   /** Memo key: the single input this curve depends on. */
   curveKey: number;
   /** 0..1 across the plot; drives the vertical crosshair. */
@@ -70,7 +82,7 @@ function GamutChart(props: GamutChartProps) {
       props.scaleGamuts,
     ),
   );
-  const gradId = () => `${props.classPrefix}-gamut-${props.axis}`;
+  const gradId = () => `${props.classPrefix}-gamut-${props.uid}-${props.axis}`;
   const crossY = () => CHART_H - Math.min(1, Math.max(0, props.y)) * CHART_H;
 
   // The chart's rendered pixel size, for the labels' counter-scale. Measured
@@ -226,6 +238,12 @@ export interface ColourPickerProps {
 
 export function ColourPicker(props: ColourPickerProps) {
   const prefix = () => props.classPrefix ?? "oklch-picker";
+  // SVG ids share one document-wide namespace, so two pickers on a page both
+  // emitting `oklch-picker-gamut-h` made the second chart fill from the first
+  // one's gradient. `createUniqueId` is stable across server and client, so
+  // this fixes the collision without breaking hydration.
+  const uid = createUniqueId();
+
   // What was dialled, not what was emitted: dragging through an out-of-gamut
   // region must not destroy the other axes.
   const [draft, setDraft] = createSignal<Oklch | null>(null);
@@ -328,6 +346,7 @@ export function ColourPicker(props: ColourPickerProps) {
         {(slot) => (
           <GamutChart
             axis={slot().axis}
+            uid={uid}
             curveKey={slot().key}
             x={slot().x}
             y={slot().y}
@@ -374,6 +393,7 @@ export function ColourPicker(props: ColourPickerProps) {
                   {(slot) => (
                     <GamutChart
                       axis={slot().axis}
+                      uid={uid}
                       curveKey={slot().key}
                       x={slot().x}
                       y={slot().y}
