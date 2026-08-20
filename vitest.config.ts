@@ -35,6 +35,7 @@ export default defineConfig({
             "test/{ColourPicker,GamutChart}.test.tsx",
             "test/colour.test.ts",
             "test/hydrate-react.test.tsx",
+            "test/contract/react.contract.test.tsx",
           ],
         },
         // Vitest 4 transforms with oxc, not esbuild.
