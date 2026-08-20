@@ -137,6 +137,13 @@ export default defineConfig({
         },
       },
       {
+        test: {
+          name: "ssr-angular",
+          environment: "node",
+          include: ["test/ssr-angular.test.ts"],
+        },
+      },
+      {
         // Preact stands in for React here as it does everywhere else, so the
         // one build is proven to render on a server under that API too.
         oxc: { jsx: { runtime: "automatic", importSource: "preact" } },

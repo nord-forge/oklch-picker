@@ -133,6 +133,16 @@ export class GamutChartComponent {
 
   constructor() {
     effect((onCleanup) => {
+      // Angular runs effects during a server render, unlike React's useEffect
+      // or Svelte's $effect, so this is the one adapter where the guard is
+      // load-bearing. Without it the whole render dies on `ResizeObserver is
+      // not defined` and the server sends an empty shell.
+      //
+      // Nothing is lost by skipping it: the size only feeds the boundary
+      // labels' counter-scale, which stays null until the chart is measured,
+      // and measuring cannot happen without a layout anyway.
+      if (typeof ResizeObserver === "undefined") return;
+
       const node = this.svg().nativeElement;
       const observer = new ResizeObserver(([entry]) => {
         const r = entry?.contentRect;

@@ -41,6 +41,7 @@
     "@angular/core": "^21.2.21",
     "@angular/platform-browser": "^21.2.21",
     "@angular/platform-browser-dynamic": "^21.2.21",
+    "@angular/platform-server": "^21.2.21",
     "@biomejs/biome": "^1.9.4",
     "@changesets/cli": "^2.27.0",
     "@solidjs/testing-library": "^0.8.10",
