@@ -78,8 +78,8 @@ const pathname = Astro.url.pathname;
       <a class="header__link" href="https://github.com/nord-forge/oklch-picker">GitHub</a>
 
       {/* Both icons ship and CSS shows one, rather than the script swapping
-          SVG on every click and keeping the markup in two places. The icon is
-          the scheme a click would switch to, not the current one. */}
+          SVG on every click and keeping the markup in two places. Icon and
+          label both name the scheme in use. */}
       <button class="theme" type="button" data-theme-toggle aria-live="polite">
         <span class="theme__icon theme__icon--light"><Icon name="light" /></span>
         <span class="theme__icon theme__icon--dark"><Icon name="dark" /></span>
@@ -194,10 +194,13 @@ const pathname = Astro.url.pathname;
       }
 
       function paint() {
-        // The button offers the other scheme, so it is labelled with that
-        // rather than with the current one.
-        const next = current() === "dark" ? "light" : "dark";
-        if (label) label.textContent = next === "dark" ? "Dark" : "Light";
+        // The visible label names the scheme in use, because a word sitting in
+        // the interface reads as "this is what I am" rather than as a promise
+        // about the next click. The aria-label carries the action, which is
+        // what a screen reader needs from a button.
+        const now = current();
+        const next = now === "dark" ? "light" : "dark";
+        if (label) label.textContent = now === "dark" ? "Dark" : "Light";
         button?.setAttribute("aria-label", `Switch to ${next} mode`);
       }
 

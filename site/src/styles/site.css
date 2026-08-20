@@ -213,24 +213,26 @@ kbd {
   line-height: 0;
 }
 
-/* Two states. The button offers the other scheme, so it shows the icon and
-   label of where a click takes you rather than where you are.
+/* Two states. Icon and label both name the scheme in use: a sun on a light
+   page, a moon on a dark one. The action lives in the aria-label, since a
+   word sitting in the interface reads as a state rather than as a promise
+   about the next click.
 
    With no `data-theme` the system decides, so the media query has to be part
-   of this or a system-dark first visit shows a moon beside the word "Light".
-   The script resolves the same three cases for the label. */
-:root:not([data-theme]) .theme__icon--dark,
-:root[data-theme="light"] .theme__icon--dark,
-:root[data-theme="dark"] .theme__icon--light {
+   of this or a system-dark first visit shows a sun on a dark page. The script
+   resolves the same three cases for the label. */
+:root:not([data-theme]) .theme__icon--light,
+:root[data-theme="light"] .theme__icon--light,
+:root[data-theme="dark"] .theme__icon--dark {
   display: inline-flex;
 }
 
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme]) .theme__icon--dark {
+  :root:not([data-theme]) .theme__icon--light {
     display: none;
   }
 
-  :root:not([data-theme]) .theme__icon--light {
+  :root:not([data-theme]) .theme__icon--dark {
     display: inline-flex;
   }
 }
