@@ -22,13 +22,25 @@
   --site-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
-/* `data-theme` pins a scheme; without it the system decides. The picker's own
-   stylesheet honours the same attribute, so one toggle drives both. */
+/* `data-theme` pins a scheme; without it the system decides.
+   The picker sets `color-scheme: light dark` on itself, so its `light-dark()`
+   values resolve from its own computed scheme rather than inheriting one from
+   an ancestor. Setting the attribute on `:root` therefore restyles the page and
+   leaves every picker following the system. Each picker needs the scheme
+   forced directly, which is what the second rule in each pair does. */
 :root[data-theme="light"] {
   color-scheme: light;
 }
 
+:root[data-theme="light"] .oklch-picker {
+  color-scheme: light;
+}
+
 :root[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+:root[data-theme="dark"] .oklch-picker {
   color-scheme: dark;
 }
 

@@ -1,9 +1,13 @@
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/nord-forge/oklch-picker/main/docs/media/mark-dark.svg">
-  <img src="https://raw.githubusercontent.com/nord-forge/oklch-picker/main/docs/media/mark-light.svg" alt="" width="72" height="72">
-</picture>
-
-# oklch-picker
+<!-- The mark lives inside the heading so the two sit on one line. GitHub strips
+     most inline styles from README markup, and a <picture> as a sibling of the
+     <h1> becomes its own block, which pushed the title onto the next row. -->
+<h1>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/nord-forge/oklch-picker/main/docs/media/mark-dark.svg">
+    <img src="https://raw.githubusercontent.com/nord-forge/oklch-picker/main/docs/media/mark-light.svg" alt="" width="34" height="34" align="absmiddle">
+  </picture>
+  oklch-picker
+</h1>
 
 An OKLCH colour picker for React, Preact, Vue, Svelte, Solid, and for no framework at all. Zero runtime dependencies. The component is ~5.3 kB gzipped, and the colour maths alone is ~1.8 kB.
 
@@ -11,7 +15,7 @@ An OKLCH colour picker for React, Preact, Vue, Svelte, Solid, and for no framewo
 
 Every axis is a slider over a **gamut cross-section**. The filled silhouette is the range sRGB can actually show, so the reachable colours are visible instead of something you discover by dragging into a region that does nothing.
 
-![The picker in dark mode, showing blue and amber](https://raw.githubusercontent.com/nord-forge/oklch-picker/main/docs/media/dark.png)
+**[See it running](https://nord-forge.github.io/oklch-picker/)**, in light or dark, with every layout and part on a page of its own. There is no screenshot here on purpose: a still image of a picker that keeps moving goes stale, and the last set did.
 
 ## Why
 
@@ -23,9 +27,7 @@ This one works in OKLCH directly, and takes the gamut seriously:
 - **Out-of-gamut regions are hatched**, on every axis. Lightness is unreachable at *both* ends at high chroma, and hue can be unreachable in the middle, so a single boundary marker will not do.
 - **Nothing out-of-gamut is ever emitted.** Values are clamped by reducing chroma, keeping lightness and hue.
 
-At chroma 0.22 most hues cannot sustain that saturation, and the picker says so:
-
-![The picker in light mode at high chroma, with most of the hue axis hatched](https://raw.githubusercontent.com/nord-forge/oklch-picker/main/docs/media/light.png)
+At chroma 0.22 most hues cannot sustain that saturation, and the picker says so. **[Try it](https://nord-forge.github.io/oklch-picker/)**: push chroma up and watch the hue track hatch out.
 
 ## Install
 
@@ -247,14 +249,7 @@ Whatever you use, the emitted value is always a canonical, gamut-clamped `oklch(
 <ColourPicker value={colour} onChange={setColour} layout="compact" />
 ```
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/nord-forge/oklch-picker/main/docs/media/compact-dark.png">
-  <img src="https://raw.githubusercontent.com/nord-forge/oklch-picker/main/docs/media/compact-light.png" alt="The compact layout: three thin sliders with single-letter labels" width="288">
-</picture>
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/nord-forge/oklch-picker/main/docs/media/side-by-side-dark.png">
-  <img src="https://raw.githubusercontent.com/nord-forge/oklch-picker/main/docs/media/side-by-side-light.png" alt="The side-by-side layout: sliders on the left, preview and presets in a right rail" width="468">
-</picture>
+**[All four layouts are running on the docs site](https://nord-forge.github.io/oklch-picker/docs/layouts/)**, side by side and draggable, in whichever colour scheme you prefer.
 
 ### Dragging the chart
 
