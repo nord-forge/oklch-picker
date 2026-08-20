@@ -40,9 +40,10 @@ Install the package for your framework. Each pulls in only its own adapter plus 
 | Vue | `@oklch-picker/vue` | `v-model` |
 | Svelte 5 | `@oklch-picker/svelte` | `bind:value` |
 | Solid | `@oklch-picker/solid` | `value` + `onChange` |
+| Angular 17+ | `@oklch-picker/angular` | `[value]` + `(valueChange)` |
 
 ```sh
-npm install @oklch-picker/react   # or /vue, /svelte, /solid
+npm install @oklch-picker/react   # or /vue, /svelte, /solid, /angular
 npm install oklch-picker          # the no-framework custom element
 ```
 
@@ -87,7 +88,7 @@ Hex went off by default because it is sRGB only, so it cannot carry a P3 or Rec.
 | `oklch-picker/colour` | `@oklch-picker/core` |
 | `oklch-picker/styles.css` | `@oklch-picker/core/styles.css` |
 
-Nothing else changes. The components, props, and emitted values are identical. The split exists so an app downloads only the adapter it uses instead of all five.
+Nothing else changes. The components, props, and emitted values are identical. The split exists so an app downloads only the adapter it uses instead of every one of them.
 
 </details>
 
