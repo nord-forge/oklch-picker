@@ -1,6 +1,6 @@
 # oklch-picker
 
-An OKLCH colour picker published as six packages: one shared core and five
+An OKLCH colour picker published as seven packages: one shared core and six
 framework adapters. Zero runtime dependencies.
 
 ## Layout
@@ -12,6 +12,7 @@ packages/
   vue/        @oklch-picker/vue
   svelte/     @oklch-picker/svelte   ships uncompiled .svelte source
   solid/      @oklch-picker/solid    ships JSX source
+  angular/    @oklch-picker/angular  standalone + signals, built with ngc
   vanilla/    oklch-picker           the <oklch-picker> custom element
 test/         one suite per adapter, run from the repo root
 examples/     one runnable app per adapter
@@ -29,7 +30,7 @@ on Node 20.
 
 ```sh
 npm run build       # all packages, in dependency order
-npm test            # 245 tests across 5 vitest projects
+npm test            # 356 tests across 20 vitest projects
 npm run typecheck   # tsc + a second pass for Solid + svelte-check
 npm run lint        # biome; lint:fix to write
 npm run dev         # all six examples at once, ports 5272-5277
@@ -56,7 +57,7 @@ draft/emit resolution, and the chart memo key. `pickerModel()` returns
 everything a picker needs for one render.
 
 An adapter therefore contains only markup and state wiring, ~250 lines each.
-**When you change behaviour, change `model.ts`** so all five adapters get it;
+**When you change behaviour, change `model.ts`** so all six adapters get it;
 if you find yourself editing the same logic in two adapters, it belongs in the
 core instead.
 
@@ -84,6 +85,20 @@ every input would drop focus from the slider mid-drag.
   tsconfig cannot hold two JSX settings, so bundling it here compiles its JSX
   with React's runtime and the output imports `react`. Solid has its own
   `tsconfig.json` and its own `tsc` pass.
+- **Angular builds with `ngc`, not tsdown.** tsdown strips the types but leaves
+  `@Component` in the output as raw decorator syntax, which is not valid
+  JavaScript. Plain `tsc` gets past that and still fails: it does not know about
+  signal inputs, so every `input()` is invisible to the template and Angular
+  reports `NG0303` at runtime. `ngc` is `tsc` plus Angular's own transforms, and
+  it is the only one of the three that produces a working component.
+- **Angular's template checker is opt-in.** `strictTemplates` lives in
+  `angularCompilerOptions` in `packages/angular/tsconfig.build.json`. Without it
+  a typo in a binding compiles to a silent runtime no-op rather than an error,
+  so the build passes and the picker quietly loses a control.
+- **Angular 21 is the build-time floor, 17 is the consumer floor.** Angular 22's
+  compiler wants TypeScript 6 and the repo is on 5.9, which Astro pins. Building
+  against 21 keeps one TypeScript across the monorepo while `peerDependencies`
+  still says `>=17`.
 - **`sideEffects` must list the register entry.** `packages/vanilla` declares
   `./dist/register.mjs`; without it, bundlers tree-shake the
   `customElements.define` call away and the element silently never upgrades.
@@ -104,7 +119,7 @@ every input would drop focus from the slider mid-drag.
 
 ## Releasing
 
-Changesets, with all six packages in one `fixed` group so they share a version
+Changesets, with all seven packages in one `fixed` group so they share a version
 number. A core fix cannot leave an adapter behind.
 
 ```sh

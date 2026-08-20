@@ -47,6 +47,17 @@ export default defineConfig({
         },
       },
       {
+        /* Angular compiles its templates at runtime here (JIT), which is what
+         * `@angular/compiler` and the dynamic platform are for. The published
+         * package ships decorators rather than precompiled `ɵcmp` output, so
+         * this is also the check that a consumer's own compiler can read it. */
+        test: {
+          name: "angular",
+          environment: "happy-dom",
+          include: ["test/angular.test.ts"],
+        },
+      },
+      {
         test: {
           name: "vanilla",
           environment: "happy-dom",

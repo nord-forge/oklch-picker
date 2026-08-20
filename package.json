@@ -14,7 +14,7 @@
     "build": "npm run build --workspace=packages --if-present",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p packages/solid && svelte-check --threshold error",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p packages/solid && npm run build --workspace=@oklch-picker/angular && svelte-check --threshold error",
     "logo": "node .demo/logo.mjs",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
@@ -35,6 +35,12 @@
     "site:check": "npm run check --workspace=@oklch-picker/site"
   },
   "devDependencies": {
+    "@angular/common": "^21.2.21",
+    "@angular/compiler": "^21.2.21",
+    "@angular/compiler-cli": "^21.2.21",
+    "@angular/core": "^21.2.21",
+    "@angular/platform-browser": "^21.2.21",
+    "@angular/platform-browser-dynamic": "^21.2.21",
     "@biomejs/biome": "^1.9.4",
     "@changesets/cli": "^2.27.0",
     "@solidjs/testing-library": "^0.8.10",
@@ -57,7 +63,8 @@
     "unrun": "^0.3.1",
     "vite-plugin-solid": "^2.11.14",
     "vitest": "^4.1.10",
-    "vue": "^3.5.41"
+    "vue": "^3.5.41",
+    "zone.js": "^0.16.2"
   },
   "repository": {
     "type": "git",
