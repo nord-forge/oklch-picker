@@ -19,10 +19,10 @@
   counter instead, which is safe there because it upgrades in the browser rather
   than being rendered to HTML on a server.
 
-  Within one app root, which is the case that was broken. Vue, React and Svelte
-  count their ids per root, so two pickers mounted as separate app roots on the
-  same page can still collide. That is rare, and `classPrefix` is part of the id,
-  so giving one of them a different prefix separates them today.
+  Solid and Svelte count their ids per module, so pickers stay distinct however
+  they are mounted. Vue and React count per app root, so two pickers mounted as
+  separate roots on one page can still collide there. That is rare, and
+  `classPrefix` is part of the id, so a different prefix separates them today.
 
   - @oklch-picker/core@1.1.1
 
