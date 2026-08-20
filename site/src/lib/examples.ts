@@ -11,7 +11,7 @@
  * a snippet is edited in exactly one place.
  */
 
-export type FrameworkId = "react" | "vue" | "svelte" | "solid" | "angular" | "vanilla";
+export type FrameworkId = "react" | "vue" | "svelte" | "solid" | "angular" | "qwik" | "vanilla";
 
 export interface FrameworkMeta {
   id: FrameworkId;
@@ -60,6 +60,13 @@ export const FRAMEWORKS: readonly FrameworkMeta[] = [
     pkg: "@oklch-picker/angular",
     binding: "`[value]` and `(valueChange)`, the usual Angular pair",
     lang: "ts",
+  },
+  {
+    id: "qwik",
+    name: "Qwik",
+    pkg: "@oklch-picker/qwik",
+    binding: "`value` and `onChange$`, the QRL form Qwik uses for every handler",
+    lang: "tsx",
   },
   {
     id: "vanilla",
@@ -117,6 +124,21 @@ export function Example() {
   const [colour, setColour] = createSignal("oklch(0.7 0.15 255)");
   return <ColourPicker value={colour()} onChange={setColour} />;
 }`,
+      qwik: `import { component$, useSignal } from "@builder.io/qwik";
+import { ColourPicker } from "@oklch-picker/qwik";
+import "@oklch-picker/core/styles.css";
+
+export const Example = component$(() => {
+  const colour = useSignal("oklch(0.7 0.15 255)");
+  return (
+    <ColourPicker
+      value={colour.value}
+      onChange$={(c) => {
+        colour.value = c;
+      }}
+    />
+  );
+});`,
       angular: `import { Component, signal } from "@angular/core";
 import { ColourPickerComponent } from "@oklch-picker/angular";
 import "@oklch-picker/core/styles.css";
@@ -163,6 +185,11 @@ export class ExampleComponent {
   [presets]="['oklch(0.75 0.16 145)', 'oklch(0.7 0.15 255)']"
   (valueChange)="colour.set($event)"
 />`,
+      qwik: `<ColourPicker
+  value={colour.value}
+  presets={["oklch(0.75 0.16 145)", "oklch(0.7 0.15 255)"]}
+  onChange$={(c) => (colour.value = c)}
+/>`,
       vanilla: `<oklch-picker
   presets='["oklch(0.75 0.16 145)", "oklch(0.7 0.15 255)"]'
 ></oklch-picker>`,
@@ -199,6 +226,10 @@ export class ExampleComponent {
 }
 
 // <oklch-colour-picker [value]="colour()" [gamut]="P3" (valueChange)="colour.set($event)" />`,
+      qwik: `// An id, not the gamut object. Qwik serialises props to resume a
+// component, and a Gamut carries a function, so the id crosses the
+// boundary where the object cannot.
+<ColourPicker value={colour.value} gamut="p3" onChange$={(c) => (colour.value = c)} />`,
       vanilla: `import { P3 } from "@oklch-picker/core/gamuts";
 
 // A gamut is an object, so it is a property rather than an attribute.
@@ -250,6 +281,14 @@ document.querySelector("oklch-picker").gamut = P3;`,
   (valueChange)="colour.set($event)"
   (gamutChange)="gamut.set($event)"
 />`,
+      qwik: `<ColourPicker
+  value={colour.value}
+  gamut={gamut.value}
+  gamutChoices={["srgb", "p3", "rec2020"]}
+  parts={{ gamutSwitch: true }}
+  onChange$={(c) => (colour.value = c)}
+  onGamutChange$={(g) => (gamut.value = g)}
+/>`,
       vanilla: `const picker = document.querySelector("oklch-picker");
 picker.gamutChoices = [SRGB, P3, REC2020];
 picker.parts = { gamutSwitch: true };
@@ -274,6 +313,7 @@ picker.addEventListener("gamutchange", (event) => {
       solid: "<ColourPicker value={colour()} onChange={setColour} parts={{ alpha: false }} />",
       angular:
         '<oklch-colour-picker [value]="colour()" [parts]="{ alpha: false }" (valueChange)="colour.set($event)" />',
+      qwik: `<ColourPicker value={colour.value} parts={{ alpha: false }} onChange$={(c) => (colour.value = c)} />`,
       vanilla: `<oklch-picker
   value="oklch(0.7 0.15 255 / 0.4)"
   parts='{"alpha": false}'
@@ -321,6 +361,12 @@ picker.addEventListener("gamutchange", (event) => {
   (valueChange)="colour.set($event)"
   (recentsChange)="save($event)"
 />`,
+      qwik: `<ColourPicker
+  value={colour.value}
+  recents={recents.value}
+  onChange$={(c) => (colour.value = c)}
+  onRecentsChange$={(next) => (recents.value = next)}
+/>`,
       vanilla: `const picker = document.querySelector("oklch-picker");
 picker.recents = loadFromServer();
 
@@ -349,6 +395,11 @@ renderToString(() => <ColourPicker value={colour()} onChange={setColour} />);`,
       angular: `import { renderApplication } from "@angular/platform-server";
 
 await renderApplication(bootstrap, { document });`,
+      qwik: `import { renderToString } from "@builder.io/qwik/server";
+
+// Resumability is the point: the server sends the finished picker and the
+// client resumes it rather than re-running the component.
+await renderToString(<Example />);`,
       vanilla: `<!-- The element upgrades in the browser, so render the tag on the
      server and import the module from a client-only block. -->
 <oklch-picker value="oklch(0.7 0.15 255)"></oklch-picker>

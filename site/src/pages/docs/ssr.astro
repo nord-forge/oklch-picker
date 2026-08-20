@@ -76,6 +76,16 @@ renderToString(() => <ColourPicker value={colour()} onChange={setColour} />);`,
 // standalone component does. The picker needs nothing extra.
 await renderApplication(bootstrap, { document });`,
       },
+      {
+        label: "Qwik",
+        lang: "tsx",
+        code: `import { renderToString } from "@builder.io/qwik/server";
+import { ColourPicker } from "@oklch-picker/qwik";
+
+// Resumability is the point: the server sends the finished picker and
+// the client resumes it rather than re-running the component.
+await renderToString(<Example />);`,
+      },
     ]}
   />
 

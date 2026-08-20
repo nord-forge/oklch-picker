@@ -51,6 +51,7 @@ const colour = ref("oklch(0.7 0.15 255)");
 | Svelte 5 | [`@oklch-picker/svelte`](https://www.npmjs.com/package/@oklch-picker/svelte) |
 | Solid | [`@oklch-picker/solid`](https://www.npmjs.com/package/@oklch-picker/solid) |
 | Angular 17+ | [`@oklch-picker/angular`](https://www.npmjs.com/package/@oklch-picker/angular) |
+| Qwik | [`@oklch-picker/qwik`](https://www.npmjs.com/package/@oklch-picker/qwik) |
 | The maths and headless model alone | [`@oklch-picker/core`](https://www.npmjs.com/package/@oklch-picker/core) |
 
 Full documentation lives in the [repository README](https://github.com/nord-forge/oklch-picker#readme).

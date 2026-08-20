@@ -61,6 +61,14 @@ import { P3 } from "@oklch-picker/core/gamuts";
 // A gamut is an object, so it is a property rather than an attribute.
 document.querySelector("oklch-picker").gamut = P3;`,
       },
+      {
+        label: "Qwik",
+        lang: "tsx",
+        code: `// An id, not the object. Qwik serialises props to resume a
+// component, and a gamut carries a function, so the id crosses
+// the boundary where the object cannot.
+<ColourPicker value={colour.value} gamut="p3" onChange$={(c) => (colour.value = c)} />`,
+      },
     ]}
   />
 

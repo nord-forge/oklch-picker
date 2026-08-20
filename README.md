@@ -41,9 +41,10 @@ Install the package for your framework. Each pulls in only its own adapter plus 
 | Svelte 5 | `@oklch-picker/svelte` | `bind:value` |
 | Solid | `@oklch-picker/solid` | `value` + `onChange` |
 | Angular 17+ | `@oklch-picker/angular` | `[value]` + `(valueChange)` |
+| Qwik | `@oklch-picker/qwik` | `value` + `onChange$` |
 
 ```sh
-npm install @oklch-picker/react   # or /vue, /svelte, /solid, /angular
+npm install @oklch-picker/react   # or /vue, /svelte, /solid, /angular, /qwik
 npm install oklch-picker          # the no-framework custom element
 ```
 
