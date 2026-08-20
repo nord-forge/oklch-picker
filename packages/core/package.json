@@ -1,8 +1,14 @@
 {
   "name": "@oklch-picker/core",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "OKLCH colour maths and the headless picker model shared by every oklch-picker adapter. Zero dependencies.",
-  "keywords": ["oklch", "colour", "color", "gamut", "srgb"],
+  "keywords": [
+    "oklch",
+    "colour",
+    "color",
+    "gamut",
+    "srgb"
+  ],
   "license": "MIT",
   "author": "Nick Bevers <hello@nickbevers.dev>",
   "homepage": "https://nord-forge.github.io/oklch-picker/",
@@ -10,7 +16,9 @@
     "url": "https://github.com/nord-forge/oklch-picker/issues"
   },
   "type": "module",
-  "sideEffects": ["**/*.css"],
+  "sideEffects": [
+    "**/*.css"
+  ],
   "exports": {
     ".": {
       "types": "./dist/index.d.mts",
@@ -28,7 +36,11 @@
     "./styles.min.css": "./dist/styles.min.css",
     "./package.json": "./package.json"
   },
-  "files": ["dist", "README.md", "LICENSE"],
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "publishConfig": {
     "access": "public"
   },

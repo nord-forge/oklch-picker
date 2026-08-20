@@ -1,6 +1,6 @@
 {
   "name": "oklch-picker",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "//": "The bare name is the no-framework build: someone who types `npm i oklch-picker` without naming a framework wants the one that works anywhere. Framework users install @oklch-picker/react and friends.",
   "description": "An OKLCH colour picker as a custom element. No framework, no build step. For plain HTML, HTMX, Alpine, Astro, and server-rendered pages.",
   "keywords": [
@@ -22,7 +22,10 @@
     "url": "https://github.com/nord-forge/oklch-picker/issues"
   },
   "type": "module",
-  "sideEffects": ["**/*.css", "./dist/register.mjs"],
+  "sideEffects": [
+    "**/*.css",
+    "./dist/register.mjs"
+  ],
   "exports": {
     ".": {
       "types": "./dist/index.d.mts",
@@ -34,7 +37,11 @@
     },
     "./package.json": "./package.json"
   },
-  "files": ["dist", "README.md", "LICENSE"],
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "publishConfig": {
     "access": "public"
   },
@@ -45,7 +52,7 @@
     "build": "tsdown"
   },
   "dependencies": {
-    "@oklch-picker/core": "1.0.1"
+    "@oklch-picker/core": "1.1.0"
   },
   "repository": {
     "type": "git",

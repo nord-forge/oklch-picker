@@ -1,8 +1,15 @@
 {
   "name": "@oklch-picker/solid",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "An OKLCH colour picker for Solid, with gamut-aware sliders.",
-  "keywords": ["oklch", "colour", "color-picker", "solid", "solid-js", "gamut"],
+  "keywords": [
+    "oklch",
+    "colour",
+    "color-picker",
+    "solid",
+    "solid-js",
+    "gamut"
+  ],
   "license": "MIT",
   "author": "Nick Bevers <hello@nickbevers.dev>",
   "homepage": "https://nord-forge.github.io/oklch-picker/",
@@ -20,7 +27,11 @@
     "./package.json": "./package.json"
   },
   "//": "Ships JSX source so it compiles against the app's own Solid runtime. Pre-compiling here would bake in the wrong JSX pragma.",
-  "files": ["src", "README.md", "LICENSE"],
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
   "publishConfig": {
     "access": "public"
   },
@@ -28,7 +39,7 @@
     "node": ">=20"
   },
   "dependencies": {
-    "@oklch-picker/core": "1.0.1"
+    "@oklch-picker/core": "1.1.0"
   },
   "peerDependencies": {
     "solid-js": ">=1.8"
