@@ -72,3 +72,17 @@ test("the one build renders under Preact's compat alias", () => {
   expect(container.querySelectorAll("input[type=range]").length).toBeGreaterThan(0);
   cleanup();
 });
+
+test("the picker is controlled: without the value fed back, it does not move", () => {
+  // What the READMEs promise, pinned. Wiring only the callback leaves the
+  // sliders stuck while the picker emits against a colour that never changes,
+  // which is a silent failure worth a test rather than a footnote.
+  const seen: string[] = [];
+  const view = render(<ColourPicker value="oklch(0.7 0.15 255)" onChange={(c) => seen.push(c)} />);
+  const hue = () => view.container.querySelector('input[aria-label="Hue"]') as HTMLInputElement;
+  fireEvent.input(hue(), { target: { value: "300" } });
+  expect(seen.at(-1)).toContain("300");
+  // Emitted, but not rendered: nothing fed the value back.
+  expect(hue().value).toBe("255");
+  cleanup();
+});

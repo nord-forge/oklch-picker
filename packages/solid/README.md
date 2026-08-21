@@ -36,6 +36,13 @@ export function Example() {
 }
 ```
 
+`onChange` always receives a canonical, gamut-clamped `oklch(L C H)` string.
+
+**The picker is controlled, always.** It keeps no colour of its own: whatever you
+pass as `value` is what it renders, so the value it hands back has to come back
+in. Wire only the callback and the sliders will not move, while the picker
+quietly emits values against a colour that never changes.
+
 Ships JSX source so it compiles against your app's own Solid runtime.
 
 ## The family

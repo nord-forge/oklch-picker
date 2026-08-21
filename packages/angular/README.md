@@ -50,7 +50,12 @@ export class ExampleComponent {
 }
 ```
 
-`valueChange` carries a canonical, gamut-clamped `oklch(L C H)` string. Pair it with `[value]` for the usual controlled component, exactly as you would with any Angular input and output.
+`valueChange` carries a canonical, gamut-clamped `oklch(L C H)` string.
+
+**The picker is controlled, always.** It keeps no colour of its own: whatever you
+pass as `value` is what it renders, so the value it hands back has to come back
+in. Wire only the callback and the sliders will not move, while the picker
+quietly emits values against a colour that never changes.
 
 ### Presets and recent colours
 

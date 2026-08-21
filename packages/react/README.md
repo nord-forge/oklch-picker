@@ -38,6 +38,11 @@ export function Example() {
 
 `onChange` always receives a canonical, gamut-clamped `oklch(L C H)` string. `value` accepts that or hex.
 
+**The picker is controlled, always.** It keeps no colour of its own: whatever you
+pass as `value` is what it renders, so the value it hands back has to come back
+in. Wire only the callback and the sliders will not move, while the picker
+quietly emits values against a colour that never changes.
+
 Preact works through `preact/compat`, which most Preact setups already alias.
 
 ## The family

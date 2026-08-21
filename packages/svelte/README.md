@@ -36,7 +36,7 @@ npm install @oklch-picker/svelte
 <ColourPicker bind:value={colour} />
 ```
 
-`value` is bindable, and an `onchange` callback is available for handling it explicitly. Ships uncompiled `.svelte` source, so your own tooling compiles it.
+`value` is bindable, and an `onchange` callback is available for handling it explicitly. `bind:value` writes the new colour back for you, which the picker needs: it keeps no colour of its own, so a plain `value={colour}` with only `onchange` would leave the sliders stuck. Ships uncompiled `.svelte` source, so your own tooling compiles it.
 
 ## The family
 

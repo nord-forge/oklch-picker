@@ -45,6 +45,11 @@ export const Example = component$(() => {
 
 `onChange$` carries a canonical, gamut-clamped `oklch(L C H)` string.
 
+**The picker is controlled, always.** It keeps no colour of its own: whatever you
+pass as `value` is what it renders, so the value it hands back has to come back
+in. Wire only the callback and the sliders will not move, while the picker
+quietly emits values against a colour that never changes.
+
 ## Gamuts are named, not passed
 
 This is the one place the API differs from the other adapters. Everywhere else you write `gamut={P3}`. Here you write:

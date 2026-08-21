@@ -105,6 +105,15 @@ Whichever you import, the props are the same: `presets`, `layout`, `parts`, `lab
 
 ## Usage
 
+**The adapters are controlled.** A picker keeps no colour of its own: it renders
+whatever `value` you pass, so the value it hands back has to come back in.
+`v-model` and `bind:value` do that for you. React, Solid, Angular and Qwik want
+the pair wired explicitly, and wiring only the callback leaves the sliders stuck
+while the picker emits against a colour that never changes.
+
+The `<oklch-picker>` element is the exception. It holds its own colour and
+updates its own `value` attribute, so it works with no listener at all.
+
 ### React / Preact
 
 ```tsx
@@ -444,7 +453,7 @@ An opaque colour is unchanged in every format: `oklch(0.7 0.15 255)` stays exact
 | `presets` | `string[]` | none | Swatches shown below the sliders |
 | `recents` | `string[]` | none | Controlled recent colours; omit to keep a session list |
 | `onRecentsChange` | `(recents: string[]) => void` | none | Fired on commit, not during a drag |
-| `maxRecents` | `number` | `8` | How many to keep when uncontrolled |
+| `maxRecents` | `number` | `8` | How many recents to keep, when `recents` is not passed |
 | `layout` | `"chart" \| "side-by-side" \| "compact" \| "stacked"` | `"chart"` | See [Layouts](#layouts) |
 | `parts` | `{ charts?, preview?, oklchInput?, rgbInput?, hexInput?, alpha?, gamutLines?, name?, notice?, recents?, gamutSwitch?: boolean }` | on except `rgbInput`, `hexInput`, `gamutSwitch` | Turn parts off, e.g. `{ charts: false }` |
 | `labels` | `Partial<Record<LabelKey, string>>` | English | Translation and custom notices. See [Notices](#notices) |

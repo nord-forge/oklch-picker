@@ -39,7 +39,7 @@ const colour = ref("oklch(0.7 0.15 255)");
 </template>
 ```
 
-`v-model` receives a canonical, gamut-clamped `oklch(L C H)` string; a `change` event is emitted alongside it.
+`v-model` receives a canonical, gamut-clamped `oklch(L C H)` string; a `change` event is emitted alongside it. `v-model` writes the new colour back for you, which the picker needs: it keeps no colour of its own, so binding `:value` and listening to `@change` without assigning would leave the sliders stuck.
 
 ## The family
 

@@ -102,3 +102,17 @@ test("the element upgrades from markup alone", () => {
   expect(host.querySelectorAll("input[type=range]").length).toBeGreaterThan(0);
   host.remove();
 });
+
+test("the element is not controlled: it holds its own colour", () => {
+  // The opposite of the adapters, and the reason the READMEs say so. No
+  // listener, nothing fed back, and the slider still moves.
+  const host = document.createElement("div");
+  host.innerHTML = '<oklch-picker value="oklch(0.7 0.15 255)"></oklch-picker>';
+  document.body.append(host);
+  const hue = () => host.querySelector('input[aria-label="Hue"]') as HTMLInputElement;
+  hue().value = "300";
+  hue().dispatchEvent(new Event("input", { bubbles: true }));
+  expect(hue().value).toBe("300");
+  expect(host.querySelector("oklch-picker")?.getAttribute("value")).toContain("300");
+  host.remove();
+});
