@@ -149,3 +149,25 @@ test("two pickers do not share a gradient id", async () => {
   expect(ids.length).toBeGreaterThan(1);
   expect(new Set(ids).size).toBe(ids.length);
 });
+
+// Regression: `BY_ID` is an object literal, so it inherits `Object.prototype`.
+// A plain lookup resolved `gamut="constructor"` to the `Object` constructor,
+// which has no `fromLms`, and the first `inGamut` call then threw. The fallback
+// exists so an unrecognised id renders in the wrong space rather than taking
+// the page down, and these names are exactly what it was missing.
+test("an inherited property name is not mistaken for a gamut", async () => {
+  const { SRGB } = await import("@oklch-picker/core");
+  const { P3 } = await import("@oklch-picker/core/gamuts");
+  const { gamutFrom, idOf: resolveId } = await import("../../packages/qwik/src/gamuts.js");
+
+  for (const name of ["constructor", "toString", "valueOf", "__proto__", "hasOwnProperty"]) {
+    const resolved = gamutFrom(name as never);
+    expect(resolved, `${name} did not fall back`).toBe(SRGB);
+    expect(typeof resolved.fromLms, `${name} resolved to something uncallable`).toBe("function");
+    expect(resolveId({ id: name } as never)).toBe("srgb");
+  }
+
+  // And the real ids still resolve.
+  expect(gamutFrom("p3").id).toBe("p3");
+  expect(resolveId(P3)).toBe("p3");
+});

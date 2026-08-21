@@ -30,9 +30,15 @@ const BY_ID: Record<GamutId, Gamut> = {
  *
  * Unrecognised rather than throwing: the id arrives from a prop that a
  * consumer's TypeScript already narrows, and a colour picker that renders in
- * the wrong space beats one that takes the page down. */
+ * the wrong space beats one that takes the page down.
+ *
+ * `Object.hasOwn` rather than a plain lookup, because `BY_ID` is an object
+ * literal and so inherits `Object.prototype`. `gamut="constructor"` used to
+ * resolve to the `Object` constructor, which has no `fromLms`, and the first
+ * call inside `inGamut` then threw and took the render down. That is the exact
+ * failure this fallback exists to prevent. */
 export function gamutFrom(id: GamutId | undefined): Gamut {
-  return (id && BY_ID[id]) || SRGB;
+  return id && Object.hasOwn(BY_ID, id) ? BY_ID[id] : SRGB;
 }
 
 export function gamutsFrom(ids: GamutId[] | undefined): Gamut[] | undefined {
@@ -41,5 +47,7 @@ export function gamutsFrom(ids: GamutId[] | undefined): Gamut[] | undefined {
 
 /** The id for a resolved gamut, for handing one back to the consumer. */
 export function idOf(gamut: Gamut): GamutId {
-  return (gamut.id as GamutId) in BY_ID ? (gamut.id as GamutId) : "srgb";
+  // Own keys only, for the same reason: `"toString" in BY_ID` is true, so an
+  // inherited name was handed back as though it were a space we know.
+  return Object.hasOwn(BY_ID, gamut.id) ? (gamut.id as GamutId) : "srgb";
 }
