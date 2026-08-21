@@ -9,7 +9,7 @@
   oklch-picker
 </h1>
 
-An OKLCH colour picker for React, Preact, Vue, Svelte, Solid, and for no framework at all. Zero runtime dependencies. The component is ~5.3 kB gzipped, and the colour maths alone is ~1.8 kB.
+An OKLCH colour picker for React, Preact, Vue, Svelte, Solid, Angular, Qwik, and for no framework at all. Zero runtime dependencies. The component is ~6.2 kB gzipped, and the colour maths alone is ~2.1 kB.
 
 **[Documentation and live demos](https://nord-forge.github.io/oklch-picker/)**, covering every layout and every part, with a playground that emits code you can copy.
 
@@ -187,7 +187,7 @@ export function Example() {
 </script>
 ```
 
-`styles.min.css` is the same stylesheet at 2.0 kB gzipped instead of 5.0 kB. Use it whenever nothing in front of it will minify. With a bundler, import plain `styles.css`. Your build minifies it anyway, and the readable file is where the `--okp-*` variables are documented.
+`styles.min.css` is the same stylesheet at 2.1 kB gzipped instead of 6.1 kB. Use it whenever nothing in front of it will minify. With a bundler, import plain `styles.css`. Your build minifies it anyway, and the readable file is where the `--okp-*` variables are documented.
 
 With a bundler, the import is `import "oklch-picker/register"` instead. Either way that one side-effect import defines the tag. That is the whole client-side cost, and nothing else needs wiring.
 
