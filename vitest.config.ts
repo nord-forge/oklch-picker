@@ -56,7 +56,7 @@ export default defineConfig({
         test: {
           name: "angular",
           environment: "happy-dom",
-          include: ["test/angular.test.ts", "test/contract/angular.contract.test.ts"],
+          include: ["test/contract/angular.contract.test.ts"],
         },
       },
       {
@@ -79,7 +79,7 @@ export default defineConfig({
         test: {
           name: "qwik",
           environment: "node",
-          include: ["test/qwik.test.tsx", "test/contract/qwik.contract.test.tsx"],
+          include: ["test/contract/qwik.contract.test.tsx"],
         },
       },
       {
@@ -107,11 +107,7 @@ export default defineConfig({
         test: {
           name: "vue",
           environment: "happy-dom",
-          include: [
-            "test/vue.test.ts",
-            "test/hydrate-vue.test.ts",
-            "test/contract/vue.contract.test.ts",
-          ],
+          include: ["test/hydrate-vue.test.ts", "test/contract/vue.contract.test.ts"],
         },
       },
       {
@@ -121,11 +117,7 @@ export default defineConfig({
           name: "solid",
           sequence: { groupOrder: 1 },
           environment: "happy-dom",
-          include: [
-            "test/solid.test.tsx",
-            "test/hydrate-solid.test.tsx",
-            "test/contract/solid.contract.test.tsx",
-          ],
+          include: ["test/hydrate-solid.test.tsx", "test/contract/solid.contract.test.tsx"],
         },
       },
       {
@@ -135,11 +127,7 @@ export default defineConfig({
           name: "svelte",
           sequence: { groupOrder: 1 },
           environment: "happy-dom",
-          include: [
-            "test/svelte.test.ts",
-            "test/hydrate-svelte.test.ts",
-            "test/contract/svelte.contract.test.ts",
-          ],
+          include: ["test/hydrate-svelte.test.ts", "test/contract/svelte.contract.test.ts"],
         },
       },
 

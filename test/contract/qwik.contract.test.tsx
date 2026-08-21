@@ -128,3 +128,24 @@ test("a gamut id crosses the serialisation boundary where the object cannot", as
   // Resolved from the id: a P3 picker outlines sRGB as a reference.
   expect(screen.querySelector(".oklch-picker__gamut-boundary--srgb")).toBeTruthy();
 });
+
+test("two pickers do not share a gradient id", async () => {
+  // Both in one render. Qwik's harness gives each `createDOM()` its own
+  // document, so mounting twice would compare ids that never share a
+  // namespace and prove nothing.
+  const Two = component$(() => (
+    <>
+      <ColourPicker value="oklch(0.7 0.15 255)" />
+      <ColourPicker value="oklch(0.5 0.1 30)" />
+    </>
+  ));
+  const { screen, render } = await createDOM();
+  await render(<Two />);
+  // By attribute, not element name: the harness's querySelectorAll does not
+  // match the camel-cased SVG tag.
+  const ids = [...screen.querySelectorAll("[id^=oklch-picker-gamut-]")].map((g: Element) =>
+    g.getAttribute("id"),
+  );
+  expect(ids.length).toBeGreaterThan(1);
+  expect(new Set(ids).size).toBe(ids.length);
+});

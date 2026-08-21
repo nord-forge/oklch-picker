@@ -101,3 +101,23 @@ test("it is standalone, so it needs no NgModule", () => {
   expect(fixture.nativeElement.querySelectorAll("input[type=range]")).toHaveLength(4);
   fixture.destroy();
 });
+
+test("two pickers do not share a gradient id", () => {
+  // SVG gradient ids share a document-wide namespace, so two pickers both
+  // emitting `oklch-picker-gamut-h` made the second chart fill from the
+  // first one's gradient.
+  const a = TestBed.createComponent(ColourPickerComponent);
+  a.componentRef.setInput("value", "oklch(0.7 0.15 255)");
+  a.detectChanges();
+  const b = TestBed.createComponent(ColourPickerComponent);
+  b.componentRef.setInput("value", "oklch(0.5 0.1 30)");
+  b.detectChanges();
+
+  const ids = [a, b].flatMap((f) =>
+    [...(f.nativeElement as HTMLElement).querySelectorAll("linearGradient")].map((g) => g.id),
+  );
+  expect(ids.length).toBeGreaterThan(1);
+  expect(new Set(ids).size).toBe(ids.length);
+  a.destroy();
+  b.destroy();
+});

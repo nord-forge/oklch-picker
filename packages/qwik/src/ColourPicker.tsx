@@ -347,6 +347,9 @@ export const ColourPicker = component$<ColourPickerProps>((props) => {
       </div>
 
       {m.withGamutSwitch && (
+        /* biome-ignore lint/a11y/useSemanticElements: a <fieldset> is for form
+           controls and brings a legend and its own box; this is a toolbar of
+           buttons, which is what role="group" describes. */
         <div class={`${prefix}__gamut-switch`} role="group" aria-label="Output gamut">
           {m.gamutChoices.map((g) => {
             // The id and label as plain strings before the handler exists. A

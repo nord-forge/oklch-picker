@@ -70,3 +70,17 @@ test("only `value` is bindable; the rest are callbacks", async () => {
   expect(seen.at(-1)).toMatch(/^oklch\(/);
   cleanup();
 });
+
+// Regression: every chart built its id from the class prefix and the axis, so
+// two pickers on a page both emitted `oklch-picker-gamut-h` and the second
+// chart filled from the first one's gradient. Svelte's `$props.id()` counts
+// per module rather than per root, so even separate renders stay distinct.
+test("two pickers do not collide", () => {
+  const a = render(ColourPicker, { props: { value: "oklch(0.7 0.15 255)" } });
+  const b = render(ColourPicker, { props: { value: "oklch(0.5 0.1 30)" } });
+  const ids = [a, b].flatMap((r) =>
+    Array.from(r.container.querySelectorAll("linearGradient")).map((g) => g.id),
+  );
+  expect(ids.length).toBeGreaterThan(1);
+  expect(new Set(ids).size).toBe(ids.length);
+});

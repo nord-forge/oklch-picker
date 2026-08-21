@@ -313,7 +313,7 @@ picker.addEventListener("gamutchange", (event) => {
       solid: "<ColourPicker value={colour()} onChange={setColour} parts={{ alpha: false }} />",
       angular:
         '<oklch-colour-picker [value]="colour()" [parts]="{ alpha: false }" (valueChange)="colour.set($event)" />',
-      qwik: `<ColourPicker value={colour.value} parts={{ alpha: false }} onChange$={(c) => (colour.value = c)} />`,
+      qwik: "<ColourPicker value={colour.value} parts={{ alpha: false }} onChange$={(c) => (colour.value = c)} />",
       vanilla: `<oklch-picker
   value="oklch(0.7 0.15 255 / 0.4)"
   parts='{"alpha": false}'
