@@ -27,9 +27,9 @@
     "packages/solid",
     "packages/angular",
     "packages/qwik",
-    "test/*solid*.test.tsx",
-    "test/*qwik*.test.tsx",
-    "test/angular.test.ts",
+    "test/**/*solid*.test.tsx",
+    "test/**/*qwik*.test.tsx",
+    "test/**/*angular*.test.ts",
     "**/dist"
   ]
 }

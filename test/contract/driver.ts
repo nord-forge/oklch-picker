@@ -36,7 +36,12 @@ export interface PickerProps {
 
 /** One mounted picker, and the handles the contract needs on it. */
 export interface Mounted {
-  /** The element the picker rendered into. */
+  /** A container *around* the picker, not the picker's own root element.
+   *
+   * The contract queries it for the root's own classes (`.oklch-picker`,
+   * `--compact`, a custom prefix), so a driver that hands back the picker
+   * element itself makes those three tests fail on a technicality rather than
+   * on behaviour. Wrap it if the framework's test utility returns the element. */
   readonly root: HTMLElement;
   /** Every colour passed to the change callback, in order. */
   readonly emitted: readonly string[];

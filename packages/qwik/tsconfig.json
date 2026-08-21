@@ -9,6 +9,7 @@
     "src/**/*.tsx",
     "src/**/*.ts",
     "../../test/qwik.test.tsx",
-    "../../test/ssr-qwik.test.tsx"
+    "../../test/ssr-qwik.test.tsx",
+    "../../test/contract/qwik.contract.test.tsx"
   ]
 }

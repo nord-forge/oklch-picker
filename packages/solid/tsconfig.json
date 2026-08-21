@@ -11,6 +11,7 @@
     "../../test/solid.test.tsx",
     "../../test/ssr-solid.test.tsx",
     "../../test/ssr-solid-fixture.test.tsx",
-    "../../test/hydrate-solid.test.tsx"
+    "../../test/hydrate-solid.test.tsx",
+    "../../test/contract/solid.contract.test.tsx"
   ]
 }

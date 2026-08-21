@@ -40,6 +40,18 @@ export function adapterContract(driver: Driver): void {
       m.root.querySelector<HTMLInputElement>(`input[aria-label="${label}"]`);
     const last = (m: Mounted) => m.emitted.at(-1) ?? "";
 
+    /** Present and visible, rather than merely present.
+     *
+     * The framework adapters render a part or do not. `vanilla` has no virtual
+     * DOM, so it builds every node once and toggles `hidden` instead, because
+     * rebuilding the tree on each input would drop focus from a slider
+     * mid-drag. Both are the same thing to a user, and the contract describes
+     * what a user sees. */
+    const shows = (m: Mounted, selector: string): boolean => {
+      const el = m.root.querySelector<HTMLElement>(selector);
+      return el !== null && !el.hidden;
+    };
+
     // ---- structure -------------------------------------------------------
 
     it("renders one slider per OKLCH axis", (m) => {
@@ -144,7 +156,8 @@ export function adapterContract(driver: Driver): void {
     );
 
     it("renders nothing until a colour is committed", (m) => {
-      expect(m.root.querySelector(".oklch-picker__recents")).toBeNull();
+      expect(shows(m, ".oklch-picker__recents")).toBe(false);
+      expect(m.root.querySelectorAll(".oklch-picker__recent")).toHaveLength(0);
     });
 
     it(
@@ -170,7 +183,7 @@ export function adapterContract(driver: Driver): void {
     it(
       "parts.recents turns the row off",
       (m) => {
-        expect(m.root.querySelector(".oklch-picker__recents")).toBeNull();
+        expect(shows(m, ".oklch-picker__recents")).toBe(false);
       },
       { recents: ["oklch(0.6 0.1 200)"], parts: { recents: false } },
     );
@@ -230,7 +243,7 @@ export function adapterContract(driver: Driver): void {
       async (m) => {
         // Unremarked matters as much as unclipped: a colour inside the output
         // space must not be flagged as out of it.
-        expect(m.root.querySelector(".oklch-picker__notice")).toBeNull();
+        expect(shows(m, ".oklch-picker__notice")).toBe(false);
         await m.set(byLabel(m, "Lightness") as HTMLInputElement, "0.75");
         const parsed = parseOklch(last(m));
         expect(parsed).not.toBeNull();
@@ -364,7 +377,7 @@ export function adapterContract(driver: Driver): void {
       "the out-of-gamut notice can be turned off",
       async (m) => {
         await m.set(byLabel(m, "Chroma") as HTMLInputElement, "0.4");
-        expect(m.root.querySelector(".oklch-picker__notice")).toBeNull();
+        expect(shows(m, ".oklch-picker__notice")).toBe(false);
       },
       { parts: { notice: false } },
     );
@@ -372,7 +385,9 @@ export function adapterContract(driver: Driver): void {
     it(
       "a per-gamut label words the notice for the output space",
       (m) => {
-        expect(m.root.querySelector(".oklch-picker__notice")?.textContent).toBe("custom");
+        // Trimmed: some template languages pad an interpolation with
+        // whitespace, which is formatting rather than behaviour.
+        expect(m.root.querySelector(".oklch-picker__notice")?.textContent?.trim()).toBe("custom");
       },
       { value: "oklch(0.8 0.35 145)", gamut: P3, labels: { "outOf:p3": "custom" } },
     );

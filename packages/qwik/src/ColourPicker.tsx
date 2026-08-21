@@ -90,6 +90,18 @@ export const ColourPicker = component$<ColourPickerProps>((props) => {
    *
    * Ids rather than the gamuts themselves, for the same serialisation reason
    * as the props. */
+  /** The references the model derived, as ids. sRGB is outlined whenever the
+   * output space is wider, so passing the raw prop through drew nothing. */
+  const referenceIds = useComputed$(() =>
+    pickerModel(current.value, {
+      layout: props.layout,
+      parts: props.parts,
+      gamut: gamutFrom(props.gamut),
+      references: gamutsFrom(props.references),
+      gamutChoices: gamutsFrom(props.gamutChoices),
+    }).references.map(idOf),
+  );
+
   const scaleIds = useComputed$(() =>
     pickerModel(current.value, {
       layout: props.layout,
@@ -206,7 +218,7 @@ export const ColourPicker = component$<ColourPickerProps>((props) => {
           id={`${uid}-${single.axis}`}
           x={single.x}
           y={single.y}
-          references={props.references}
+          references={referenceIds.value}
           gamut={props.gamut}
           scaleGamuts={scaleIds.value}
           classPrefix={prefix}
@@ -256,7 +268,7 @@ export const ColourPicker = component$<ColourPickerProps>((props) => {
                   id={`${uid}-${a.key}`}
                   x={chart.x}
                   y={chart.y}
-                  references={props.references}
+                  references={referenceIds.value}
                   gamut={props.gamut}
                   scaleGamuts={scaleIds.value}
                   classPrefix={prefix}
@@ -336,18 +348,26 @@ export const ColourPicker = component$<ColourPickerProps>((props) => {
 
       {m.withGamutSwitch && (
         <div class={`${prefix}__gamut-switch`} role="group" aria-label="Output gamut">
-          {m.gamutChoices.map((g) => (
-            <button
-              key={g.id}
-              type="button"
-              class={`${prefix}__gamut-choice`}
-              aria-pressed={g.id === m.gamut.id}
-              aria-label={`Output in ${g.label}`}
-              onClick$={() => props.onGamutChange$?.(idOf(g))}
-            >
-              {g.label}
-            </button>
-          ))}
+          {m.gamutChoices.map((g) => {
+            // The id and label as plain strings before the handler exists. A
+            // QRL serialises whatever it closes over, and `g` carries
+            // `fromLms`, so capturing it drops this whole subtree silently:
+            // the model says to render a switcher and no buttons appear.
+            const id = idOf(g);
+            const label = g.label;
+            return (
+              <button
+                key={id}
+                type="button"
+                class={`${prefix}__gamut-choice`}
+                aria-pressed={id === m.gamut.id}
+                aria-label={`Output in ${label}`}
+                onClick$={() => props.onGamutChange$?.(id)}
+              >
+                {label}
+              </button>
+            );
+          })}
         </div>
       )}
 
