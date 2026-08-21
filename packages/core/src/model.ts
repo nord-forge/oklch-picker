@@ -81,12 +81,18 @@ export const DEFAULT_PARTS: Required<PickerParts> = {
 /** Label keys: the three axes, plus one notice per gamut the colour can land
  * outside of. `outOfGamut` is the fallback used when no wider gamut is
  * configured, or when the colour is outside all of them. */
-export type LabelKey = Axis | "outOfGamut" | `outOf:${string}`;
+export type LabelKey = Axis | "outOfGamut" | "recents" | `outOf:${string}`;
 
-export const DEFAULT_LABELS: Record<Axis | "outOfGamut", string> = {
+export const DEFAULT_LABELS: Record<Axis | "outOfGamut" | "recents", string> = {
   l: "Lightness",
   c: "Chroma",
   h: "Hue",
+  // The recents row. It was unlabelled, so a second grid of colour appeared
+  // under the presets with nothing saying it was history rather than more of
+  // the offer. Presets need no label: they are the only swatches on screen
+  // until something has been committed, and the recents label is what tells
+  // the two apart once both are there.
+  recents: "Recently used",
   // Names sRGB rather than "what a screen can display": the picker can target
   // P3, which is also a screen, so the generic phrasing was only true while
   // sRGB was the only option.
@@ -531,7 +537,15 @@ export function pickerModel(current: Oklch, options: PickerOptions = {}): Picker
   // Rec. 2020 puts all three on screen, so on Rec. 2020 the P3 line belongs
   // too, and the scale must not move as the reader switches or the chart
   // renormalises under them and a narrower space can look taller.
-  const inView = options.references ?? options.gamutChoices ?? (gamut === SRGB ? [] : [SRGB]);
+  //
+  // The default is sRGB plus whatever the output space names for itself. That
+  // last part matters on Rec. 2020, where P3 sits between the two: without it
+  // the picker drew the sRGB line, left the P3 boundary unmarked, and the gap
+  // between them read as one undifferentiated region.
+  const inView =
+    options.references ??
+    options.gamutChoices ??
+    (gamut === SRGB ? [] : [SRGB, ...(gamut.references ?? [])]);
   const offeredReferences = inView;
   // `gamutLines` removes the drawn lines only. The spaces stay in view for the
   // scale, so turning the lines off does not resize the chart under the reader.

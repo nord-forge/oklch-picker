@@ -12,6 +12,7 @@ import {
   CHART_H,
   CHART_W,
   type ChartSlot,
+  DEFAULT_LABELS,
   DEFAULT_LAYOUT,
   type Gamut,
   type LabelKey,
@@ -1069,7 +1070,11 @@ export class OklchPickerElement extends ElementBase {
         button.addEventListener("click", () => this.#pick(colour));
         return { button, colour };
       });
-      row.replaceChildren(...this.#recentButtons.map((b) => b.button));
+      // The label is cut with the buttons rather than built once, because
+      // `replaceChildren` would drop it otherwise.
+      const label = el("p", `${p}__swatch-label`);
+      label.textContent = this.#labels?.recents ?? DEFAULT_LABELS.recents;
+      row.replaceChildren(label, ...this.#recentButtons.map((b) => b.button));
     }
     // Empty is not "no row" but "a row with nothing in it"; hide it so the
     // layout gap goes with it.

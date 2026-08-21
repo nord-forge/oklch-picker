@@ -166,6 +166,7 @@ export function ColourPicker(props: ColourPickerProps) {
 
       {show.recents && recents.length > 0 && (
         <div className={`${prefix}__recents`}>
+          <p className={`${prefix}__swatch-label`}>{labels.recents}</p>
           {recents.map((r) => (
             <button
               key={r}

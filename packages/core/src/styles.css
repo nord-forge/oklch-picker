@@ -79,6 +79,7 @@
 .oklch-picker__presets {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 8px;
   order: 1;
 }
@@ -111,6 +112,7 @@
 .oklch-picker__recents {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 6px;
   /* After the presets, which are after the sliders. Recents are history, so
      they sit furthest from the control. */
@@ -130,6 +132,21 @@
 .oklch-picker__recent:focus-visible {
   outline: 2px solid var(--okp-focus);
   outline-offset: 2px;
+}
+
+/* Names the row it heads. Two grids of colour with nothing between them left
+   the offered palette and the history looking like one set; a line of text is
+   cheaper than teaching the difference by position alone.
+
+   `flex-basis: 100%` rather than a wrapper element: both rows are flex
+   containers whose order is set in CSS, and a wrapper would mean the same
+   markup change in seven adapters. This makes the label take a line of its own
+   and the swatches wrap below it. */
+.oklch-picker__swatch-label {
+  flex: 0 0 100%;
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--okp-text-muted);
 }
 
 /* ---- Axis block ---- */

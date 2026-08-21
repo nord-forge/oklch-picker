@@ -353,6 +353,7 @@ export function ColourPicker(props: ColourPickerProps) {
 
       <Show when={model().parts.recents && recents().length > 0}>
         <div class={`${prefix()}__recents`}>
+          <p class={`${prefix()}__swatch-label`}>{model().labels.recents}</p>
           <For each={recents()}>
             {(colour) => {
               const selected = () => colour === model().canonical;

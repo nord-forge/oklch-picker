@@ -127,6 +127,17 @@ export interface Gamut {
   maxChroma: number;
   /** Chart scale: the space's own reachable peak, rounded up. */
   chartMaxChroma: number;
+  /** Narrower spaces worth outlining when this one is the output, beyond sRGB.
+   *
+   * A space knows what sits inside it; `model.ts` cannot, because importing P3
+   * to say so would pull its matrices into every bundle and break the promise
+   * that an app which never mentions a wide gamut never ships one. Rec. 2020
+   * names P3 here, so a Rec. 2020 picker draws both lines without the caller
+   * having to list them.
+   *
+   * sRGB is implicit and never needs listing: it earns a line whenever it is
+   * not itself the output. */
+  references?: Gamut[];
 }
 
 function lmsToLinearSrgb([l_, m_, s_]: [number, number, number]): [number, number, number] {

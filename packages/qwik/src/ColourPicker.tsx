@@ -193,6 +193,7 @@ export const ColourPicker = component$<ColourPickerProps>((props) => {
 
       {m.parts.recents && recents.value.length > 0 && (
         <div class={`${prefix}__recents`}>
+          <p class={`${prefix}__swatch-label`}>{m.labels.recents}</p>
           {recents.value.map((r) => (
             <button
               key={r}

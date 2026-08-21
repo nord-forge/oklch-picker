@@ -1075,3 +1075,29 @@ describe("alpha stays out of the chart", () => {
     for (const s of stops) expect(s.hex, s.hex).toMatch(/^#[0-9a-f]{6}$/);
   });
 });
+
+// Regression: the default reference list was `gamut === SRGB ? [] : [SRGB]`,
+// so a Rec. 2020 picker drew the sRGB line and left P3 unmarked, and the gap
+// between the two read as one undifferentiated region. A gamut names the
+// narrower spaces worth outlining, because `model.ts` cannot import P3 to say
+// so without shipping its matrices to every app.
+describe("a wider gamut outlines the spaces inside it", () => {
+  test("Rec. 2020 draws both sRGB and P3 without being asked", () => {
+    const m = pickerModel({ l: 0.7, c: 0.15, h: 0 }, { gamut: REC2020 });
+    expect(m.references.map((g) => g.id)).toEqual(["srgb", "p3"]);
+  });
+
+  test("P3 draws sRGB alone, since nothing else sits inside it", () => {
+    const m = pickerModel({ l: 0.7, c: 0.15, h: 0 }, { gamut: P3 });
+    expect(m.references.map((g) => g.id)).toEqual(["srgb"]);
+  });
+
+  test("sRGB draws nothing: a line on its own boundary says nothing", () => {
+    expect(pickerModel({ l: 0.7, c: 0.15, h: 0 }, { gamut: SRGB }).references).toEqual([]);
+  });
+
+  test("an explicit list still wins over the gamut's own", () => {
+    const m = pickerModel({ l: 0.7, c: 0.15, h: 0 }, { gamut: REC2020, references: [SRGB] });
+    expect(m.references.map((g) => g.id)).toEqual(["srgb"]);
+  });
+});

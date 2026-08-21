@@ -73,6 +73,7 @@ function nextUid(scope: object, appId: string): string {
       </div>
 
       <div [attr.class]="prefix() + '__recents'" *ngIf="model().parts.recents && recents().length">
+        <p [attr.class]="prefix() + '__swatch-label'">{{ model().labels.recents }}</p>
         <button
           *ngFor="let r of recents(); trackBy: trackColour"
           type="button"

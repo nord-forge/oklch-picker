@@ -59,6 +59,21 @@ export function adapterContract(driver: Driver): void {
 
     // ---- structure -------------------------------------------------------
 
+    // Two grids of colour with nothing between them left the offered palette
+    // and the history looking like one set. The label is what tells them apart,
+    // and it comes from `labels` so it can be translated with the rest.
+    it(
+      "the recents row says what it is",
+      (m) => {
+        const row = m.root.querySelector(".oklch-picker__recents");
+        expect(row, "no recents row").not.toBeNull();
+        const label = row?.querySelector(".oklch-picker__swatch-label");
+        expect(label, "recents row carries no label").not.toBeNull();
+        expect(label?.textContent).toBe("Recently used");
+      },
+      { recents: ["oklch(0.7 0.15 39)", "oklch(0.75 0.16 145)"] },
+    );
+
     it("renders one slider per OKLCH axis", (m) => {
       for (const label of ["Lightness", "Chroma", "Hue"]) {
         expect(byLabel(m, label), `no ${label} slider`).not.toBeNull();

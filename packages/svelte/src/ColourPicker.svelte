@@ -178,6 +178,7 @@ function slideAlpha(event: Event & { currentTarget: HTMLInputElement }) {
 
   {#if model.parts.recents && recents.length > 0}
     <div class="{classPrefix}__recents">
+      <p class="{classPrefix}__swatch-label">{model.labels.recents}</p>
       {#each recents as recent (recent)}
         {@const selected = recent === model.canonical}
         <button

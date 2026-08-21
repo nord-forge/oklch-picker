@@ -330,10 +330,9 @@ export const ColourPicker = defineComponent({
 
       if (m.parts.recents && recents.value.length > 0) {
         children.push(
-          h(
-            "div",
-            { class: `${p}__recents` },
-            recents.value.map((colour) => {
+          h("div", { class: `${p}__recents` }, [
+            h("p", { class: `${p}__swatch-label` }, [m.labels.recents]),
+            ...recents.value.map((colour) => {
               const selected = colour === m.canonical;
               return h("button", {
                 key: colour,
@@ -345,7 +344,7 @@ export const ColourPicker = defineComponent({
                 onClick: () => pick(colour),
               });
             }),
-          ),
+          ]),
         );
       }
 
