@@ -55,6 +55,9 @@ export interface Mounted {
   drag(el: Element, x: number, y: number): Promise<void> | void;
   /** Release focus, which is what commits a text field. */
   blur(el: Element): Promise<void> | void;
+  /** End a pointer gesture on a slider. The release is the commit, not each
+   * value the drag passed through, so recents depend on this firing. */
+  release(el: Element): Promise<void> | void;
 }
 
 export interface Driver {

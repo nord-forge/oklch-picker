@@ -148,10 +148,13 @@ export function adapterContract(driver: Driver): void {
     });
 
     it(
-      "a preset click records a recent colour",
+      "a preset click is committed, and reported to the recents callback",
       async (m) => {
         await m.click(m.root.querySelector(".oklch-picker__preset") as Element);
         expect(m.root.querySelectorAll(".oklch-picker__recent").length).toBeGreaterThan(0);
+        // The payload, not just that something happened: a commit carries the
+        // whole list, most recent first.
+        expect(m.recents.at(-1)).toEqual([PRESETS[0]]);
       },
       { presets: PRESETS },
     );
@@ -199,8 +202,11 @@ export function adapterContract(driver: Driver): void {
       { parts: { alpha: false } },
     );
 
-    it("the hex field is opt-in, and oklch shows by default", (m) => {
-      expect(m.root.querySelector(".oklch-picker__field--oklch")).not.toBeNull();
+    it("the oklch field leads, shows the value, and hex is off by default", (m) => {
+      const oklch = m.root.querySelector<HTMLInputElement>(".oklch-picker__field--oklch");
+      expect(oklch).not.toBeNull();
+      expect(oklch?.value).toBe("oklch(0.7 0.15 255)");
+      // Hex was the default field in 1.0. It is opt-in now.
       expect(m.root.querySelector(".oklch-picker__field--hex")).toBeNull();
     });
 
@@ -220,8 +226,11 @@ export function adapterContract(driver: Driver): void {
     });
 
     it(
-      "a P3 output keeps a P3 colour whole",
+      "a P3 output keeps a P3 colour whole, unclipped and unremarked",
       async (m) => {
+        // Unremarked matters as much as unclipped: a colour inside the output
+        // space must not be flagged as out of it.
+        expect(m.root.querySelector(".oklch-picker__notice")).toBeNull();
         await m.set(byLabel(m, "Lightness") as HTMLInputElement, "0.75");
         const parsed = parseOklch(last(m));
         expect(parsed).not.toBeNull();
@@ -270,7 +279,116 @@ export function adapterContract(driver: Driver): void {
       { gamutChoices: [SRGB], parts: { gamutSwitch: true } },
     );
 
+    // ---- gestures --------------------------------------------------------
+
+    it("a drag records once, not once per value", async (m) => {
+      const hue = byLabel(m, "Hue") as HTMLInputElement;
+      for (const v of ["100", "150", "200", "250", "300"]) await m.set(hue, v);
+      // Nothing yet: the gesture is still running, and recording here would
+      // bury the list in near-identical colours from one drag.
+      expect(m.recents).toHaveLength(0);
+      await m.release(hue);
+      expect(m.recents).toHaveLength(1);
+      expect(m.recents[0]).toHaveLength(1);
+    });
+
+    it(
+      "the stacked strips are read-only; only the chart layout's plot drags",
+      (m) => {
+        const charts = m.root.querySelectorAll(".oklch-picker__chart");
+        expect(charts).toHaveLength(3);
+        // A 34px strip gives a drag almost no vertical travel, and it would set
+        // two axes at once right above the slider that sets one precisely.
+        for (const c of charts) {
+          expect(c.classList.contains("oklch-picker__chart--interactive")).toBe(false);
+        }
+      },
+      { layout: "stacked" },
+    );
+
+    it(
+      "side-by-side shows the same single interactive plot",
+      (m) => {
+        const charts = m.root.querySelectorAll(".oklch-picker__chart");
+        expect(charts).toHaveLength(1);
+        expect(charts[0]?.classList.contains("oklch-picker__chart--interactive")).toBe(true);
+      },
+      { layout: "side-by-side" },
+    );
+
+    // ---- the chart -------------------------------------------------------
+
+    it("dragging the chart emits a clamped colour", async (m) => {
+      const chart = m.root.querySelector(".oklch-picker__chart");
+      expect(chart).not.toBeNull();
+      // Mid-plot: half the lightness range, and whatever chroma that allows.
+      await m.drag(chart as Element, 0.5, 0.5);
+      expect(m.emitted.length).toBeGreaterThan(0);
+      expect(last(m)).toMatch(/^oklch\(/);
+    });
+
+    it("a chart drag keeps the hue the slider was already moved to", async (m) => {
+      await m.set(byLabel(m, "Hue") as HTMLInputElement, "300");
+      await m.drag(m.root.querySelector(".oklch-picker__chart") as Element, 0.5, 0.5);
+      // The chart sweeps lightness and chroma, so the hue it was given has to
+      // survive the drag rather than being reset by it.
+      expect(parseOklch(last(m))?.h).toBeCloseTo(300, 0);
+    });
+
+    // ---- alpha -----------------------------------------------------------
+
+    it("the alpha slider emits the transparent form, and drops it at opaque", async (m) => {
+      const alpha = byLabel(m, "Alpha") as HTMLInputElement;
+      expect(alpha).not.toBeNull();
+      await m.set(alpha, "0.5");
+      expect(last(m)).toBe("oklch(0.7 0.15 255 / 0.5)");
+      // Back to opaque emits the short form, not `/ 1`. One shape for opaque.
+      await m.set(alpha, "1");
+      expect(last(m)).toBe("oklch(0.7 0.15 255)");
+    });
+
+    it(
+      "an incoming alpha survives into the field and the slider",
+      (m) => {
+        const alpha = byLabel(m, "Alpha") as HTMLInputElement;
+        expect(alpha?.value).toBe("0.4");
+        const field = m.root.querySelector<HTMLInputElement>(".oklch-picker__field--oklch");
+        expect(field?.value).toContain("/ 0.4");
+      },
+      { value: "oklch(0.7 0.15 255 / 0.4)" },
+    );
+
+    // ---- notice ----------------------------------------------------------
+
+    it(
+      "the out-of-gamut notice can be turned off",
+      async (m) => {
+        await m.set(byLabel(m, "Chroma") as HTMLInputElement, "0.4");
+        expect(m.root.querySelector(".oklch-picker__notice")).toBeNull();
+      },
+      { parts: { notice: false } },
+    );
+
+    it(
+      "a per-gamut label words the notice for the output space",
+      (m) => {
+        expect(m.root.querySelector(".oklch-picker__notice")?.textContent).toBe("custom");
+      },
+      { value: "oklch(0.8 0.35 145)", gamut: P3, labels: { "outOf:p3": "custom" } },
+    );
+
     // ---- text fields -----------------------------------------------------
+
+    it(
+      "each format renders when asked for",
+      (m) => {
+        const rgb = m.root.querySelector<HTMLInputElement>(".oklch-picker__field--rgb");
+        const hex = m.root.querySelector<HTMLInputElement>(".oklch-picker__field--hex");
+        expect(rgb?.value).toMatch(/^rgb\(/);
+        expect(hex?.value).toMatch(/^#/);
+      },
+      { parts: { rgbInput: true, hexInput: true } },
+    );
 
     it("a field accepts any supported format, whichever it shows", async (m) => {
       const field = m.root.querySelector<HTMLInputElement>(".oklch-picker__field--oklch");

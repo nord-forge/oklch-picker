@@ -46,16 +46,22 @@ adapterContract({
         fireEvent.click(el);
       },
       drag: (el, x, y) => {
-        const r = el.getBoundingClientRect();
-        fireEvent.pointerDown(el, {
-          pointerId: 1,
-          clientX: r.left + x * r.width,
-          clientY: r.bottom - y * r.height,
-        });
+        // happy-dom lays nothing out, so the chart has no size and a pick
+        // would divide by zero. Stub the box the adapter measures, and the
+        // pointer capture it takes to keep a drag alive off-element.
+        const svg = el as SVGSVGElement;
+        svg.getBoundingClientRect = () =>
+          ({ left: 0, top: 0, right: 200, bottom: 100, width: 200, height: 100 }) as DOMRect;
+        svg.setPointerCapture = () => {};
+        svg.hasPointerCapture = () => true;
+        fireEvent.pointerDown(el, { pointerId: 1, clientX: x * 200, clientY: 100 - y * 100 });
         fireEvent.pointerUp(el, { pointerId: 1 });
       },
       blur: (el) => {
         fireEvent.blur(el);
+      },
+      release: (el) => {
+        fireEvent.pointerUp(el);
       },
     };
   },

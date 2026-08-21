@@ -32,7 +32,7 @@ export default defineConfig({
           name: "react",
           environment: "happy-dom",
           include: [
-            "test/{ColourPicker,GamutChart}.test.tsx",
+            "test/GamutChart.test.tsx",
             "test/colour.test.ts",
             "test/hydrate-react.test.tsx",
             "test/contract/react.contract.test.tsx",
