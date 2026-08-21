@@ -112,6 +112,7 @@ let instances = 0;
               [attr.step]="a.step"
               [value]="a.value"
               [attr.aria-label]="model().labels[a.key]"
+              [attr.aria-valuetext]="a.valuetext"
               (input)="slide(a.key, $event)"
               (pointerup)="commitCurrent()"
               (blur)="commitCurrent()"
@@ -148,6 +149,7 @@ let instances = 0;
               [attr.step]="model().alpha.step"
               [value]="model().alpha.value"
               aria-label="Alpha"
+              [attr.aria-valuetext]="model().alpha.valuetext"
               (input)="slideAlpha($event)"
               (pointerup)="commitCurrent()"
               (blur)="commitCurrent()"
@@ -217,9 +219,12 @@ let instances = 0;
         <span *ngIf="model().parts.name" [attr.class]="prefix() + '__name'">{{ model().name }}</span>
       </div>
 
-      <p [attr.class]="prefix() + '__notice'" *ngIf="model().parts.notice && model().clipped">
-        {{ model().notice }}
-      </p>
+      <!-- Always rendered, empty until something is clipped: a live region only
+           announces if it was in the DOM before the text arrived. -->
+      <!-- On one line, and the interpolation flush against the tags: Angular
+           keeps the whitespace around it as part of the text node, so a broken
+           up tag leaves an "empty" notice holding spaces. -->
+      <p [attr.class]="prefix() + '__notice'" role="status" *ngIf="model().parts.notice">{{ model().clipped ? model().notice : "" }}</p>
     </div>
   `,
 })

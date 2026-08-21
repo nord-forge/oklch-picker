@@ -459,6 +459,7 @@ export function ColourPicker(props: ColourPickerProps) {
                     step={a().step}
                     value={a().value}
                     aria-label={model().labels[a().key]}
+                    aria-valuetext={a().valuetext}
                     onInput={(e) =>
                       dial({ ...model().current, [a().key]: Number(e.currentTarget.value) })
                     }
@@ -503,6 +504,7 @@ export function ColourPicker(props: ColourPickerProps) {
                 step={model().alpha.step}
                 value={model().alpha.value}
                 aria-label="Alpha"
+                aria-valuetext={model().alpha.valuetext}
                 onInput={(e) => {
                   const a = Number(e.currentTarget.value);
                   // Opaque drops the key rather than storing `a: 1`, so one
@@ -598,8 +600,16 @@ export function ColourPicker(props: ColourPickerProps) {
         </div>
       </Show>
 
-      <Show when={model().parts.notice && model().clipped}>
-        <p class={`${prefix()}__notice`}>{model().notice}</p>
+      {/* Always rendered, empty until something is clipped: a live region only
+          announces if it was in the DOM before the text arrived. */}
+      <Show when={model().parts.notice}>
+        {/* biome-ignore lint/a11y/useSemanticElements: <output> is a form control's
+           calculated result, and this file already uses it for the axis
+           readouts. This is an advisory about the colour, so role="status" on a
+           paragraph is the honest mapping. */}
+        <p class={`${prefix()}__notice`} role="status">
+          {model().clipped ? model().notice : ""}
+        </p>
       </Show>
     </div>
   );

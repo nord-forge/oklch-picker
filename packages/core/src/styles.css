@@ -32,7 +32,15 @@
   color-scheme: light dark;
   --okp-text: light-dark(#1a1a1a, #f2f1ef);
   --okp-text-muted: light-dark(#6b6b6b, #a0a0a0);
+  /* Decorative rules and fills: the chart's ground, the track's inset hairline.
+     Nothing here identifies a control, so it is free to stay soft. */
   --okp-line: light-dark(#d8d8d8, #3a3a3d);
+  /* The boundary of anything a user is meant to recognise as a control: the
+     value fields, the preview swatch, the gamut switch. WCAG 1.4.11 wants 3:1
+     against the surface for those, and `--okp-line` gives 1.43:1 light and
+     1.62:1 dark, so a text input read as a patch of background. These are
+     3.03:1 and 3.06:1. */
+  --okp-border: light-dark(#949494, #6a6a6e);
   --okp-surface: light-dark(#ffffff, #141416);
   --okp-warn: light-dark(#9a6b00, #e0b050);
   --okp-focus: light-dark(#2f6fd0, #7fb0ff);
@@ -95,7 +103,11 @@
 /* ---- Recents ---- */
 /* Its own row rather than appended to the presets: a curated palette and the
    colours someone happened to use are different things, and merging them makes
-   neither readable. Slightly smaller, because it is history, not the offer. */
+   neither readable.
+   These were 18px, to read as history rather than as the offer. That put the
+   target at 324px^2 against the 576px^2 WCAG 2.5.8 asks for, and the spacing
+   exception only saved it by exactly 0px of margin. Order and position carry
+   the hierarchy instead. */
 .oklch-picker__recents {
   display: flex;
   flex-wrap: wrap;
@@ -105,8 +117,8 @@
   order: 2;
 }
 .oklch-picker__recent {
-  width: 18px;
-  height: 18px;
+  width: 24px;
+  height: 24px;
   border-radius: 4px;
   border: 2px solid transparent;
   padding: 0;
@@ -283,22 +295,32 @@
   );
   pointer-events: none;
 }
+/* The input is taller than the track it sits on, and overflows it equally at
+   both ends. WCAG 2.5.8 wants a 24px target; the track is 12px and the thumb
+   16px, so pointing at it meant hitting a 12px band. Growing the input rather
+   than `--okp-thumb-size` keeps the fix invisible: the thumb and track still
+   render at their old sizes, and `--okp-inset` is derived from the thumb, so
+   the chart, crosshair and hatching stay where they are. */
 .oklch-picker__slider {
+  --okp-slider-target: 24px;
   position: relative;
   appearance: none;
   -webkit-appearance: none;
   display: block;
   width: 100%;
-  height: 100%;
-  margin: 0;
+  height: var(--okp-slider-target);
+  margin: calc((var(--okp-track-height) - var(--okp-slider-target)) / 2) 0;
   background: none;
   border: none;
   cursor: pointer;
 }
+/* The runnable track keeps the visible height, not the input's taller target
+   box, or the transparent track would centre the thumb against 24px and shift
+   it off the painted bar. */
 .oklch-picker__slider::-webkit-slider-runnable-track,
 .oklch-picker__slider::-moz-range-track {
   background: none;
-  height: 100%;
+  height: var(--okp-track-height);
 }
 .oklch-picker__slider::-webkit-slider-thumb {
   appearance: none;
@@ -327,7 +349,7 @@
   --okp-segment-selected: light-dark(#ededed, #2a2a2e);
   display: flex;
   align-self: start;
-  border: 1px solid var(--okp-line);
+  border: 1px solid var(--okp-border);
   border-radius: var(--okp-radius);
   background: var(--okp-surface);
   overflow: hidden;
@@ -338,7 +360,7 @@
   border: none;
   /* A divider between segments rather than a border on each, so neighbours do
      not stack two lines where they meet. */
-  border-left: 1px solid var(--okp-line);
+  border-left: 1px solid var(--okp-border);
   background: none;
   color: var(--okp-text-muted);
   font-family: inherit;
@@ -376,7 +398,7 @@
   height: 26px;
   padding: 0 8px;
   border-radius: var(--okp-radius);
-  border: 1px solid var(--okp-line);
+  border: 1px solid var(--okp-border);
   background: var(--okp-surface);
   color: var(--okp-text);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -403,7 +425,7 @@
   width: 26px;
   height: 26px;
   border-radius: var(--okp-radius);
-  border: 1px solid var(--okp-line);
+  border: 1px solid var(--okp-border);
   flex-shrink: 0;
 }
 .oklch-picker__hex {
@@ -411,7 +433,7 @@
   height: 26px;
   padding: 0 8px;
   border-radius: var(--okp-radius);
-  border: 1px solid var(--okp-line);
+  border: 1px solid var(--okp-border);
   background: var(--okp-surface);
   color: var(--okp-text);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -426,6 +448,16 @@
   font-size: 11px;
   line-height: 1.35;
   color: var(--okp-warn);
+}
+
+/* The notice is a live region, so it stays in the DOM and empties instead of
+   unmounting: a region inserted at the moment it has something to say is not
+   announced, because the reader was not already observing the node.
+   `display: none` would take it back out of the accessibility tree and undo
+   that, so collapse it to nothing while keeping it rendered. */
+.oklch-picker__notice:empty {
+  height: 0;
+  overflow: hidden;
 }
 
 /* ---- Layouts ---- */

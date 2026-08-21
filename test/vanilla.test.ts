@@ -78,11 +78,15 @@ describe("<oklch-picker>", () => {
   test("the out-of-gamut notice shows only when clipped", () => {
     const picker = mount({ value: "oklch(0.2 0.3 145)" });
     const notice = picker.querySelector<HTMLElement>(".oklch-picker__notice");
-    expect(notice?.hidden).toBe(false);
     expect(notice?.textContent).toContain("Outside sRGB");
 
+    // Emptied rather than removed or hidden: it is a live region, so it has to
+    // stay in the accessibility tree to announce the next thing it says.
     picker.value = "oklch(0.7 0.05 255)";
-    expect(picker.querySelector<HTMLElement>(".oklch-picker__notice")?.hidden).toBe(true);
+    const after = picker.querySelector<HTMLElement>(".oklch-picker__notice");
+    expect(after).not.toBeNull();
+    expect(after?.textContent).toBe("");
+    expect(after?.getAttribute("role")).toBe("status");
   });
 
   test("a property set before upgrade is not shadowed", () => {
@@ -200,8 +204,9 @@ describe("<oklch-picker>", () => {
 
     expect(picker.gamut).toBe(P3);
     expect(picker.querySelectorAll(".oklch-picker__gamut-boundary")).toHaveLength(1);
-    // And the emitted value follows the property, not sRGB.
-    expect(picker.querySelector<HTMLElement>(".oklch-picker__notice")?.hidden).toBe(true);
+    // And the emitted value follows the property, not sRGB: nothing is clipped,
+    // so the notice is present but says nothing.
+    expect(picker.querySelector<HTMLElement>(".oklch-picker__notice")?.textContent).toBe("");
   });
 
   test("references outline without being clamped to", () => {

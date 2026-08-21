@@ -46,10 +46,15 @@ export function adapterContract(driver: Driver): void {
      * DOM, so it builds every node once and toggles `hidden` instead, because
      * rebuilding the tree on each input would drop focus from a slider
      * mid-drag. Both are the same thing to a user, and the contract describes
-     * what a user sees. */
+     * what a user sees.
+     *
+     * A live region is the third shape: the notice stays mounted in every
+     * adapter and empties instead, because a region added at the moment it has
+     * something to say is never announced. Empty is also nothing to see, and
+     * the stylesheet collapses it, so it counts as not shown. */
     const shows = (m: Mounted, selector: string): boolean => {
       const el = m.root.querySelector<HTMLElement>(selector);
-      return el !== null && !el.hidden;
+      return el !== null && !el.hidden && el.textContent !== "";
     };
 
     // ---- structure -------------------------------------------------------
@@ -59,6 +64,48 @@ export function adapterContract(driver: Driver): void {
         expect(byLabel(m, label), `no ${label} slider`).not.toBeNull();
       }
     });
+
+    // A range input announces its raw `value`, and "0.13" carries no unit. It
+    // is worst for chroma, whose maximum is recomputed per colour: the same
+    // number is a fifth of the range at one lightness and nearly all of it at
+    // another, so the text has to name the maximum it is measured against.
+    it("every slider says what its value means", (m) => {
+      for (const label of ["Lightness", "Chroma", "Hue"]) {
+        const slider = byLabel(m, label) as HTMLInputElement;
+        const text = slider.getAttribute("aria-valuetext");
+        expect(text, `${label} announces a bare number`).toBeTruthy();
+        expect(text).not.toBe(slider.value);
+      }
+      expect(byLabel(m, "Lightness")?.getAttribute("aria-valuetext")).toMatch(/%$/);
+      expect(byLabel(m, "Hue")?.getAttribute("aria-valuetext")).toMatch(/degrees$/);
+      expect(byLabel(m, "Chroma")?.getAttribute("aria-valuetext")).toContain("maximum");
+    });
+
+    // The clamp is silent otherwise: chroma keeps climbing past the boundary
+    // while the emitted colour stops changing, and a sighted user sees the
+    // hatching and the notice where a screen reader user got nothing.
+    it(
+      "the out-of-gamut notice is a live region that stays put",
+      (m) => {
+        const notice = m.root.querySelector(".oklch-picker__notice");
+        expect(notice, "no notice element").not.toBeNull();
+        expect(notice?.getAttribute("role")).toBe("status");
+        // Mounted but silent: a region added at the moment it has something to
+        // say is not announced, because nothing was watching the node.
+        expect(notice?.textContent).toBe("");
+      },
+      { value: "oklch(0.7 0.05 255)" },
+    );
+
+    it(
+      "the notice speaks when the colour is clipped",
+      (m) => {
+        const notice = m.root.querySelector(".oklch-picker__notice");
+        expect(notice?.getAttribute("role")).toBe("status");
+        expect(notice?.textContent).toContain("Outside sRGB");
+      },
+      { value: "oklch(0.2 0.3 145)" },
+    );
 
     it("no layout means the chart layout", (m) => {
       expect(m.root.querySelector(".oklch-picker--chart")).not.toBeNull();

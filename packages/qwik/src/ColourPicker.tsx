@@ -293,6 +293,7 @@ export const ColourPicker = component$<ColourPickerProps>((props) => {
                   step={a.step}
                   value={a.value}
                   aria-label={m.labels[a.key]}
+                  aria-valuetext={a.valuetext}
                   onInput$={(_, el) => emit({ ...current.value, [a.key]: Number(el.value) })}
                   // The gesture ending is the commit, not each value it passed
                   // through. `blur` catches the keyboard: arrowing along a
@@ -330,6 +331,7 @@ export const ColourPicker = component$<ColourPickerProps>((props) => {
                 step={m.alpha.step}
                 value={m.alpha.value}
                 aria-label="Alpha"
+                aria-valuetext={m.alpha.valuetext}
                 onInput$={(_, el) => {
                   // Fully opaque drops the key rather than storing `a: 1`, so a
                   // colour dragged to opaque emits `oklch(L C H)` and not
@@ -422,7 +424,17 @@ export const ColourPicker = component$<ColourPickerProps>((props) => {
         </div>
       )}
 
-      {m.parts.notice && m.clipped && <p class={`${prefix}__notice`}>{m.notice}</p>}
+      {/* Always rendered, empty until something is clipped: a live region only
+          announces if it was in the DOM before the text arrived. */}
+      {m.parts.notice && (
+        /* biome-ignore lint/a11y/useSemanticElements: <output> is a form control's
+           calculated result, and this file already uses it for the axis
+           readouts. This is an advisory about the colour, so role="status" on a
+           paragraph is the honest mapping. */
+        <p class={`${prefix}__notice`} role="status">
+          {m.clipped ? m.notice : ""}
+        </p>
+      )}
     </div>
   );
 });

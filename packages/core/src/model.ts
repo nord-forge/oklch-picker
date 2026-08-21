@@ -172,16 +172,47 @@ export interface AxisModel {
   max: number;
   step: number;
   value: number;
+  /** What a screen reader should say instead of the raw number.
+   *
+   * A range input announces its `value`, so lightness read as "0.7" and alpha
+   * as "0.85", neither of which carries a unit. Chroma was worse: its maximum
+   * is recomputed from the reachable chroma on every render, so "0.13" is 20%
+   * of the range at one lightness and 95% at another, and the percentage a
+   * reader derives from `min`/`max` moves with it. Naming the maximum is the
+   * only way that value means anything. */
+  valuetext: string;
 }
 
 /** Slider ranges for a colour. Chroma's max hugs what is actually reachable,
  * because a fixed max is up to 87% dead travel at low lightness. */
 export function axisModels(current: Oklch, reachable: number): AxisModel[] {
   const chromaMax = Math.max(0.02, Math.ceil(reachable * 100) / 100);
+  const chroma = Math.min(current.c, chromaMax);
   return [
-    { key: "l", min: 0, max: 1, step: 0.01, value: current.l },
-    { key: "c", min: 0, max: chromaMax, step: 0.005, value: Math.min(current.c, chromaMax) },
-    { key: "h", min: 0, max: 360, step: 1, value: current.h },
+    {
+      key: "l",
+      min: 0,
+      max: 1,
+      step: 0.01,
+      value: current.l,
+      valuetext: `${Math.round(current.l * 100)}%`,
+    },
+    {
+      key: "c",
+      min: 0,
+      max: chromaMax,
+      step: 0.005,
+      value: chroma,
+      valuetext: `${chroma.toFixed(3)} of ${chromaMax.toFixed(2)} maximum`,
+    },
+    {
+      key: "h",
+      min: 0,
+      max: 360,
+      step: 1,
+      value: current.h,
+      valuetext: `${Math.round(current.h)} degrees`,
+    },
   ];
 }
 
@@ -198,6 +229,8 @@ export interface AlphaModel {
   value: number;
   /** The transparent-to-opaque ramp of the current colour. */
   track: string;
+  /** As `AxisModel.valuetext`: "0.85" alone says nothing about opacity. */
+  valuetext: string;
 }
 
 /** The alpha ramp, transparent to the opaque colour.
@@ -212,12 +245,14 @@ export function alphaTrack(current: Oklch, gamut: Gamut = SRGB): string {
 }
 
 export function alphaModel(current: Oklch, gamut: Gamut = SRGB): AlphaModel {
+  const value = alphaOf(current);
   return {
     min: 0,
     max: 1,
     step: 0.01,
-    value: alphaOf(current),
+    value,
     track: alphaTrack(current, gamut),
+    valuetext: `${Math.round(value * 100)}% opaque`,
   };
 }
 

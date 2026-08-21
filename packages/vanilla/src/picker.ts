@@ -767,6 +767,9 @@ export class OklchPickerElement extends ElementBase {
 
     if (model.parts.notice) {
       this.#notice = el("p", `${p}__notice`);
+      // Built once and emptied rather than mounted on demand, so the region is
+      // already being watched when the clamp has something to say.
+      this.#notice.setAttribute("role", "status");
       this.append(this.#notice);
     }
 
@@ -960,6 +963,9 @@ export class OklchPickerElement extends ElementBase {
       attr(row.slider, "max", String(a.max));
       attr(row.slider, "step", String(a.step));
       attr(row.slider, "aria-label", model.labels[a.key]);
+      // Per render, not at build: chroma's maximum moves with lightness and
+      // hue, so the text naming it goes stale the moment another axis does.
+      attr(row.slider, "aria-valuetext", a.valuetext);
       if (Number(row.slider.value) !== a.value) row.slider.value = String(a.value);
     }
 
@@ -972,6 +978,7 @@ export class OklchPickerElement extends ElementBase {
     if (this.#alphaRow) {
       this.#alphaRow.output.textContent = model.alpha.value.toFixed(2);
       this.#alphaRow.ramp.style.background = model.alpha.track;
+      attr(this.#alphaRow.slider, "aria-valuetext", model.alpha.valuetext);
       // Same rule as the axis sliders: do not fight a drag in progress.
       if (this.#alphaRow.slider !== this.ownerDocument.activeElement) {
         this.#alphaRow.slider.value = String(model.alpha.value);
@@ -986,8 +993,10 @@ export class OklchPickerElement extends ElementBase {
     if (this.#hex && this.#hex !== active) this.#hex.value = model.hex;
     if (this.#name) this.#name.textContent = model.name;
     if (this.#notice) {
-      this.#notice.textContent = model.notice;
-      this.#notice.hidden = !model.clipped;
+      // Emptied rather than hidden. `hidden` takes the node out of the
+      // accessibility tree, so the live region would not be there to announce
+      // the text that arrives with it. The stylesheet collapses it when empty.
+      this.#notice.textContent = model.clipped ? model.notice : "";
     }
   }
 

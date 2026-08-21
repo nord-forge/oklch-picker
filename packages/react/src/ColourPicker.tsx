@@ -255,6 +255,7 @@ export function ColourPicker(props: ColourPickerProps) {
                   step={a.step}
                   value={a.value}
                   aria-label={labels[a.key]}
+                  aria-valuetext={a.valuetext}
                   onInput={slide}
                   onChange={slide}
                   // The gesture ending is the commit, not each value it passed
@@ -296,6 +297,7 @@ export function ColourPicker(props: ColourPickerProps) {
                 step={model.alpha.step}
                 value={model.alpha.value}
                 aria-label="Alpha"
+                aria-valuetext={model.alpha.valuetext}
                 onInput={slideAlpha}
                 onChange={slideAlpha}
                 onPointerUp={commitCurrent}
@@ -380,7 +382,18 @@ export function ColourPicker(props: ColourPickerProps) {
         </div>
       )}
 
-      {show.notice && clipped && <p className={`${prefix}__notice`}>{model.notice}</p>}
+      {/* Always mounted, and empty until something is clipped. A live region
+          inserted at the moment it becomes relevant is not announced: the
+          reader has to have been watching the node before the text arrived. */}
+      {show.notice && (
+        /* biome-ignore lint/a11y/useSemanticElements: <output> is a form control's
+           calculated result, and this file already uses it for the axis
+           readouts. This is an advisory about the colour, so role="status" on a
+           paragraph is the honest mapping. */
+        <p className={`${prefix}__notice`} role="status">
+          {clipped ? model.notice : ""}
+        </p>
+      )}
     </div>
   );
 }

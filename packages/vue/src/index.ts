@@ -419,6 +419,7 @@ export const ColourPicker = defineComponent({
               step: a.step,
               value: a.value,
               "aria-label": m.labels[a.key],
+              "aria-valuetext": a.valuetext,
               onInput: (e: Event) =>
                 dial({ ...m.current, [a.key]: Number((e.target as HTMLInputElement).value) }),
               // The gesture ending is the commit, not each value it passed
@@ -455,6 +456,7 @@ export const ColourPicker = defineComponent({
                 step: m.alpha.step,
                 value: m.alpha.value,
                 "aria-label": "Alpha",
+                "aria-valuetext": m.alpha.valuetext,
                 onInput: (e: Event) => {
                   const a = Number((e.target as HTMLInputElement).value);
                   // Opaque drops the key rather than storing `a: 1`, so one
@@ -531,8 +533,12 @@ export const ColourPicker = defineComponent({
         children.push(h("div", { class: `${p}__footer` }, footer));
       }
 
-      if (m.parts.notice && m.clipped) {
-        children.push(h("p", { class: `${p}__notice` }, [m.notice]));
+      // Always rendered, empty until something is clipped: a live region only
+      // announces if it was in the DOM before the text arrived.
+      if (m.parts.notice) {
+        children.push(
+          h("p", { class: `${p}__notice`, role: "status" }, [m.clipped ? m.notice : ""]),
+        );
       }
 
       return h("div", { class: [p, `${p}--${m.layout}`] }, children);
