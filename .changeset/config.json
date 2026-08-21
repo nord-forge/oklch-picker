@@ -9,5 +9,6 @@
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "ignore": []
+  "//ignore": "The docs site is in the workspace but is not published, and the `fixed` glob above matches its name. Without this it is swept into the group and versioned alongside the packages, which gives it a changelog and a version number that mean nothing.",
+  "ignore": ["@oklch-picker/site"]
 }

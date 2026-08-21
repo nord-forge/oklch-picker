@@ -1,6 +1,6 @@
 {
   "name": "@oklch-picker/react",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "description": "An OKLCH color picker for React and Preact. Gamut-aware sliders, wide-gamut P3 and Rec. 2020, no dependencies.",
   "keywords": [
     "oklch",
@@ -52,7 +52,7 @@
     "build": "tsdown"
   },
   "dependencies": {
-    "@oklch-picker/core": "1.1.1"
+    "@oklch-picker/core": "1.2.0"
   },
   "peerDependencies": {
     "preact": ">=10",

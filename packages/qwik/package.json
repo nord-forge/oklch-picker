@@ -1,6 +1,6 @@
 {
   "name": "@oklch-picker/qwik",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "description": "An OKLCH color picker for Qwik, with gamut-aware sliders.",
   "keywords": [
     "oklch",
@@ -50,7 +50,7 @@
     "node": ">=20"
   },
   "dependencies": {
-    "@oklch-picker/core": "1.1.1"
+    "@oklch-picker/core": "1.2.0"
   },
   "peerDependencies": {
     "@builder.io/qwik": ">=1.5"

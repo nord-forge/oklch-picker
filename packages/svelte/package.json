@@ -1,6 +1,6 @@
 {
   "name": "@oklch-picker/svelte",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "description": "An OKLCH color picker for Svelte 5. Gamut-aware sliders, wide-gamut P3 and Rec. 2020, works with bind:value.",
   "keywords": [
     "oklch",
@@ -51,7 +51,7 @@
     "node": ">=20"
   },
   "dependencies": {
-    "@oklch-picker/core": "1.1.1"
+    "@oklch-picker/core": "1.2.0"
   },
   "peerDependencies": {
     "svelte": ">=5"

@@ -1,6 +1,6 @@
 {
   "name": "@oklch-picker/angular",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "description": "An OKLCH color picker for Angular 17+. Standalone, signal-based, with gamut-aware sliders and wide-gamut P3 and Rec. 2020.",
   "keywords": [
     "oklch",
@@ -53,7 +53,7 @@
     "build": "ngc -p tsconfig.build.json"
   },
   "dependencies": {
-    "@oklch-picker/core": "1.1.1"
+    "@oklch-picker/core": "1.2.0"
   },
   "//": "Angular 17 is the floor: standalone components and signals are both stable there. Anyone below it can use the `oklch-picker` custom element, which needs no framework at all.",
   "peerDependencies": {
