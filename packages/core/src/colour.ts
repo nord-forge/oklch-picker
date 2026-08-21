@@ -325,13 +325,158 @@ export function parseRgb(value: string | null | undefined): Oklch | null {
   return a >= 1 ? colour : { ...colour, a };
 }
 
+/** sRGB 0..1 channels from an HSL triple, per CSS Color 4.
+ *
+ * Both HSL and HWB are ways of describing an sRGB colour, not spaces of their
+ * own, so each converts to sRGB here and reaches OKLCH the same way `rgb()`
+ * does. Neither can carry a wide-gamut colour, which is why the picker works in
+ * OKLCH and offers these only at its edges. */
+function hslToRgb(h: number, s: number, l: number): [number, number, number] {
+  const hue = (((h % 360) + 360) % 360) / 30;
+  const a = s * Math.min(l, 1 - l);
+  const f = (n: number) => {
+    const k = (n + hue) % 12;
+    return l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1));
+  };
+  return [f(0), f(8), f(4)];
+}
+
+/** The HSL triple for an sRGB colour: hue in degrees, saturation and lightness
+ * as 0..1 fractions. */
+function rgbToHsl(r: number, g: number, b: number): [number, number, number] {
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  const d = max - min;
+  if (d === 0) return [0, 0, l];
+
+  // The denominator is the distance from whichever end of the range is nearer,
+  // so saturation reads 1 for a pure hue at any lightness.
+  const s = d / (l > 0.5 ? 2 - max - min : max + min);
+  let h: number;
+  if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) * 60;
+  else if (max === g) h = ((b - r) / d + 2) * 60;
+  else h = ((r - g) / d + 4) * 60;
+  return [h, s, l];
+}
+
+/** Format as `hsl(H S% L%)`, or `hsl(H S% L% / A)` when not opaque.
+ *
+ * Clamped into `gamut` first, like every other output: HSL describes sRGB, so a
+ * wider colour has to land somewhere reachable before it can be written at all.
+ * A colour outside sRGB is therefore lossy here in a way `oklch()` is not. */
+export function formatHsl(colour: Oklch, gamut: Gamut = SRGB): string {
+  const [r, g, b] = oklchToRgb255(colour, gamut);
+  const [h, s, l] = rgbToHsl(r / 255, g / 255, b / 255);
+  const base = `${round(h, 2)} ${round(s * 100, 2)}% ${round(l * 100, 2)}%`;
+  return hasAlpha(colour) ? `hsl(${base} / ${round(colour.a, 4)})` : `hsl(${base})`;
+}
+
+/** Format as `hwb(H W% B%)`, or `hwb(H W% B% / A)` when not opaque.
+ *
+ * Whiteness and blackness are the smallest and largest sRGB channels, so this
+ * shares `gamut` clamping with `formatHsl` for the same reason. */
+export function formatHwb(colour: Oklch, gamut: Gamut = SRGB): string {
+  const [r255, g255, b255] = oklchToRgb255(colour, gamut);
+  const [r, g, b] = [r255 / 255, g255 / 255, b255 / 255] as [number, number, number];
+  const [h] = rgbToHsl(r, g, b);
+  const w = Math.min(r, g, b);
+  const bl = 1 - Math.max(r, g, b);
+  const base = `${round(h, 2)} ${round(w * 100, 2)}% ${round(bl * 100, 2)}%`;
+  return hasAlpha(colour) ? `hwb(${base} / ${round(colour.a, 4)})` : `hwb(${base})`;
+}
+
+/** Shared tail of the `hsl()` and `hwb()` grammars: three components and an
+ * optional alpha, in either the comma or the space form. */
+const HSL_LIKE = String.raw`\(\s*([\d.+-]+)(?:deg)?[\s,]+([\d.+-]+)%?[\s,]+([\d.+-]+)%?\s*(?:[,/]\s*([\d.+-]+)(%?)\s*)?\)$`;
+
+/** Read the optional alpha shared by every functional form. `undefined` means
+ * the string carried none; `null` means it carried one that was not a number. */
+function tailAlpha(raw: string | undefined, pct: string | undefined): number | null | undefined {
+  if (raw === undefined) return undefined;
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return null;
+  return clamp(pct === "%" ? n / 100 : n, 0, 1);
+}
+
+/** Parse `hsl()` or `hsla()`, in either the comma or the space form.
+ *
+ * Hue accepts a bare number or `deg` and wraps, matching CSS. Saturation and
+ * lightness are percentages, with or without the sign, and clamp to 0..100. */
+export function parseHsl(value: string | null | undefined): Oklch | null {
+  if (!value) return null;
+  const m = value.trim().match(new RegExp(`^hsla?${HSL_LIKE}`, "i"));
+  if (!m) return null;
+
+  const h = Number(m[1]);
+  const s = Number(m[2]);
+  const l = Number(m[3]);
+  if (![h, s, l].every(Number.isFinite)) return null;
+
+  const [r, g, b] = hslToRgb(h, clamp(s, 0, 100) / 100, clamp(l, 0, 100) / 100);
+  const to255 = (v: number) => Math.round(clamp(v, 0, 1) * 255);
+  const colour = hexToOklch(
+    `#${[r, g, b].map((v) => to255(v).toString(16).padStart(2, "0")).join("")}`,
+  );
+  if (!colour) return null;
+
+  const a = tailAlpha(m[4], m[5]);
+  if (a === null) return null;
+  return a === undefined || a >= 1 ? colour : { ...colour, a };
+}
+
+/** Parse `hwb()`, in either the comma or the space form.
+ *
+ * Whiteness and blackness summing past 100% is not an error: CSS says the
+ * colour is the grey their ratio describes, so they are normalised rather than
+ * rejected. */
+export function parseHwb(value: string | null | undefined): Oklch | null {
+  if (!value) return null;
+  const m = value.trim().match(new RegExp(`^hwb${HSL_LIKE}`, "i"));
+  if (!m) return null;
+
+  const h = Number(m[1]);
+  let w = Number(m[2]);
+  let bl = Number(m[3]);
+  if (![h, w, bl].every(Number.isFinite)) return null;
+  w = clamp(w, 0, 100) / 100;
+  bl = clamp(bl, 0, 100) / 100;
+
+  // Past 100% together there is no hue left to show, only the grey between them.
+  if (w + bl >= 1) {
+    const grey = w / (w + bl);
+    const v = Math.round(grey * 255)
+      .toString(16)
+      .padStart(2, "0");
+    const colour = hexToOklch(`#${v}${v}${v}`);
+    if (!colour) return null;
+    const a = tailAlpha(m[4], m[5]);
+    if (a === null) return null;
+    return a === undefined || a >= 1 ? colour : { ...colour, a };
+  }
+
+  // Otherwise the pure hue, compressed into what the two ends leave.
+  const [pr, pg, pb] = hslToRgb(h, 1, 0.5);
+  const mix = (v: number) => Math.round(clamp(v * (1 - w - bl) + w, 0, 1) * 255);
+  const colour = hexToOklch(
+    `#${[pr, pg, pb].map((v) => mix(v).toString(16).padStart(2, "0")).join("")}`,
+  );
+  if (!colour) return null;
+
+  const a = tailAlpha(m[4], m[5]);
+  if (a === null) return null;
+  return a === undefined || a >= 1 ? colour : { ...colour, a };
+}
+
 /** Accepts any supported form and returns OKLCH, or null if unparseable.
  *
- * Order matters only for speed, since the three forms cannot be confused: each
- * parser anchors on its own prefix. */
+ * Order matters only for speed, since the forms cannot be confused: each parser
+ * anchors on its own prefix, and hex is the only one without a function name. */
 export function toOklch(value: string | null | undefined): Oklch | null {
   if (!value) return null;
-  return parseOklch(value) ?? parseRgb(value) ?? hexToOklch(value);
+  return (
+    parseOklch(value) ?? parseRgb(value) ?? parseHsl(value) ?? parseHwb(value) ?? hexToOklch(value)
+  );
 }
 
 /** Highest chroma that fits in sRGB here. Peaks mid-lightness, collapses to white and black. */

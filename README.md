@@ -9,7 +9,7 @@
   oklch-picker
 </h1>
 
-An OKLCH colour picker for React, Preact, Vue, Svelte, Solid, Angular, Qwik, and for no framework at all. Zero runtime dependencies. The component is ~6.2 kB gzipped, and the colour maths alone is ~2.1 kB.
+An OKLCH colour picker for React, Preact, Vue, Svelte, Solid, Angular, Qwik, and for no framework at all. Zero runtime dependencies. The component is ~6.5 kB gzipped, and the colour maths alone is ~2.5 kB.
 
 **[Documentation and live demos](https://nord-forge.github.io/oklch-picker/)**, covering every layout and every part, with a playground that emits code you can copy.
 
@@ -448,7 +448,7 @@ An opaque colour is unchanged in every format: `oklch(0.7 0.15 255)` stays exact
 
 | Prop | Type | Default | |
 |---|---|---|---|
-| `value` | `string \| null` | none | `oklch()`, `rgb()` or hex, with or without alpha |
+| `value` | `string \| null` | none | `oklch()`, `rgb()`, `hsl()`, `hwb()` or hex, with or without alpha |
 | `onChange` | `(colour: string) => void` | none | Receives a canonical, clamped `oklch(L C H)`, or `oklch(L C H / A)` when transparent |
 | `presets` | `string[]` | none | Swatches shown below the sliders |
 | `recents` | `string[]` | none | Controlled recent colours; omit to keep a session list |
@@ -512,6 +512,8 @@ clampToGamut({ l: 0.75, c: 0.35, h: 145 });  // chroma reduced until it fits
 | `toOklch`, `parseOklch`, `formatOklch` | Parse and format. `toOklch` takes any supported form |
 | `hexToOklch`, `oklchToHex` | Convert, exact round-trip within sRGB |
 | `parseRgb`, `formatRgb`, `oklchToRgb255` | The same for `rgb()` and `rgba()` |
+| `parseHsl`, `formatHsl` | The same for `hsl()` and `hsla()` |
+| `parseHwb`, `formatHwb` | The same for `hwb()` |
 | `hasAlpha`, `alphaOf` | Ask about transparency without re-deriving "absent means opaque" |
 | `inGamut`, `clampToGamut`, `maxChroma` | Gamut queries |
 | `gamutCurve` | Cross-section data behind the charts |

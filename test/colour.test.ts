@@ -6,6 +6,8 @@ import {
   alphaOf,
   clampToGamut,
   colourName,
+  formatHsl,
+  formatHwb,
   formatOklch,
   formatRgb,
   gamutCurve,
@@ -16,6 +18,8 @@ import {
   maxChroma,
   oklchToHex,
   oklchToRgb255,
+  parseHsl,
+  parseHwb,
   parseOklch,
   parseRgb,
   toOklch,
@@ -855,6 +859,112 @@ describe("chart resolution is bounded", () => {
       const cols = gamutCurve(base, "c", bad);
       expect(cols.length).toBeGreaterThan(0);
       expect(cols.every((c) => Number.isFinite(c.c))).toBe(true);
+    }
+  });
+});
+
+describe("hsl and hwb", () => {
+  // Both describe an sRGB colour rather than a space of their own, so each is
+  // checked against the hex CSS says it means.
+  test.each([
+    ["hsl(0 100% 50%)", "#ff0000"],
+    ["hsl(120 100% 50%)", "#00ff00"],
+    ["hsl(240 100% 50%)", "#0000ff"],
+    ["hsl(60 100% 50%)", "#ffff00"],
+    ["hsl(180 100% 50%)", "#00ffff"],
+    ["hsl(300 100% 50%)", "#ff00ff"],
+    ["hsl(0 0% 100%)", "#ffffff"],
+    ["hsl(0 0% 0%)", "#000000"],
+    ["hsl(0 0% 50%)", "#808080"],
+    ["hsl(210 50% 40%)", "#336699"],
+  ])("%s is %s", (css, hex) => {
+    expect(oklchToHex(parseHsl(css) as Oklch)).toBe(hex);
+  });
+
+  test.each([
+    ["hwb(0 0% 0%)", "#ff0000"],
+    ["hwb(120 0% 0%)", "#00ff00"],
+    ["hwb(0 100% 0%)", "#ffffff"],
+    ["hwb(0 0% 100%)", "#000000"],
+    ["hwb(0 50% 50%)", "#808080"],
+    ["hwb(180 20% 20%)", "#33cccc"],
+  ])("%s is %s", (css, hex) => {
+    expect(oklchToHex(parseHwb(css) as Oklch)).toBe(hex);
+  });
+
+  test("an sRGB colour survives a trip through either form", () => {
+    for (const hex of [
+      "#ff0000",
+      "#00ff00",
+      "#0000ff",
+      "#ffffff",
+      "#000000",
+      "#808080",
+      "#336699",
+      "#7f3fbf",
+      "#123456",
+      "#fedcba",
+      "#abcdef",
+      "#010203",
+    ]) {
+      const colour = hexToOklch(hex) as Oklch;
+      expect(oklchToHex(parseHsl(formatHsl(colour)) as Oklch), `${hex} via hsl`).toBe(hex);
+      expect(oklchToHex(parseHwb(formatHwb(colour)) as Oklch), `${hex} via hwb`).toBe(hex);
+    }
+  });
+
+  test("hue wraps and accepts deg, like every other hue in CSS", () => {
+    expect(oklchToHex(parseHsl("hsl(360 100% 50%)") as Oklch)).toBe("#ff0000");
+    expect(oklchToHex(parseHsl("hsl(-360 100% 50%)") as Oklch)).toBe("#ff0000");
+    expect(oklchToHex(parseHsl("hsl(210deg 50% 40%)") as Oklch)).toBe("#336699");
+  });
+
+  // Whiteness and blackness past 100% together is not an error: CSS says the
+  // colour is the grey their ratio describes, with no hue left to show.
+  test("hwb normalises whiteness and blackness that sum past 100%", () => {
+    expect(oklchToHex(parseHwb("hwb(180 60% 60%)") as Oklch)).toBe("#808080");
+    expect(oklchToHex(parseHwb("hwb(0 100% 100%)") as Oklch)).toBe("#808080");
+    expect(oklchToHex(parseHwb("hwb(90 80% 40%)") as Oklch)).toBe("#aaaaaa");
+  });
+
+  test("components out of range clamp rather than fail", () => {
+    expect(oklchToHex(parseHsl("hsl(210 150% 40%)") as Oklch)).toBe("#0066cc");
+    expect(oklchToHex(parseHsl("hsl(210 -50% 40%)") as Oklch)).toBe("#666666");
+    expect(oklchToHex(parseHsl("hsl(210 50% 200%)") as Oklch)).toBe("#ffffff");
+    expect(oklchToHex(parseHsl("hsl(210 50% -20%)") as Oklch)).toBe("#000000");
+  });
+
+  test("alpha reaches both forms, as a fraction or a percentage", () => {
+    expect(alphaOf(parseHsl("hsl(210 50% 40% / 0.5)") as Oklch)).toBe(0.5);
+    expect(alphaOf(parseHsl("hsl(210 50% 40% / 50%)") as Oklch)).toBe(0.5);
+    expect(alphaOf(parseHwb("hwb(180 20% 20% / 0.5)") as Oklch)).toBe(0.5);
+    expect(alphaOf(parseHsl("hsla(210, 50%, 40%, 0.5)") as Oklch)).toBe(0.5);
+    // Opaque drops the key, so one shape means opaque everywhere.
+    expect(hasAlpha(parseHsl("hsl(210 50% 40% / 1)") as Oklch)).toBe(false);
+    expect(formatHsl({ l: 0.7, c: 0.15, h: 255, a: 0.5 })).toMatch(/^hsl\(.+ \/ 0\.5\)$/);
+    expect(formatHwb({ l: 0.7, c: 0.15, h: 255, a: 0.5 })).toMatch(/^hwb\(.+ \/ 0\.5\)$/);
+  });
+
+  test("rejects what is not that form", () => {
+    for (const bad of ["hsl(a b c)", "hsl(210 50%)", "hwb()", "", "rgb(1 2 3)", "nonsense", null]) {
+      expect(parseHsl(bad), `hsl accepted ${bad}`).toBeNull();
+      expect(parseHwb(bad), `hwb accepted ${bad}`).toBeNull();
+    }
+  });
+
+  test("toOklch accepts both alongside the forms it already took", () => {
+    expect(toOklch("hsl(210 50% 40%)")).not.toBeNull();
+    expect(toOklch("hwb(180 20% 20%)")).not.toBeNull();
+    expect(oklchToHex(toOklch("hsl(210 50% 40%)") as Oklch)).toBe("#336699");
+    expect(oklchToHex(toOklch("hwb(180 20% 20%)") as Oklch)).toBe("#33cccc");
+  });
+
+  // Neither form can carry a wide-gamut colour, so both clamp on the way out.
+  test("a wider colour is clamped before it is written", () => {
+    const wide = { l: 0.75, c: 0.35, h: 145 };
+    for (const css of [formatHsl(wide), formatHwb(wide)]) {
+      const back = toOklch(css) as Oklch;
+      expect(inGamut(back)).toBe(true);
     }
   });
 });
