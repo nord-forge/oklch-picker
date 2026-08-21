@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
   CHART_MAX_CHROMA,
+  MAX_CHART_COLUMNS,
   SRGB,
   alphaOf,
   clampToGamut,
@@ -830,5 +831,30 @@ describe("the model's gamut lists keep their identity", () => {
     const mine = { ...P3, label: "Mine" };
     const model = pickerModel({ l: 0.7, c: 0.1, h: 200 }, { gamut: REC2020, references: [mine] });
     expect(model.references[0]).toBe(mine);
+  });
+});
+
+// Regression: the lightness-vertical plane scans for its ceiling per column, so
+// its cost is quadratic in the resolution a caller passes. Every adapter
+// exposes that as a prop, and a large one froze the drag in a browser and
+// blocked the event loop under SSR.
+describe("chart resolution is bounded", () => {
+  test("past the cap the curve stops changing", () => {
+    const base = { l: 0.7, c: 0.1, h: 200 };
+    for (const axis of ["l", "c", "h"] as const) {
+      const capped = gamutCurve(base, axis, MAX_CHART_COLUMNS);
+      const absurd = gamutCurve(base, axis, MAX_CHART_COLUMNS * 40);
+      expect(absurd).toHaveLength(capped.length);
+      expect(absurd).toEqual(capped);
+    }
+  });
+
+  test("a nonsensical resolution still draws a curve", () => {
+    const base = { l: 0.7, c: 0.1, h: 200 };
+    for (const bad of [0, -10, Number.NaN, 0.4]) {
+      const cols = gamutCurve(base, "c", bad);
+      expect(cols.length).toBeGreaterThan(0);
+      expect(cols.every((c) => Number.isFinite(c.c))).toBe(true);
+    }
   });
 });

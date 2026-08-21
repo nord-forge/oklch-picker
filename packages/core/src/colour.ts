@@ -209,6 +209,11 @@ function bisectChroma(l: number, h: number, upper: number, gamut: Gamut = SRGB):
  * parses back to, and "nothing out-of-gamut is ever emitted" holds for the
  * string as well as the object. */
 export function clampToGamut(colour: Oklch, gamut: Gamut = SRGB): Oklch {
+  // Negative chroma has no meaning, and the bisection would carry the sign
+  // through and emit it. Not reachable from the UI, where the slider stops at 0
+  // and a chart pick is clamped to 0..1, but this is a public function and a
+  // consumer can write straight into `value`.
+  if (colour.c < 0) return { ...colour, c: 0 };
   if (inGamut(colour, gamut)) return colour;
   const c = bisectChroma(colour.l, colour.h, colour.c, gamut);
   const floored = Math.floor(c * 1e4) / 1e4;
@@ -381,19 +386,35 @@ export function chartColour(
   } as Oklch;
 }
 
+/** The most columns a curve is drawn with, however many are asked for.
+ *
+ * The chart's viewBox is 100 units wide, so past a few hundred columns each one
+ * is well under a pixel and adds nothing to see. The cap matters because the
+ * lightness-vertical plane scans for its ceiling per column, which is quadratic
+ * in this number: at 2000 it took over a tenth of a second per curve, and that
+ * is a frozen drag in a browser and a blocked event loop under SSR. */
+export const MAX_CHART_COLUMNS = 512;
+
 /** Cross-section of the sRGB gamut in a chart's slice plane. Each column is the
  * highest in-gamut point of the vertical axis, as a 0..1 fraction of that axis.
  *
  * For a chroma-vertical plane that is `maxChroma` directly. For the C card the
  * vertical axis is lightness, where the in-gamut run is a band with both a
  * floor and a ceiling, so the column reports the ceiling and the fill is read
- * from the gradient beneath it. */
+ * from the gradient beneath it.
+ *
+ * The scan for that ceiling is linear rather than a bisection, deliberately.
+ * The band is *usually* contiguous, but not always: of 2376 sampled columns, 35
+ * held more than one run, and a bisection over those would settle on whichever
+ * run its midpoints happened to land in. Walking down from the top always finds
+ * the real ceiling. `MAX_CHART_COLUMNS` is what keeps the cost bounded. */
 export function gamutCurve(
   base: Oklch,
   fixed: Axis,
-  columns = 64,
+  requested = 64,
   gamut: Gamut = SRGB,
 ): GamutColumn[] {
+  const columns = Math.max(1, Math.min(Math.floor(requested) || 64, MAX_CHART_COLUMNS));
   const { x: xAxis, y: yAxis } = CHART_PLANES[fixed];
   const out: GamutColumn[] = [];
   const yScale = axisMax(yAxis, gamut);
