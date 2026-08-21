@@ -461,7 +461,7 @@ An opaque colour is unchanged in every format: `oklch(0.7 0.15 255)` stays exact
 | `references` | `Gamut[]` | `[SRGB]` when wider | Spaces outlined on the chart but never clamped to |
 | `gamutChoices` | `Gamut[]` | output + references | What the switcher offers |
 | `onGamutChange` | `(gamut: Gamut) => void` | none | Fired by the built-in switcher |
-| `classPrefix` | `string` | `"oklch-picker"` | Prefix for every class name |
+| `classPrefix` | `string` | `"oklch-picker"` | Prefix for every class name. Changing it opts out of `styles.css`, which targets the default |
 | `className` | `string` | none | Added to the root element |
 
 ## Styling
