@@ -32,7 +32,15 @@
   color-scheme: light dark;
   --okp-text: light-dark(#1a1a1a, #f2f1ef);
   --okp-text-muted: light-dark(#6b6b6b, #a0a0a0);
+  /* Decorative rules and fills: the chart's ground, the track's inset hairline.
+     Nothing here identifies a control, so it is free to stay soft. */
   --okp-line: light-dark(#d8d8d8, #3a3a3d);
+  /* The boundary of anything a user is meant to recognise as a control: the
+     value fields, the preview swatch, the gamut switch. WCAG 1.4.11 wants 3:1
+     against the surface for those, and `--okp-line` gives 1.43:1 light and
+     1.62:1 dark, so a text input read as a patch of background. These are
+     3.03:1 and 3.06:1. */
+  --okp-border: light-dark(#949494, #6a6a6e);
   --okp-surface: light-dark(#ffffff, #141416);
   --okp-warn: light-dark(#9a6b00, #e0b050);
   --okp-focus: light-dark(#2f6fd0, #7fb0ff);
@@ -71,6 +79,7 @@
 .oklch-picker__presets {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 8px;
   order: 1;
 }
@@ -95,18 +104,23 @@
 /* ---- Recents ---- */
 /* Its own row rather than appended to the presets: a curated palette and the
    colours someone happened to use are different things, and merging them makes
-   neither readable. Slightly smaller, because it is history, not the offer. */
+   neither readable.
+   These were 18px, to read as history rather than as the offer. That put the
+   target at 324px^2 against the 576px^2 WCAG 2.5.8 asks for, and the spacing
+   exception only saved it by exactly 0px of margin. Order and position carry
+   the hierarchy instead. */
 .oklch-picker__recents {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 6px;
   /* After the presets, which are after the sliders. Recents are history, so
      they sit furthest from the control. */
   order: 2;
 }
 .oklch-picker__recent {
-  width: 18px;
-  height: 18px;
+  width: 24px;
+  height: 24px;
   border-radius: 4px;
   border: 2px solid transparent;
   padding: 0;
@@ -118,6 +132,21 @@
 .oklch-picker__recent:focus-visible {
   outline: 2px solid var(--okp-focus);
   outline-offset: 2px;
+}
+
+/* Names the row it heads. Two grids of colour with nothing between them left
+   the offered palette and the history looking like one set; a line of text is
+   cheaper than teaching the difference by position alone.
+
+   `flex-basis: 100%` rather than a wrapper element: both rows are flex
+   containers whose order is set in CSS, and a wrapper would mean the same
+   markup change in seven adapters. This makes the label take a line of its own
+   and the swatches wrap below it. */
+.oklch-picker__swatch-label {
+  flex: 0 0 100%;
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--okp-text-muted);
 }
 
 /* ---- Axis block ---- */
@@ -283,22 +312,32 @@
   );
   pointer-events: none;
 }
+/* The input is taller than the track it sits on, and overflows it equally at
+   both ends. WCAG 2.5.8 wants a 24px target; the track is 12px and the thumb
+   16px, so pointing at it meant hitting a 12px band. Growing the input rather
+   than `--okp-thumb-size` keeps the fix invisible: the thumb and track still
+   render at their old sizes, and `--okp-inset` is derived from the thumb, so
+   the chart, crosshair and hatching stay where they are. */
 .oklch-picker__slider {
+  --okp-slider-target: 24px;
   position: relative;
   appearance: none;
   -webkit-appearance: none;
   display: block;
   width: 100%;
-  height: 100%;
-  margin: 0;
+  height: var(--okp-slider-target);
+  margin: calc((var(--okp-track-height) - var(--okp-slider-target)) / 2) 0;
   background: none;
   border: none;
   cursor: pointer;
 }
+/* The runnable track keeps the visible height, not the input's taller target
+   box, or the transparent track would centre the thumb against 24px and shift
+   it off the painted bar. */
 .oklch-picker__slider::-webkit-slider-runnable-track,
 .oklch-picker__slider::-moz-range-track {
   background: none;
-  height: 100%;
+  height: var(--okp-track-height);
 }
 .oklch-picker__slider::-webkit-slider-thumb {
   appearance: none;
@@ -327,7 +366,7 @@
   --okp-segment-selected: light-dark(#ededed, #2a2a2e);
   display: flex;
   align-self: start;
-  border: 1px solid var(--okp-line);
+  border: 1px solid var(--okp-border);
   border-radius: var(--okp-radius);
   background: var(--okp-surface);
   overflow: hidden;
@@ -338,7 +377,7 @@
   border: none;
   /* A divider between segments rather than a border on each, so neighbours do
      not stack two lines where they meet. */
-  border-left: 1px solid var(--okp-line);
+  border-left: 1px solid var(--okp-border);
   background: none;
   color: var(--okp-text-muted);
   font-family: inherit;
@@ -361,14 +400,31 @@
 }
 
 /* ---- Footer ---- */
+/* Two rows: the colour's name, then the swatch and the value beside it.
+   The name leads because it is the label for what follows, and reading it
+   above the pair beats finding it trailing off the end of the row.
+
+   A grid rather than a wrapping flex row, so the name occupies a row of its
+   own and the value's box can size to its content. The columns are the swatch
+   at its own width and the value at `max-content`, capped so a long string
+   scrolls inside the field instead of stretching the picker. `start` keeps
+   that pair packed to the left rather than filling the width. */
 .oklch-picker__footer {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, max-content);
   align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
+  justify-content: start;
+  gap: 6px 8px;
   /* Last, after the swatch rows. It reads out the current value, so it belongs
      at the end rather than between the sliders and the palette. */
   order: 3;
+}
+/* The name spans both columns on the first row. `order` rather than markup:
+   every adapter renders preview, then fields, then name, and moving it would
+   mean the same edit in seven places. */
+.oklch-picker__footer > .oklch-picker__name {
+  order: -1;
+  grid-column: 1 / -1;
 }
 /* The value fields. `oklch` is the wide one because it is the primary format
    and its string is the longest; the others size to their content. */
@@ -376,22 +432,25 @@
   height: 26px;
   padding: 0 8px;
   border-radius: var(--okp-radius);
-  border: 1px solid var(--okp-line);
+  border: 1px solid var(--okp-border);
   background: var(--okp-surface);
   color: var(--okp-text);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 11.5px;
   min-width: 0;
 }
-.oklch-picker__field--oklch {
-  flex: 1 1 11rem;
-  max-width: 15rem;
-}
-.oklch-picker__field--rgb {
-  flex: 0 1 9rem;
-}
-.oklch-picker__field--hex {
-  flex: 0 0 92px;
+/* Sized to the value it holds rather than to a fixed width, so the box tracks
+   the string as it is edited.
+
+   `field-sizing` does that natively. Where it is missing, Firefox and Safari
+   fall back to the input's default width, which is close enough to the longest
+   value these fields hold and never smaller than the `ch` floor below. The cap
+   stops a long paste stretching the picker; the value scrolls inside instead. */
+.oklch-picker__field {
+  field-sizing: content;
+  width: auto;
+  min-width: 8ch;
+  max-width: 100%;
 }
 .oklch-picker__field:focus-visible {
   outline: 2px solid var(--okp-focus);
@@ -403,7 +462,7 @@
   width: 26px;
   height: 26px;
   border-radius: var(--okp-radius);
-  border: 1px solid var(--okp-line);
+  border: 1px solid var(--okp-border);
   flex-shrink: 0;
 }
 .oklch-picker__hex {
@@ -411,7 +470,7 @@
   height: 26px;
   padding: 0 8px;
   border-radius: var(--okp-radius);
-  border: 1px solid var(--okp-line);
+  border: 1px solid var(--okp-border);
   background: var(--okp-surface);
   color: var(--okp-text);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -426,6 +485,16 @@
   font-size: 11px;
   line-height: 1.35;
   color: var(--okp-warn);
+}
+
+/* The notice is a live region, so it stays in the DOM and empties instead of
+   unmounting: a region inserted at the moment it has something to say is not
+   announced, because the reader was not already observing the node.
+   `display: none` would take it back out of the accessibility tree and undo
+   that, so collapse it to nothing while keeping it rendered. */
+.oklch-picker__notice:empty {
+  height: 0;
+  overflow: hidden;
 }
 
 /* ---- Layouts ---- */
@@ -486,12 +555,21 @@
   align-self: start;
 }
 /* The readout becomes a column in the rail: preview, hex, then name. */
+/* One column in the rail, which has no room for the swatch and the value side
+   by side. The name still leads, as it does in every other layout. */
 .oklch-picker--side-by-side .oklch-picker__footer {
   grid-area: footer;
   align-self: start;
-  flex-direction: column;
+  grid-template-columns: minmax(0, 1fr);
+  justify-content: stretch;
   align-items: stretch;
   gap: var(--okp-gap);
+}
+/* Full width here rather than sized to the value: the rail is a fixed column,
+   so a field that grew with the string would push past it. */
+.oklch-picker--side-by-side .oklch-picker__field {
+  field-sizing: fixed;
+  width: 100%;
 }
 /* The preview fills the rail's width instead of sitting as a 34px chip beside
    a hex field it no longer shares a row with. */

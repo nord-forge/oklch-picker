@@ -9,7 +9,7 @@
   oklch-picker
 </h1>
 
-An OKLCH colour picker for React, Preact, Vue, Svelte, Solid, and for no framework at all. Zero runtime dependencies. The component is ~5.3 kB gzipped, and the colour maths alone is ~1.8 kB.
+An OKLCH colour picker for React, Preact, Vue, Svelte, Solid, Angular, Qwik, and for no framework at all. Zero runtime dependencies. The component is ~6.5 kB gzipped, and the colour maths alone is ~2.5 kB.
 
 **[Documentation and live demos](https://nord-forge.github.io/oklch-picker/)**, covering every layout and every part, with a playground that emits code you can copy.
 
@@ -40,9 +40,11 @@ Install the package for your framework. Each pulls in only its own adapter plus 
 | Vue | `@oklch-picker/vue` | `v-model` |
 | Svelte 5 | `@oklch-picker/svelte` | `bind:value` |
 | Solid | `@oklch-picker/solid` | `value` + `onChange` |
+| Angular 17+ | `@oklch-picker/angular` | `[value]` + `(valueChange)` |
+| Qwik | `@oklch-picker/qwik` | `value` + `onChange$` |
 
 ```sh
-npm install @oklch-picker/react   # or /vue, /svelte, /solid
+npm install @oklch-picker/react   # or /vue, /svelte, /solid, /angular, /qwik
 npm install oklch-picker          # the no-framework custom element
 ```
 
@@ -87,7 +89,7 @@ Hex went off by default because it is sRGB only, so it cannot carry a P3 or Rec.
 | `oklch-picker/colour` | `@oklch-picker/core` |
 | `oklch-picker/styles.css` | `@oklch-picker/core/styles.css` |
 
-Nothing else changes. The components, props, and emitted values are identical. The split exists so an app downloads only the adapter it uses instead of all five.
+Nothing else changes. The components, props, and emitted values are identical. The split exists so an app downloads only the adapter it uses instead of every one of them.
 
 </details>
 
@@ -102,6 +104,15 @@ import { colourName, clampToGamut, maxChroma } from "@oklch-picker/core";
 Whichever you import, the props are the same: `presets`, `layout`, `parts`, `labels`, `classPrefix`. The value semantics follow each framework's idiom. A runnable app per framework lives in [`examples/`](./examples).
 
 ## Usage
+
+**The adapters are controlled.** A picker keeps no colour of its own: it renders
+whatever `value` you pass, so the value it hands back has to come back in.
+`v-model` and `bind:value` do that for you. React, Solid, Angular and Qwik want
+the pair wired explicitly, and wiring only the callback leaves the sliders stuck
+while the picker emits against a colour that never changes.
+
+The `<oklch-picker>` element is the exception. It holds its own colour and
+updates its own `value` attribute, so it works with no listener at all.
 
 ### React / Preact
 
@@ -176,7 +187,7 @@ export function Example() {
 </script>
 ```
 
-`styles.min.css` is the same stylesheet at 2.0 kB gzipped instead of 5.0 kB. Use it whenever nothing in front of it will minify. With a bundler, import plain `styles.css`. Your build minifies it anyway, and the readable file is where the `--okp-*` variables are documented.
+`styles.min.css` is the same stylesheet at 2.1 kB gzipped instead of 6.1 kB. Use it whenever nothing in front of it will minify. With a bundler, import plain `styles.css`. Your build minifies it anyway, and the readable file is where the `--okp-*` variables are documented.
 
 With a bundler, the import is `import "oklch-picker/register"` instead. Either way that one side-effect import defines the tag. That is the whole client-side cost, and nothing else needs wiring.
 
@@ -222,7 +233,7 @@ The element renders into the light DOM, so the stylesheet and `--okp-*` override
 
 ---
 
-Whatever you use, the emitted value is always a canonical, gamut-clamped `oklch(L C H)` string, and the value you pass in accepts either that or hex.
+Whatever you use, the emitted value is always a canonical, gamut-clamped `oklch(L C H)` string. The value you pass in is more forgiving: `oklch()`, `rgb()`, `hsl()`, `hwb()` or hex.
 
 ### Presets
 
@@ -287,6 +298,30 @@ the safe region stays visible. Override with `references` to draw others, or
 `P3` and `REC2020` live behind their own entry point on purpose. An app that
 never imports them never ships the matrices. The bundler drops the module
 statically, so there is no dynamic import and nothing async in the render path.
+
+**Only `oklch()` carries a wide-gamut colour.** `rgb()`, `hsl()`, `hwb()` and
+hex all describe an sRGB colour, so a P3 or Rec. 2020 value written in any of
+them is the nearest sRGB colour instead. Nothing warns you: the string is
+valid, displayable, and a different colour. That is why the hex and `rgb()`
+fields are off by default, and why `value` stores `oklch()`. Convert at the
+edges, where a legacy format is actually required.
+
+```js
+import { formatOklch, formatHsl, oklchToHex, inGamut, SRGB } from "@oklch-picker/core";
+
+const green = { l: 0.86, c: 0.28, h: 145 };  // P3 reaches this, sRGB does not
+
+formatOklch(green);  // "oklch(0.86 0.28 145)"       the colour, intact
+oklchToHex(green);   // "#01fb48"                    nearest sRGB
+formatHsl(green);    // "hsl(137.04 99.21% 49.41%)"  nearest sRGB
+
+// Ask first, if a silent shift would matter.
+if (!inGamut(green, SRGB)) keepAsOklch(green);
+```
+
+None of the sRGB formatters takes a `gamut`, deliberately. A browser reads
+their numbers as sRGB, so passing a wider space would write channels that
+render as some other colour entirely.
 Opting in costs a few hundred bytes.
 
 ### Letting the user switch
@@ -437,12 +472,12 @@ An opaque colour is unchanged in every format: `oklch(0.7 0.15 255)` stays exact
 
 | Prop | Type | Default | |
 |---|---|---|---|
-| `value` | `string \| null` | none | `oklch()`, `rgb()` or hex, with or without alpha |
+| `value` | `string \| null` | none | `oklch()`, `rgb()`, `hsl()`, `hwb()` or hex, with or without alpha |
 | `onChange` | `(colour: string) => void` | none | Receives a canonical, clamped `oklch(L C H)`, or `oklch(L C H / A)` when transparent |
 | `presets` | `string[]` | none | Swatches shown below the sliders |
 | `recents` | `string[]` | none | Controlled recent colours; omit to keep a session list |
 | `onRecentsChange` | `(recents: string[]) => void` | none | Fired on commit, not during a drag |
-| `maxRecents` | `number` | `8` | How many to keep when uncontrolled |
+| `maxRecents` | `number` | `8` | How many recents to keep, when `recents` is not passed |
 | `layout` | `"chart" \| "side-by-side" \| "compact" \| "stacked"` | `"chart"` | See [Layouts](#layouts) |
 | `parts` | `{ charts?, preview?, oklchInput?, rgbInput?, hexInput?, alpha?, gamutLines?, name?, notice?, recents?, gamutSwitch?: boolean }` | on except `rgbInput`, `hexInput`, `gamutSwitch` | Turn parts off, e.g. `{ charts: false }` |
 | `labels` | `Partial<Record<LabelKey, string>>` | English | Translation and custom notices. See [Notices](#notices) |
@@ -450,7 +485,7 @@ An opaque colour is unchanged in every format: `oklch(0.7 0.15 255)` stays exact
 | `references` | `Gamut[]` | `[SRGB]` when wider | Spaces outlined on the chart but never clamped to |
 | `gamutChoices` | `Gamut[]` | output + references | What the switcher offers |
 | `onGamutChange` | `(gamut: Gamut) => void` | none | Fired by the built-in switcher |
-| `classPrefix` | `string` | `"oklch-picker"` | Prefix for every class name |
+| `classPrefix` | `string` | `"oklch-picker"` | Prefix for every class name. Changing it opts out of `styles.css`, which targets the default |
 | `className` | `string` | none | Added to the root element |
 
 ## Styling
@@ -501,6 +536,8 @@ clampToGamut({ l: 0.75, c: 0.35, h: 145 });  // chroma reduced until it fits
 | `toOklch`, `parseOklch`, `formatOklch` | Parse and format. `toOklch` takes any supported form |
 | `hexToOklch`, `oklchToHex` | Convert, exact round-trip within sRGB |
 | `parseRgb`, `formatRgb`, `oklchToRgb255` | The same for `rgb()` and `rgba()` |
+| `parseHsl`, `formatHsl` | The same for `hsl()` and `hsla()` |
+| `parseHwb`, `formatHwb` | The same for `hwb()` |
 | `hasAlpha`, `alphaOf` | Ask about transparency without re-deriving "absent means opaque" |
 | `inGamut`, `clampToGamut`, `maxChroma` | Gamut queries |
 | `gamutCurve` | Cross-section data behind the charts |
@@ -517,6 +554,41 @@ const fitted = clampToGamut(dialled);   // chroma reduced, alpha untouched
 alphaOf(fitted);                        // 0.4
 formatOklch(fitted);                    // "oklch(0.75 0.2359 145 / 0.4)"
 ```
+
+## Lit, Alpine and HTMX
+
+None of these needs an adapter. `<oklch-picker>` is a custom element, so it already works in all three, and a wrapper package would add a version to keep in lockstep in exchange for syntax you can write today.
+
+Lit binds properties with a leading dot, which is what the object props want:
+
+```js
+html`<oklch-picker .value=${this.colour} .gamut=${P3} @change=${(e) => (this.colour = e.detail.colour)}></oklch-picker>`
+```
+
+Alpine needs `x-effect` rather than `x-model`. `x-model` recognises built-in form controls, so on a custom element it sets the initial value and then never updates:
+
+```html
+<oklch-picker x-effect="$el.value = colour" @change="colour = $event.detail.colour"></oklch-picker>
+```
+
+HTMX needs nothing at all. The element is form-associated, so a `name` is enough for it to submit like any other field.
+
+**[The full recipes](https://nord-forge.github.io/oklch-picker/docs/recipes/)** cover the stylesheet in a shadow root, binding objects in Alpine, and coalescing HTMX requests.
+
+## Server rendering
+
+Every adapter renders on a server, and the markup it sends is the finished picker rather than an empty shell that fills in on the client. There is no server entry point and nothing to configure: the colour maths touches no DOM, so it runs the same in both places.
+
+```tsx
+import { renderToString } from "react-dom/server";
+renderToString(<ColourPicker value={colour} onChange={setColour} />);
+```
+
+The custom element is the exception. It upgrades in the browser rather than being rendered to HTML, so server-render the tag and import `oklch-picker/register` from a client-only block. Importing it on a server is safe and does nothing, but the element cannot upgrade there.
+
+Rails, Laravel, Django, PHP and WordPress serve the tag as text and never import the module, so none of that applies to them.
+
+**[The full guide](https://nord-forge.github.io/oklch-picker/docs/ssr/)** covers Astro, Next and Nuxt, and what hydration depends on.
 
 ## Accessibility
 

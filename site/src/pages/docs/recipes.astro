@@ -1,0 +1,192 @@
+---
+import { Code } from "astro:components";
+import Pager from "../../components/Pager.astro";
+import Picker from "../../components/Picker.astro";
+import Page from "../../layouts/Page.astro";
+import { THEMES } from "../../lib/code";
+import { url } from "../../lib/url";
+---
+
+<Page
+  title="Lit, Alpine and HTMX · oklch-picker"
+  description="Three stacks that need no adapter. The custom element already works in all of them, so what is left is how to wire it up."
+>
+  <h1>Lit, Alpine and HTMX</h1>
+
+  <p class="lede">
+    None of these needs an adapter. <code>&lt;oklch-picker&gt;</code> is a custom
+    element, so it already works in all three. What follows is how to wire it to
+    each one's state.
+  </p>
+
+  <Picker caption="The same element in every example below" />
+
+  <p>
+    Install the no-framework package and register the tag once, anywhere in your
+    bundle:
+  </p>
+
+  <Code code={`npm install oklch-picker`} lang="sh" themes={THEMES} />
+
+  <Code
+    code={`import "oklch-picker/register";
+import "@oklch-picker/core/styles.css";`}
+    lang="js"
+    themes={THEMES}
+  />
+
+  <h2>Lit</h2>
+
+  <p>
+    Lit binds properties with a leading dot, which is exactly what this element
+    wants. <code>gamut</code>, <code>presets</code> and <code>parts</code> are
+    objects and arrays, so they can only ever be properties. An attribute would
+    stringify them.
+  </p>
+
+  <Code
+    code={`import { LitElement, html } from "lit";
+import { P3 } from "@oklch-picker/core/gamuts";
+import "oklch-picker/register";
+
+class ColourField extends LitElement {
+  static properties = { colour: { state: true } };
+
+  constructor() {
+    super();
+    this.colour = "oklch(0.7 0.15 255)";
+  }
+
+  // Render into the light DOM. The stylesheet is a document-level sheet, so a
+  // shadow root would leave the picker unstyled.
+  createRenderRoot() {
+    return this;
+  }
+
+  render() {
+    return html\`
+      <oklch-picker
+        .value=\${this.colour}
+        .gamut=\${P3}
+        .presets=\${["oklch(0.75 0.16 145)"]}
+        @change=\${(e) => (this.colour = e.detail.colour)}
+      ></oklch-picker>
+    \`;
+  }
+}
+
+customElements.define("colour-field", ColourField);`}
+    lang="js"
+    themes={THEMES}
+  />
+
+  <div class="note">
+    <p>
+      Assign reactive state in the constructor rather than as a class field. A
+      native class field overwrites the accessor Lit installs to detect changes,
+      and updates stop firing with no error to explain it. Lit warns about this
+      in the console, which is easy to miss.
+    </p>
+  </div>
+
+  <p>
+    Types come with the package. Importing either <code>oklch-picker</code> or
+    <code>oklch-picker/register</code> teaches TypeScript the tag, so
+    <code>picker.value</code> is a string and <code>event.detail.colour</code>
+    resolves in a listener.
+  </p>
+
+  <h2>Alpine</h2>
+
+  <p>
+    Alpine reads and writes the DOM directly, so the element's property and its
+    <code>change</code> event are all it needs. There is no adapter layer to sit
+    between them.
+  </p>
+
+  <Code
+    code={`<div x-data="{ colour: 'oklch(0.7 0.15 255)' }">
+  <oklch-picker
+    x-effect="$el.value = colour"
+    @change="colour = $event.detail.colour"
+  ></oklch-picker>
+
+  <p x-text="colour"></p>
+</div>`}
+    lang="html"
+    themes={THEMES}
+  />
+
+  <p>
+    <code>x-effect</code> rather than <code>x-model</code>. That is not a style
+    preference: <code>x-model</code> recognises built-in form controls, and on a
+    custom element it sets the initial value and then never updates. The binding
+    looks right and silently stops tracking after the first drag. Setting
+    <code>$el.value</code> in an effect keeps the picker in step with Alpine's
+    state, and the <code>change</code> handler carries the colour back.
+  </p>
+
+  <p>
+    For objects, bind the property in <code>x-init</code>, since an attribute
+    would stringify it:
+  </p>
+
+  <Code
+    code={`<oklch-picker
+  x-init="$el.gamut = P3; $el.parts = { hexInput: true }"
+  @change="colour = $event.detail.colour"
+></oklch-picker>`}
+    lang="html"
+    themes={THEMES}
+  />
+
+  <h2>HTMX</h2>
+
+  <p>
+    HTMX posts forms, so what matters is that the picker submits like a field.
+    Give it a <code>name</code> and it does: the element is form-associated, so
+    its value is included in the submission with no hidden input to keep in
+    sync.
+  </p>
+
+  <Code
+    code={`<form hx-post="/theme" hx-trigger="change from:#brand">
+  <oklch-picker id="brand" name="brand" value="oklch(0.7 0.15 255)"></oklch-picker>
+</form>`}
+    lang="html"
+    themes={THEMES}
+  />
+
+  <p>
+    The request carries <code>brand=oklch(0.7 0.15 255)</code>, the same canonical
+    string every adapter emits. A form reset restores the value the server
+    rendered, as a built-in input would.
+  </p>
+
+  <div class="note">
+    <p>
+      <code>hx-trigger="change from:#brand"</code> fires on every commit, which
+      for a colour picker means every slider release. If that is more traffic
+      than you want, add <code>delay:500ms</code> to coalesce a burst of
+      adjustments into one request.
+    </p>
+  </div>
+
+  <h2>Why no packages</h2>
+
+  <p>
+    Each of these was considered as an adapter and none earned one. Lit's
+    property binding is already the thing a wrapper would add, and Alpine and
+    HTMX work at the DOM level where the element already lives. A package would
+    add a version to keep in lockstep and a second API to learn, in exchange for
+    syntax you can write today.
+  </p>
+
+  <p>
+    The <a href={url("/examples/vanilla")}>no-framework examples</a> cover the
+    element itself in more detail: every property, every event, and the form
+    association these recipes lean on.
+  </p>
+
+  <Pager />
+</Page>

@@ -3,6 +3,7 @@ import CodeTabs from "../../components/CodeTabs.astro";
 import Pager from "../../components/Pager.astro";
 import Picker from "../../components/Picker.astro";
 import Page from "../../layouts/Page.astro";
+import { url } from "../../lib/url";
 ---
 
 <Page
@@ -52,6 +53,31 @@ import { P3 } from "@oklch-picker/core/gamuts";
         code: `import { P3 } from "@oklch-picker/core/gamuts";
 
 <ColourPicker value={colour()} onChange={setColour} gamut={P3} />`,
+      },
+      {
+        label: "Angular",
+        lang: "ts",
+        code: `import { P3 } from "@oklch-picker/core/gamuts";
+
+// In the component: readonly gamut = signal(P3);
+<oklch-colour-picker
+  [value]="colour()"
+  (valueChange)="colour.set($event)"
+  [gamut]="gamut()"
+/>`,
+      },
+      {
+        label: "Qwik",
+        lang: "tsx",
+        code: `// An id, not the object. Qwik serialises props to resume a
+// component, and a gamut carries a function, so the id crosses
+// the boundary where the object cannot.
+<ColourPicker value={colour.value} gamut="p3" onChange$={(c) => (colour.value = c)} />`,
+      },
+      {
+        label: "Astro",
+        lang: "astro",
+        code: `---\nimport "@oklch-picker/core/styles.css";\n---\n\n<oklch-picker value="oklch(0.7 0.15 255)"></oklch-picker>\n\n<script>\n  import "oklch-picker/register";\n  import { P3 } from "@oklch-picker/core/gamuts";\n\n  // A property, not an attribute: a Gamut is an object.\n  document.querySelector("oklch-picker").gamut = P3;\n<\\/script>`,
       },
       {
         label: "No framework",
@@ -165,6 +191,71 @@ document.querySelector("oklch-picker").gamut = P3;`,
 />`,
       },
       {
+        label: "Vue",
+        lang: "vue",
+        code: `<ColourPicker
+  v-model="colour"
+  :gamut="gamut"
+  :gamut-choices="[SRGB, P3, REC2020]"
+  :parts="{ gamutSwitch: true }"
+  @gamut-change="gamut = $event"
+/>`,
+      },
+      {
+        label: "Svelte",
+        lang: "svelte",
+        code: `<ColourPicker
+  bind:value={colour}
+  gamut={gamut}
+  gamutChoices={[SRGB, P3, REC2020]}
+  parts={{ gamutSwitch: true }}
+  ongamutchange={(g) => (gamut = g)}
+/>`,
+      },
+      {
+        label: "Solid",
+        lang: "tsx",
+        code: `<ColourPicker
+  value={colour()}
+  onChange={setColour}
+  gamut={gamut()}
+  onGamutChange={setGamut}
+  gamutChoices={[SRGB, P3, REC2020]}
+  parts={{ gamutSwitch: true }}
+/>`,
+      },
+      {
+        label: "Angular",
+        lang: "html",
+        code: `<oklch-colour-picker
+  [value]="colour()"
+  (valueChange)="colour.set($event)"
+  [gamut]="gamut()"
+  (gamutChange)="gamut.set($event)"
+  [gamutChoices]="choices"
+  [parts]="{ gamutSwitch: true }"
+/>`,
+      },
+      {
+        label: "Qwik",
+        lang: "tsx",
+        code: `// Ids, not Gamut objects: Qwik serialises props, and a Gamut
+// carries fromLms.
+<ColourPicker
+  value={colour.value}
+  onChange$={$((c: string) => (colour.value = c))}
+  gamut={gamut.value}
+  onGamutChange$={$((g: GamutId) => (gamut.value = g))}
+  gamutChoices={["srgb", "p3", "rec2020"]}
+  parts={{ gamutSwitch: true }}
+/>`,
+      },
+      {
+        label: "Astro",
+        lang: "astro",
+        code: `---\nimport "@oklch-picker/core/styles.css";\n---\n\n<oklch-picker parts='{"gamutSwitch": true}'></oklch-picker>\n\n<script>\n  import "oklch-picker/register";\n  import { SRGB } from "@oklch-picker/core";\n  import { P3, REC2020 } from "@oklch-picker/core/gamuts";\n\n  const picker = document.querySelector("oklch-picker");\n  picker.gamutChoices = [SRGB, P3, REC2020];\n\n  picker.addEventListener("gamutchange", (event) => {\n    console.log(event.detail.gamut.label);\n  });\n<\\/script>`,
+      },
+      {
         label: "No framework",
         lang: "js",
         code: `import { SRGB } from "@oklch-picker/core";
@@ -229,6 +320,69 @@ picker.addEventListener("gamutchange", (event) => {
 />`,
       },
       {
+        label: "Vue",
+        lang: "vue",
+        code: `<ColourPicker
+  v-model="colour"
+  :labels='{
+    outOfGamut: "Not displayable.",
+    "outOf:p3": "Needs a wide-gamut screen.",
+  }'
+/>`,
+      },
+      {
+        label: "Svelte",
+        lang: "svelte",
+        code: `<ColourPicker
+  bind:value={colour}
+  labels={{
+    outOfGamut: "Not displayable.",
+    "outOf:p3": "Needs a wide-gamut screen.",
+  }}
+/>`,
+      },
+      {
+        label: "Solid",
+        lang: "tsx",
+        code: `<ColourPicker
+  value={colour()}
+  onChange={setColour}
+  labels={{
+    outOfGamut: "Not displayable.",
+    "outOf:p3": "Needs a wide-gamut screen.",
+  }}
+/>`,
+      },
+      {
+        label: "Angular",
+        lang: "html",
+        code: `<oklch-colour-picker
+  [value]="colour()"
+  (valueChange)="colour.set($event)"
+  [labels]="{
+    outOfGamut: 'Not displayable.',
+    'outOf:p3': 'Needs a wide-gamut screen.',
+  }"
+/>`,
+      },
+      {
+        label: "Qwik",
+        lang: "tsx",
+        code: `<ColourPicker
+  value={colour.value}
+  onChange$={$((c: string) => (colour.value = c))}
+  labels={{
+    outOfGamut: "Not displayable.",
+    "outOf:p3": "Needs a wide-gamut screen.",
+  }}
+/>`,
+      },
+      {
+        label: "Astro",
+        lang: "astro",
+        code: `<oklch-picker\n  labels='{"outOfGamut": "Not displayable.", "outOf:p3": "Needs a wide-gamut screen."}'\n></oklch-picker>`,
+      },
+      {
         label: "No framework",
         lang: "html",
         code: `<oklch-picker
@@ -256,6 +410,73 @@ picker.addEventListener("gamutchange", (event) => {
     parts={{ notice: false }}
     caption="The same colour with parts.notice off. Still clamped, just silent."
   />
+
+  <h2>Reading the value back out</h2>
+
+  <p>
+    A wide-gamut colour is a wide-gamut colour only while it stays in
+    <code>oklch()</code>. That is the form the picker emits and the one
+    <code>value</code> carries, and it can express everything P3 and Rec. 2020
+    reach.
+  </p>
+
+  <p>
+    The other formats cannot. <code>rgb()</code>, <code>hsl()</code>,
+    <code>hwb()</code> and hex all describe an sRGB colour, so a P3 or
+    Rec. 2020 value written in any of them is clamped to the nearest sRGB one
+    first. Nothing warns you at that point: the string you get back is valid,
+    displayable and simply a different colour.
+  </p>
+
+  <div class="note">
+    <p>
+      <strong>Only <code>oklch()</code> survives a wide gamut.</strong> The
+      helpers below are all sRGB, so a P3 green becomes the nearest sRGB green
+      on the way through. Store <code>oklch()</code> if the wider colour is the
+      point, and convert at the edges where you need a legacy format.
+    </p>
+  </div>
+
+  <CodeTabs
+    name="wide-formats"
+    snippets={[
+      {
+        label: "What is kept",
+        lang: "js",
+        code: `import { formatOklch, formatHsl, oklchToHex } from "@oklch-picker/core";
+
+// A green P3 reaches and sRGB does not.
+const green = { l: 0.86, c: 0.28, h: 145 };
+
+formatOklch(green);  // "oklch(0.86 0.28 145)"       the colour, intact
+oklchToHex(green);   // "#01fb48"                    nearest sRGB
+formatHsl(green);    // "hsl(137.04 99.21% 49.41%)"  nearest sRGB
+
+// None of the three takes a gamut, deliberately: a browser reads their
+// numbers as sRGB, so there is no way for them to carry a wider colour.`,
+      },
+      {
+        label: "Checking first",
+        lang: "js",
+        code: `import { inGamut, formatHsl, formatOklch, SRGB } from "@oklch-picker/core";
+
+// Ask before converting, if a silent shift would matter.
+if (inGamut(colour, SRGB)) {
+  save(formatHsl(colour));
+} else {
+  // Keep the wider colour, or tell someone it is about to change.
+  save(formatOklch(colour));
+}`,
+      },
+    ]}
+  />
+
+  <p>
+    The same applies to the picker's own fields. The <code>oklch()</code> field
+    shows the value as stored; the <code>rgb()</code> and hex fields show the
+    sRGB colour nearest to it, which is why hex is off by default. See
+    <a href={url("/docs/parts")}>Parts</a> for turning each on.
+  </p>
 
   <Pager />
 </Page>

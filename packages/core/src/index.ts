@@ -15,6 +15,8 @@ export {
   chartColour,
   clampToGamut,
   colourName,
+  formatHsl,
+  formatHwb,
   formatOklch,
   formatRgb,
   gamutCurve,
@@ -22,10 +24,15 @@ export {
   hexToOklch,
   inGamut,
   isLight,
+  MAX_CHART_COLUMNS,
   MAX_CHROMA,
   maxChroma,
+  // The half of the transform a custom `Gamut.fromLms` is written against.
+  oklchToLms,
   oklchToHex,
   oklchToRgb255,
+  parseHsl,
+  parseHwb,
   parseOklch,
   parseRgb,
   toOklch,
@@ -34,6 +41,8 @@ export type { Axis, Gamut, GamutColumn, Oklch } from "./colour.js";
 
 export {
   addRecent,
+  alphaModel,
+  alphaTrack,
   atPosition,
   axisModels,
   CHART_H,
@@ -46,6 +55,7 @@ export {
   chartSlot,
   defaultOutOfGamutNotice,
   gamutNoticeKey,
+  gamutsKey,
   DEFAULT_LABELS,
   DEFAULT_LAYOUT,
   DEFAULT_MAX_RECENTS,
@@ -62,6 +72,7 @@ export {
   withSingleChart,
 } from "./model.js";
 export type {
+  AlphaModel,
   AxisModel,
   ChartSlot,
   GamutChartModel,

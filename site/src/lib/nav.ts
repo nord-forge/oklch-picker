@@ -32,7 +32,24 @@ export const NAV: readonly NavSection[] = [
       { title: "Recent colours", path: "/docs/recents" },
       { title: "Hiding parts", path: "/docs/parts" },
       { title: "Styling", path: "/docs/styling" },
+      { title: "Server rendering", path: "/docs/ssr" },
+      { title: "Lit, Alpine and HTMX", path: "/docs/recipes" },
       { title: "Accessibility", path: "/docs/accessibility" },
+    ],
+  },
+  {
+    // One page per framework, generated from `lib/examples.ts`. React leads
+    // because it is the largest audience; the page itself carries a row of the
+    // others, so landing on the wrong one is one click from the right one.
+    title: "Examples",
+    items: [
+      { title: "React", path: "/examples/react" },
+      { title: "Vue", path: "/examples/vue" },
+      { title: "Svelte", path: "/examples/svelte" },
+      { title: "Solid", path: "/examples/solid" },
+      { title: "Angular", path: "/examples/angular" },
+      { title: "Qwik", path: "/examples/qwik" },
+      { title: "No framework", path: "/examples/vanilla" },
     ],
   },
   {

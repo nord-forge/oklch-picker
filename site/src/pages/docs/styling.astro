@@ -97,6 +97,44 @@ import Page from "../../layouts/Page.astro";
         code: `<ColourPicker value={colour} onChange={setColour} classPrefix="brand-picker" />`,
       },
       {
+        label: "Vue",
+        lang: "vue",
+        code: `<ColourPicker v-model="colour" class-prefix="brand-picker" />`,
+      },
+      {
+        label: "Svelte",
+        lang: "svelte",
+        code: `<ColourPicker bind:value={colour} classPrefix="brand-picker" />`,
+      },
+      {
+        label: "Solid",
+        lang: "tsx",
+        code: `<ColourPicker value={colour()} onChange={setColour} classPrefix="brand-picker" />`,
+      },
+      {
+        label: "Angular",
+        lang: "html",
+        code: `<oklch-colour-picker
+  [value]="colour()"
+  (valueChange)="colour.set($event)"
+  classPrefix="brand-picker"
+/>`,
+      },
+      {
+        label: "Qwik",
+        lang: "tsx",
+        code: `<ColourPicker
+  value={colour.value}
+  onChange$={$((c: string) => (colour.value = c))}
+  classPrefix="brand-picker"
+/>`,
+      },
+      {
+        label: "Astro",
+        lang: "astro",
+        code: `<oklch-picker class-prefix="brand-picker"></oklch-picker>`,
+      },
+      {
         label: "No framework",
         lang: "html",
         code: `<oklch-picker class-prefix="brand-picker"></oklch-picker>`,

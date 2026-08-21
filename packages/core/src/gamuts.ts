@@ -43,4 +43,9 @@ export const REC2020: Gamut = {
   // shared bound would have clipped this boundary without any visible error.
   maxChroma: 0.52,
   chartMaxChroma: 0.47,
+  // P3 sits between sRGB and here, so a Rec. 2020 picker draws both lines
+  // rather than leaving the gap between them unmarked. Declared here rather
+  // than in `model.ts`, which cannot import P3 without shipping its matrices
+  // to every app. sRGB is implicit and needs no listing.
+  references: [P3],
 };

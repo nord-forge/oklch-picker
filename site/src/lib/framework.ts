@@ -6,7 +6,20 @@
  * code block, and again on the next page, is the kind of friction that is
  * invisible to whoever built it and constant for whoever reads it.
  */
-export const FRAMEWORKS = ["React", "Vue", "Svelte", "Solid", "No framework"] as const;
+export const FRAMEWORKS = [
+  "React",
+  "Vue",
+  "Svelte",
+  "Solid",
+  "Angular",
+  "Qwik",
+  // Astro has no adapter: it renders the custom element, exactly as any
+  // server-rendered page does. It is listed anyway because someone reaching
+  // for an Astro colour picker looks for Astro, not for "no framework", and a
+  // tab that says so is quicker than a paragraph explaining the equivalence.
+  "Astro",
+  "No framework",
+] as const;
 
 export type Framework = (typeof FRAMEWORKS)[number];
 

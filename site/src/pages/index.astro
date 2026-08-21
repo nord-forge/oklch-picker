@@ -7,14 +7,14 @@ import { url } from "../lib/url";
 
 <Page
   title="oklch-picker · an OKLCH colour picker for every framework"
-  description="An OKLCH colour picker for React, Vue, Svelte, Solid, and no framework at all. Every axis is a slider over a gamut cross-section. Zero runtime dependencies."
+  description="An OKLCH colour picker for React, Vue, Svelte, Solid, Angular, Qwik, Astro and no framework. Every axis is a slider over a gamut cross-section."
 >
   <h1>An OKLCH colour picker that takes the gamut seriously</h1>
 
   <p class="lede">
-    For React, Preact, Vue, Svelte, Solid, and for no framework at all. Zero
-    runtime dependencies. The component is ~5.3&nbsp;kB gzipped, and the colour
-    maths alone is ~1.8&nbsp;kB.
+    For React, Preact, Vue, Svelte, Solid, Angular, Qwik, and for no framework
+    at all. Zero runtime dependencies. The component is ~6.5&nbsp;kB gzipped,
+    and the colour maths alone is ~2.5&nbsp;kB.
   </p>
 
   <Picker
@@ -77,6 +77,13 @@ import { url } from "../lib/url";
       { label: "Vue", lang: "sh", code: "npm install @oklch-picker/vue" },
       { label: "Svelte", lang: "sh", code: "npm install @oklch-picker/svelte" },
       { label: "Solid", lang: "sh", code: "npm install @oklch-picker/solid" },
+      { label: "Angular", lang: "sh", code: "npm install @oklch-picker/angular" },
+      { label: "Qwik", lang: "sh", code: "npm install @oklch-picker/qwik" },
+      {
+        label: "Astro",
+        lang: "sh",
+        code: `npm install oklch-picker`,
+      },
       { label: "No framework", lang: "sh", code: "npm install oklch-picker" },
     ]}
   />
@@ -134,6 +141,55 @@ export function Example() {
   const [colour, setColour] = createSignal("oklch(0.7 0.15 255)");
   return <ColourPicker value={colour()} onChange={setColour} />;
 }`,
+      },
+      {
+        label: "Angular",
+        lang: "ts",
+        code: `import { Component, signal } from "@angular/core";
+import { ColourPickerComponent } from "@oklch-picker/angular";
+import "@oklch-picker/core/styles.css";
+
+@Component({
+  selector: "app-example",
+  standalone: true,
+  imports: [ColourPickerComponent],
+  template: \`
+    <oklch-colour-picker [value]="colour()" (valueChange)="colour.set($event)" />
+  \`,
+})
+export class Example {
+  readonly colour = signal("oklch(0.7 0.15 255)");
+}`,
+      },
+      {
+        label: "Qwik",
+        lang: "tsx",
+        code: `import { $, component$, useSignal } from "@builder.io/qwik";
+import { ColourPicker } from "@oklch-picker/qwik";
+import "@oklch-picker/core/styles.css";
+
+export const Example = component$(() => {
+  const colour = useSignal("oklch(0.7 0.15 255)");
+  return (
+    <ColourPicker
+      value={colour.value}
+      onChange$={$((c: string) => (colour.value = c))}
+    />
+  );
+});`,
+      },
+      {
+        label: "Astro",
+        lang: "astro",
+        code: `---
+import "@oklch-picker/core/styles.css";
+---
+
+<oklch-picker value="oklch(0.7 0.15 255)"></oklch-picker>
+
+<script>
+  import "oklch-picker/register";
+<\/script>`,
       },
       {
         label: "No framework",

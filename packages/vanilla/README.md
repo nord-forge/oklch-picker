@@ -41,6 +41,8 @@ npm install oklch-picker
 
 With a bundler, the import is `import "oklch-picker/register"`. Either way, that one side-effect import defines the tag. That is the whole client-side cost.
 
+**It keeps its own colour.** Drag a slider and the element updates itself and its `value` attribute, with no listener required. Set `value` from outside whenever you want to drive it, and listen for `change` when you want to know. This is the one place the element differs from the framework adapters, which render whatever `value` you pass and hold nothing of their own.
+
 **It works in forms.** The element is form-associated, so it submits under its `name` like a built-in input. There is no hidden field to keep in sync.
 
 ```html
@@ -73,6 +75,8 @@ It renders into the light DOM, so the stylesheet and `--okp-*` overrides apply a
 | Vue | [`@oklch-picker/vue`](https://www.npmjs.com/package/@oklch-picker/vue) |
 | Svelte 5 | [`@oklch-picker/svelte`](https://www.npmjs.com/package/@oklch-picker/svelte) |
 | Solid | [`@oklch-picker/solid`](https://www.npmjs.com/package/@oklch-picker/solid) |
+| Angular 17+ | [`@oklch-picker/angular`](https://www.npmjs.com/package/@oklch-picker/angular) |
+| Qwik | [`@oklch-picker/qwik`](https://www.npmjs.com/package/@oklch-picker/qwik) |
 | The maths and headless model alone | [`@oklch-picker/core`](https://www.npmjs.com/package/@oklch-picker/core) |
 
 Full documentation lives in the [repository README](https://github.com/nord-forge/oklch-picker#readme).

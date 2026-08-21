@@ -178,6 +178,7 @@ function slideAlpha(event: Event & { currentTarget: HTMLInputElement }) {
 
   {#if model.parts.recents && recents.length > 0}
     <div class="{classPrefix}__recents">
+      <p class="{classPrefix}__swatch-label">{model.labels.recents}</p>
       {#each recents as recent (recent)}
         {@const selected = recent === model.canonical}
         <button
@@ -262,6 +263,7 @@ function slideAlpha(event: Event & { currentTarget: HTMLInputElement }) {
             step={axis.step}
             value={axis.value}
             aria-label={model.labels[axis.key]}
+            aria-valuetext={axis.valuetext}
             oninput={(e) => dial({ ...model.current, [axis.key]: Number(e.currentTarget.value) })}
             onpointerup={commitCurrent}
             onblur={commitCurrent}
@@ -295,6 +297,7 @@ function slideAlpha(event: Event & { currentTarget: HTMLInputElement }) {
             step={model.alpha.step}
             value={model.alpha.value}
             aria-label="Alpha"
+            aria-valuetext={model.alpha.valuetext}
             oninput={slideAlpha}
             onpointerup={commitCurrent}
             onblur={commitCurrent}
@@ -373,7 +376,9 @@ function slideAlpha(event: Event & { currentTarget: HTMLInputElement }) {
     </div>
   {/if}
 
-  {#if model.parts.notice && model.clipped}
-    <p class="{classPrefix}__notice">{model.notice}</p>
+  <!-- Always rendered, empty until something is clipped: a live region only
+       announces if it was in the DOM before the text arrived. -->
+  {#if model.parts.notice}
+    <p class="{classPrefix}__notice" role="status">{model.clipped ? model.notice : ""}</p>
   {/if}
 </div>

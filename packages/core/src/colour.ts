@@ -127,6 +127,17 @@ export interface Gamut {
   maxChroma: number;
   /** Chart scale: the space's own reachable peak, rounded up. */
   chartMaxChroma: number;
+  /** Narrower spaces worth outlining when this one is the output, beyond sRGB.
+   *
+   * A space knows what sits inside it; `model.ts` cannot, because importing P3
+   * to say so would pull its matrices into every bundle and break the promise
+   * that an app which never mentions a wide gamut never ships one. Rec. 2020
+   * names P3 here, so a Rec. 2020 picker draws both lines without the caller
+   * having to list them.
+   *
+   * sRGB is implicit and never needs listing: it earns a line whenever it is
+   * not itself the output. */
+  references?: Gamut[];
 }
 
 function lmsToLinearSrgb([l_, m_, s_]: [number, number, number]): [number, number, number] {
@@ -164,7 +175,17 @@ export const SRGB: Gamut = {
  * still holds chroma that quantises away. At L=0 every chroma below ~0.039 is
  * `#000000`, indistinguishable from the achromatic colour. Requiring a
  * distinguishable channel is what makes the gamut close to a point at black
- * rather than reporting a width that no screen can show. */
+ * rather than reporting a width that no screen can show.
+ *
+ * That separation is measured unrounded, against half a step, rather than by
+ * rounding both sides and comparing. Rounding first is not monotonic in chroma:
+ * two channels land either side of a `.5` boundary and membership flickers
+ * in, out and back in as chroma rises. `bisectChroma` assumes one crossing, so
+ * on a flickering predicate it converged inside a dead zone and reported a
+ * maximum below what `inGamut` itself accepted. The two disagreed at 2 of the
+ * 43,200 (lightness, hue) pairs swept; measuring before the rounding leaves 0,
+ * and it means the same thing: at least one channel differs by enough to
+ * survive quantisation. */
 export function inGamut(colour: Oklch, gamut: Gamut = SRGB): boolean {
   const eps = 0.1 / 255;
   const rgb = gamut.fromLms(oklchToLms(colour));
@@ -172,9 +193,9 @@ export function inGamut(colour: Oklch, gamut: Gamut = SRGB): boolean {
   if (colour.c === 0) return true;
 
   // Distinguishable from grey at the same lightness once quantised to 8 bits?
-  const to255 = (v: number) => Math.round(clamp(linearToSrgb(v), 0, 1) * 255);
+  const to255 = (v: number) => clamp(linearToSrgb(v), 0, 1) * 255;
   const grey = gamut.fromLms(oklchToLms({ ...colour, c: 0 })).map(to255);
-  return rgb.map(to255).some((v, i) => v !== grey[i]);
+  return rgb.map(to255).some((v, i) => Math.abs(v - (grey[i] as number)) >= 0.5);
 }
 
 /** Highest chroma <= hi that fits the gamut at this lightness and hue. Chroma
@@ -190,10 +211,29 @@ function bisectChroma(l: number, h: number, upper: number, gamut: Gamut = SRGB):
   return lo;
 }
 
-/** Reduce chroma until the colour fits the gamut, keeping lightness and hue. */
+/** Reduce chroma until the colour fits the gamut, keeping lightness and hue.
+ *
+ * The bisection resolves ~100x finer than the four decimals `formatOklch`
+ * keeps, so its result lands just inside the boundary and rounding to four
+ * places would round half up and cross back out. Floor to that precision here
+ * instead: what is returned is then the same colour the formatted string
+ * parses back to, and "nothing out-of-gamut is ever emitted" holds for the
+ * string as well as the object. */
 export function clampToGamut(colour: Oklch, gamut: Gamut = SRGB): Oklch {
+  // Negative chroma has no meaning, and the bisection would carry the sign
+  // through and emit it. Not reachable from the UI, where the slider stops at 0
+  // and a chart pick is clamped to 0..1, but this is a public function and a
+  // consumer can write straight into `value`.
+  if (colour.c < 0) return { ...colour, c: 0 };
   if (inGamut(colour, gamut)) return colour;
-  return { ...colour, c: bisectChroma(colour.l, colour.h, colour.c, gamut) };
+  const c = bisectChroma(colour.l, colour.h, colour.c, gamut);
+  const floored = Math.floor(c * 1e4) / 1e4;
+  // Membership is not strictly monotonic in chroma: the 8-bit distinguishability
+  // rule in `inGamut` can leave an island narrower than this grid, and near
+  // white one is thinner than 0.0001. Flooring off such an island would emit a
+  // colour that is out of gamut again, so fall back to the achromatic value,
+  // which every gamut holds at any lightness.
+  return { ...colour, c: inGamut({ ...colour, c: floored }, gamut) ? floored : 0 };
 }
 
 /** OKLCH -> `#rrggbb`. Out-of-gamut colours are clamped first. */
@@ -245,8 +285,15 @@ export function hexToOklch(hex: string): Oklch | null {
   return a >= 1 ? colour : { ...colour, a };
 }
 
-/** The 0..255 sRGB channels for a colour, gamut-clamped. The shared step
- * behind both the `rgb()` string and the hex one. */
+/** The 0..255 sRGB channels for a colour. The shared step behind both the
+ * `rgb()` string and the hex one.
+ *
+ * `gamut` narrows which colours survive, not which space the channels are in:
+ * the conversion is always sRGB. Passing a wider space therefore yields
+ * channels that no `rgb()` string can carry, since CSS reads those numbers as
+ * sRGB. `formatRgb`, `formatHsl`, `formatHwb` and `oklchToHex` all clamp to
+ * sRGB for that reason; this stays configurable because the boundary maths
+ * needs a space's own channels. */
 export function oklchToRgb255(colour: Oklch, gamut: Gamut = SRGB): [number, number, number] {
   const [r, g, b] = oklchToLinearRgb(clampToGamut(colour, gamut));
   const to255 = (v: number) => clamp(Math.round(linearToSrgb(v) * 255), 0, 255);
@@ -257,9 +304,15 @@ export function oklchToRgb255(colour: Oklch, gamut: Gamut = SRGB): [number, numb
  *
  * The space-separated CSS Color 4 form rather than legacy `rgba(...)` commas.
  * Both are valid CSS and every target browser parses this one, since a browser
- * without it would not support `oklch()` either. */
-export function formatRgb(colour: Oklch, gamut: Gamut = SRGB): string {
-  const [r, g, b] = oklchToRgb255(colour, gamut);
+ * without it would not support `oklch()` either.
+ *
+ * Always sRGB, whatever the picker's output space. `rgb()` numbers mean sRGB to
+ * a browser, so writing P3 channels into one produces a different colour than
+ * intended, silently: a P3 green read back as `rgb()` rendered `#00fd3f` while
+ * the same picker's hex field said `#01fb48`. A wide-gamut colour has to stay
+ * in `oklch()` to stay itself. */
+export function formatRgb(colour: Oklch): string {
+  const [r, g, b] = oklchToRgb255(colour, SRGB);
   const base = `${r} ${g} ${b}`;
   return hasAlpha(colour) ? `rgb(${base} / ${round(colour.a, 4)})` : `rgb(${base})`;
 }
@@ -296,13 +349,158 @@ export function parseRgb(value: string | null | undefined): Oklch | null {
   return a >= 1 ? colour : { ...colour, a };
 }
 
+/** sRGB 0..1 channels from an HSL triple, per CSS Color 4.
+ *
+ * Both HSL and HWB are ways of describing an sRGB colour, not spaces of their
+ * own, so each converts to sRGB here and reaches OKLCH the same way `rgb()`
+ * does. Neither can carry a wide-gamut colour, which is why the picker works in
+ * OKLCH and offers these only at its edges. */
+function hslToRgb(h: number, s: number, l: number): [number, number, number] {
+  const hue = (((h % 360) + 360) % 360) / 30;
+  const a = s * Math.min(l, 1 - l);
+  const f = (n: number) => {
+    const k = (n + hue) % 12;
+    return l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1));
+  };
+  return [f(0), f(8), f(4)];
+}
+
+/** The HSL triple for an sRGB colour: hue in degrees, saturation and lightness
+ * as 0..1 fractions. */
+function rgbToHsl(r: number, g: number, b: number): [number, number, number] {
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  const d = max - min;
+  if (d === 0) return [0, 0, l];
+
+  // The denominator is the distance from whichever end of the range is nearer,
+  // so saturation reads 1 for a pure hue at any lightness.
+  const s = d / (l > 0.5 ? 2 - max - min : max + min);
+  let h: number;
+  if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) * 60;
+  else if (max === g) h = ((b - r) / d + 2) * 60;
+  else h = ((r - g) / d + 4) * 60;
+  return [h, s, l];
+}
+
+/** Format as `hsl(H S% L%)`, or `hsl(H S% L% / A)` when not opaque.
+ *
+ * Always sRGB, for the reason `formatRgb` gives: HSL is a way of describing an
+ * sRGB colour, so a wider one is clamped to the nearest sRGB colour before it
+ * can be written at all. Lossy here in a way `oklch()` is not. */
+export function formatHsl(colour: Oklch): string {
+  const [r, g, b] = oklchToRgb255(colour, SRGB);
+  const [h, s, l] = rgbToHsl(r / 255, g / 255, b / 255);
+  const base = `${round(h, 2)} ${round(s * 100, 2)}% ${round(l * 100, 2)}%`;
+  return hasAlpha(colour) ? `hsl(${base} / ${round(colour.a, 4)})` : `hsl(${base})`;
+}
+
+/** Format as `hwb(H W% B%)`, or `hwb(H W% B% / A)` when not opaque.
+ *
+ * Whiteness and blackness are the smallest and largest sRGB channels, so this
+ * is sRGB-only for the same reason `formatHsl` is. */
+export function formatHwb(colour: Oklch): string {
+  const [r255, g255, b255] = oklchToRgb255(colour, SRGB);
+  const [r, g, b] = [r255 / 255, g255 / 255, b255 / 255] as [number, number, number];
+  const [h] = rgbToHsl(r, g, b);
+  const w = Math.min(r, g, b);
+  const bl = 1 - Math.max(r, g, b);
+  const base = `${round(h, 2)} ${round(w * 100, 2)}% ${round(bl * 100, 2)}%`;
+  return hasAlpha(colour) ? `hwb(${base} / ${round(colour.a, 4)})` : `hwb(${base})`;
+}
+
+/** Shared tail of the `hsl()` and `hwb()` grammars: three components and an
+ * optional alpha, in either the comma or the space form. */
+const HSL_LIKE = String.raw`\(\s*([\d.+-]+)(?:deg)?[\s,]+([\d.+-]+)%?[\s,]+([\d.+-]+)%?\s*(?:[,/]\s*([\d.+-]+)(%?)\s*)?\)$`;
+
+/** Read the optional alpha shared by every functional form. `undefined` means
+ * the string carried none; `null` means it carried one that was not a number. */
+function tailAlpha(raw: string | undefined, pct: string | undefined): number | null | undefined {
+  if (raw === undefined) return undefined;
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return null;
+  return clamp(pct === "%" ? n / 100 : n, 0, 1);
+}
+
+/** Parse `hsl()` or `hsla()`, in either the comma or the space form.
+ *
+ * Hue accepts a bare number or `deg` and wraps, matching CSS. Saturation and
+ * lightness are percentages, with or without the sign, and clamp to 0..100. */
+export function parseHsl(value: string | null | undefined): Oklch | null {
+  if (!value) return null;
+  const m = value.trim().match(new RegExp(`^hsla?${HSL_LIKE}`, "i"));
+  if (!m) return null;
+
+  const h = Number(m[1]);
+  const s = Number(m[2]);
+  const l = Number(m[3]);
+  if (![h, s, l].every(Number.isFinite)) return null;
+
+  const [r, g, b] = hslToRgb(h, clamp(s, 0, 100) / 100, clamp(l, 0, 100) / 100);
+  const to255 = (v: number) => Math.round(clamp(v, 0, 1) * 255);
+  const colour = hexToOklch(
+    `#${[r, g, b].map((v) => to255(v).toString(16).padStart(2, "0")).join("")}`,
+  );
+  if (!colour) return null;
+
+  const a = tailAlpha(m[4], m[5]);
+  if (a === null) return null;
+  return a === undefined || a >= 1 ? colour : { ...colour, a };
+}
+
+/** Parse `hwb()`, in either the comma or the space form.
+ *
+ * Whiteness and blackness summing past 100% is not an error: CSS says the
+ * colour is the grey their ratio describes, so they are normalised rather than
+ * rejected. */
+export function parseHwb(value: string | null | undefined): Oklch | null {
+  if (!value) return null;
+  const m = value.trim().match(new RegExp(`^hwb${HSL_LIKE}`, "i"));
+  if (!m) return null;
+
+  const h = Number(m[1]);
+  let w = Number(m[2]);
+  let bl = Number(m[3]);
+  if (![h, w, bl].every(Number.isFinite)) return null;
+  w = clamp(w, 0, 100) / 100;
+  bl = clamp(bl, 0, 100) / 100;
+
+  // Past 100% together there is no hue left to show, only the grey between them.
+  if (w + bl >= 1) {
+    const grey = w / (w + bl);
+    const v = Math.round(grey * 255)
+      .toString(16)
+      .padStart(2, "0");
+    const colour = hexToOklch(`#${v}${v}${v}`);
+    if (!colour) return null;
+    const a = tailAlpha(m[4], m[5]);
+    if (a === null) return null;
+    return a === undefined || a >= 1 ? colour : { ...colour, a };
+  }
+
+  // Otherwise the pure hue, compressed into what the two ends leave.
+  const [pr, pg, pb] = hslToRgb(h, 1, 0.5);
+  const mix = (v: number) => Math.round(clamp(v * (1 - w - bl) + w, 0, 1) * 255);
+  const colour = hexToOklch(
+    `#${[pr, pg, pb].map((v) => mix(v).toString(16).padStart(2, "0")).join("")}`,
+  );
+  if (!colour) return null;
+
+  const a = tailAlpha(m[4], m[5]);
+  if (a === null) return null;
+  return a === undefined || a >= 1 ? colour : { ...colour, a };
+}
+
 /** Accepts any supported form and returns OKLCH, or null if unparseable.
  *
- * Order matters only for speed, since the three forms cannot be confused: each
- * parser anchors on its own prefix. */
+ * Order matters only for speed, since the forms cannot be confused: each parser
+ * anchors on its own prefix, and hex is the only one without a function name. */
 export function toOklch(value: string | null | undefined): Oklch | null {
   if (!value) return null;
-  return parseOklch(value) ?? parseRgb(value) ?? hexToOklch(value);
+  return (
+    parseOklch(value) ?? parseRgb(value) ?? parseHsl(value) ?? parseHwb(value) ?? hexToOklch(value)
+  );
 }
 
 /** Highest chroma that fits in sRGB here. Peaks mid-lightness, collapses to white and black. */
@@ -350,12 +548,33 @@ export function chartColour(
   gamut: Gamut = SRGB,
 ): Oklch {
   const { x: xAxis, y: yAxis } = CHART_PLANES[fixed];
+  // Alpha is dropped rather than carried. A chart is a cross-section of the
+  // gamut, and transparency moves a colour neither in nor out of one, which is
+  // the rule `Axis` states by excluding it.
+  //
+  // It mattered because it reached the gradient stops without reaching
+  // `chartKey`: a base carrying `a` produced 8-digit hex, while the memo key
+  // saw the same number either way. Nothing hit it, because every adapter goes
+  // through `chartBase`, which rebuilds `{l, c, h}` and loses `a` on the way.
+  // That made the memo correct by accident of a second function rather than by
+  // this one being right, and the next caller passing a base straight through
+  // would have found a stale curve.
+  const { a: _drop, ...rest } = base;
   return {
-    ...base,
+    ...rest,
     [xAxis]: x * axisMax(xAxis, gamut),
     [yAxis]: y * axisMax(yAxis, gamut),
   } as Oklch;
 }
+
+/** The most columns a curve is drawn with, however many are asked for.
+ *
+ * The chart's viewBox is 100 units wide, so past a few hundred columns each one
+ * is well under a pixel and adds nothing to see. The cap matters because the
+ * lightness-vertical plane scans for its ceiling per column, which is quadratic
+ * in this number: at 2000 it took over a tenth of a second per curve, and that
+ * is a frozen drag in a browser and a blocked event loop under SSR. */
+export const MAX_CHART_COLUMNS = 512;
 
 /** Cross-section of the sRGB gamut in a chart's slice plane. Each column is the
  * highest in-gamut point of the vertical axis, as a 0..1 fraction of that axis.
@@ -363,13 +582,20 @@ export function chartColour(
  * For a chroma-vertical plane that is `maxChroma` directly. For the C card the
  * vertical axis is lightness, where the in-gamut run is a band with both a
  * floor and a ceiling, so the column reports the ceiling and the fill is read
- * from the gradient beneath it. */
+ * from the gradient beneath it.
+ *
+ * The scan for that ceiling is linear rather than a bisection, deliberately.
+ * The band is *usually* contiguous, but not always: of 2376 sampled columns, 35
+ * held more than one run, and a bisection over those would settle on whichever
+ * run its midpoints happened to land in. Walking down from the top always finds
+ * the real ceiling. `MAX_CHART_COLUMNS` is what keeps the cost bounded. */
 export function gamutCurve(
   base: Oklch,
   fixed: Axis,
-  columns = 64,
+  requested = 64,
   gamut: Gamut = SRGB,
 ): GamutColumn[] {
+  const columns = Math.max(1, Math.min(Math.floor(requested) || 64, MAX_CHART_COLUMNS));
   const { x: xAxis, y: yAxis } = CHART_PLANES[fixed];
   const out: GamutColumn[] = [];
   const yScale = axisMax(yAxis, gamut);

@@ -36,7 +36,12 @@ export function Example() {
 }
 ```
 
-`onChange` always receives a canonical, gamut-clamped `oklch(L C H)` string. `value` accepts that or hex.
+`onChange` always receives a canonical, gamut-clamped `oklch(L C H)` string. `value` accepts that, `rgb()`, `hsl()`, `hwb()` or hex.
+
+**The picker is controlled, always.** It keeps no colour of its own: whatever you
+pass as `value` is what it renders, so the value it hands back has to come back
+in. Wire only the callback and the sliders will not move, while the picker
+quietly emits values against a colour that never changes.
 
 Preact works through `preact/compat`, which most Preact setups already alias.
 
@@ -49,6 +54,8 @@ Preact works through `preact/compat`, which most Preact setups already alias.
 | Vue | [`@oklch-picker/vue`](https://www.npmjs.com/package/@oklch-picker/vue) |
 | Svelte 5 | [`@oklch-picker/svelte`](https://www.npmjs.com/package/@oklch-picker/svelte) |
 | Solid | [`@oklch-picker/solid`](https://www.npmjs.com/package/@oklch-picker/solid) |
+| Angular 17+ | [`@oklch-picker/angular`](https://www.npmjs.com/package/@oklch-picker/angular) |
+| Qwik | [`@oklch-picker/qwik`](https://www.npmjs.com/package/@oklch-picker/qwik) |
 | The maths and headless model alone | [`@oklch-picker/core`](https://www.npmjs.com/package/@oklch-picker/core) |
 
 Full documentation lives in the [repository README](https://github.com/nord-forge/oklch-picker#readme).

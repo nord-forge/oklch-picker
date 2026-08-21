@@ -81,12 +81,18 @@ export const DEFAULT_PARTS: Required<PickerParts> = {
 /** Label keys: the three axes, plus one notice per gamut the colour can land
  * outside of. `outOfGamut` is the fallback used when no wider gamut is
  * configured, or when the colour is outside all of them. */
-export type LabelKey = Axis | "outOfGamut" | `outOf:${string}`;
+export type LabelKey = Axis | "outOfGamut" | "recents" | `outOf:${string}`;
 
-export const DEFAULT_LABELS: Record<Axis | "outOfGamut", string> = {
+export const DEFAULT_LABELS: Record<Axis | "outOfGamut" | "recents", string> = {
   l: "Lightness",
   c: "Chroma",
   h: "Hue",
+  // The recents row. It was unlabelled, so a second grid of colour appeared
+  // under the presets with nothing saying it was history rather than more of
+  // the offer. Presets need no label: they are the only swatches on screen
+  // until something has been committed, and the recents label is what tells
+  // the two apart once both are there.
+  recents: "Recently used",
   // Names sRGB rather than "what a screen can display": the picker can target
   // P3, which is also a screen, so the generic phrasing was only true while
   // sRGB was the only option.
@@ -172,16 +178,47 @@ export interface AxisModel {
   max: number;
   step: number;
   value: number;
+  /** What a screen reader should say instead of the raw number.
+   *
+   * A range input announces its `value`, so lightness read as "0.7" and alpha
+   * as "0.85", neither of which carries a unit. Chroma was worse: its maximum
+   * is recomputed from the reachable chroma on every render, so "0.13" is 20%
+   * of the range at one lightness and 95% at another, and the percentage a
+   * reader derives from `min`/`max` moves with it. Naming the maximum is the
+   * only way that value means anything. */
+  valuetext: string;
 }
 
 /** Slider ranges for a colour. Chroma's max hugs what is actually reachable,
  * because a fixed max is up to 87% dead travel at low lightness. */
 export function axisModels(current: Oklch, reachable: number): AxisModel[] {
   const chromaMax = Math.max(0.02, Math.ceil(reachable * 100) / 100);
+  const chroma = Math.min(current.c, chromaMax);
   return [
-    { key: "l", min: 0, max: 1, step: 0.01, value: current.l },
-    { key: "c", min: 0, max: chromaMax, step: 0.005, value: Math.min(current.c, chromaMax) },
-    { key: "h", min: 0, max: 360, step: 1, value: current.h },
+    {
+      key: "l",
+      min: 0,
+      max: 1,
+      step: 0.01,
+      value: current.l,
+      valuetext: `${Math.round(current.l * 100)}%`,
+    },
+    {
+      key: "c",
+      min: 0,
+      max: chromaMax,
+      step: 0.005,
+      value: chroma,
+      valuetext: `${chroma.toFixed(3)} of ${chromaMax.toFixed(2)} maximum`,
+    },
+    {
+      key: "h",
+      min: 0,
+      max: 360,
+      step: 1,
+      value: current.h,
+      valuetext: `${Math.round(current.h)} degrees`,
+    },
   ];
 }
 
@@ -198,6 +235,8 @@ export interface AlphaModel {
   value: number;
   /** The transparent-to-opaque ramp of the current colour. */
   track: string;
+  /** As `AxisModel.valuetext`: "0.85" alone says nothing about opacity. */
+  valuetext: string;
 }
 
 /** The alpha ramp, transparent to the opaque colour.
@@ -212,12 +251,14 @@ export function alphaTrack(current: Oklch, gamut: Gamut = SRGB): string {
 }
 
 export function alphaModel(current: Oklch, gamut: Gamut = SRGB): AlphaModel {
+  const value = alphaOf(current);
   return {
     min: 0,
     max: 1,
     step: 0.01,
-    value: alphaOf(current),
+    value,
     track: alphaTrack(current, gamut),
+    valuetext: `${Math.round(value * 100)}% opaque`,
   };
 }
 
@@ -261,6 +302,54 @@ export function recentValue(next: Oklch, gamut: Gamut = SRGB): string | null {
  * crosshair over a reused curve and its ~65 gradient stops. */
 export function chartKey(base: Oklch, axis: Axis): number {
   return base[axis];
+}
+
+/** A list of gamuts as a stable string, for memo dependencies.
+ *
+ * `pickerModel` derives `references`, `scaleGamuts` and `gamutChoices` with
+ * `filter` and spread, so each call returns a fresh array holding the same
+ * spaces. A memo comparing those by reference therefore missed every time, and
+ * the curve plus its ~65 gradient stops were rebuilt on every pointer move in
+ * six of the seven adapters. A gamut is identified by its `id`, so the joined
+ * ids say everything a curve depends on and stay equal between renders. */
+export function gamutsKey(gamuts: Gamut[]): string {
+  return gamuts.map((g) => g.id).join(",");
+}
+
+/** Every gamut list this module has handed out, by its ids.
+ *
+ * `pickerModel` is called per render and derives its lists with `filter`, so
+ * without this it returns a new array of the same spaces every time. Handing
+ * back the previous instance when the ids match makes the result stable, which
+ * is what lets a chart memo hold across a drag. The set of gamut combinations
+ * an app uses is tiny and fixed at build time, so this cannot grow unbounded. */
+const gamutListCache = new Map<string, Gamut[]>();
+
+/** One shared empty list, for the parts a picker has turned off. A fresh `[]`
+ * per call is a new identity, which is the same memo-busting problem in a
+ * cheaper disguise.
+ *
+ * Not frozen: `PickerModel` types these lists as mutable, and freezing would
+ * make the shared instance throw where a caller's own array would not. Nothing
+ * in the model writes to it. */
+const NO_GAMUTS: Gamut[] = [];
+
+/** The same array instance for the same gamuts, so identity comparisons hold.
+ *
+ * The ids are only the lookup. The cached list is returned only when it holds
+ * the very same `Gamut` objects, so a caller passing a custom space that reuses
+ * a built-in id gets its own object back rather than ours.
+ *
+ * `role` keeps the three lists in separate slots. Without it they share a key
+ * whenever they hold the same spaces, which is the common case: on the default
+ * sRGB picker both `scaleGamuts` and `gamutChoices` are `["srgb"]`, so each
+ * call evicted the other's entry and neither was ever stable. */
+function stableGamuts(role: string, gamuts: Gamut[]): Gamut[] {
+  const key = `${role}:${gamutsKey(gamuts)}`;
+  const seen = gamutListCache.get(key);
+  if (seen && seen.length === gamuts.length && seen.every((g, i) => g === gamuts[i])) return seen;
+  gamutListCache.set(key, gamuts);
+  return gamuts;
 }
 
 /** The base colour a chart's curve is computed from, given its key. The two
@@ -448,13 +537,26 @@ export function pickerModel(current: Oklch, options: PickerOptions = {}): Picker
   // Rec. 2020 puts all three on screen, so on Rec. 2020 the P3 line belongs
   // too, and the scale must not move as the reader switches or the chart
   // renormalises under them and a narrower space can look taller.
-  const inView = options.references ?? options.gamutChoices ?? (gamut === SRGB ? [] : [SRGB]);
+  //
+  // The default is sRGB plus whatever the output space names for itself. That
+  // last part matters on Rec. 2020, where P3 sits between the two: without it
+  // the picker drew the sRGB line, left the P3 boundary unmarked, and the gap
+  // between them read as one undifferentiated region.
+  const inView =
+    options.references ??
+    options.gamutChoices ??
+    (gamut === SRGB ? [] : [SRGB, ...(gamut.references ?? [])]);
   const offeredReferences = inView;
   // `gamutLines` removes the drawn lines only. The spaces stay in view for the
   // scale, so turning the lines off does not resize the chart under the reader.
-  const references = parts.gamutLines
-    ? offeredReferences.filter((g) => g.id !== gamut.id && g.chartMaxChroma < gamut.chartMaxChroma)
-    : [];
+  const references = stableGamuts(
+    "references",
+    parts.gamutLines
+      ? offeredReferences.filter(
+          (g) => g.id !== gamut.id && g.chartMaxChroma < gamut.chartMaxChroma,
+        )
+      : [],
+  );
 
   const notice = clipped
     ? (labels[gamutNoticeKey(gamut)] ?? defaultOutOfGamutNotice(gamut, labels.outOfGamut))
@@ -468,19 +570,29 @@ export function pickerModel(current: Oklch, options: PickerOptions = {}): Picker
   // sRGB to P3 would be impossible if the choices came from them.
   const offered = options.gamutChoices ?? [...offeredReferences, gamut];
   const seen = new Set<string>();
-  const gamutChoices = offered.filter((g) => !seen.has(g.id) && seen.add(g.id));
+  const gamutChoices = stableGamuts(
+    "choices",
+    offered.filter((g) => !seen.has(g.id) && seen.add(g.id)),
+  );
   // One option is not a choice, so the control needs at least two.
   const withGamutSwitch = parts.gamutSwitch && gamutChoices.length > 1;
+  // One instance, shared by the returned model and every chart slot: the charts
+  // are positioned on this same scale, and a second copy would be a second
+  // identity for a memo to miss on.
+  const scaleGamuts = stableGamuts("scale", [...offeredReferences, gamut]);
 
   return {
     current,
     gamut,
     references,
-    scaleGamuts: [...offeredReferences, gamut],
-    gamutChoices: withGamutSwitch ? gamutChoices : [],
+    scaleGamuts,
+    gamutChoices: withGamutSwitch ? gamutChoices : NO_GAMUTS,
     withGamutSwitch,
     hex: oklchToHex(current),
-    rgb: formatRgb(current, gamut),
+    // sRGB, not the output space: `rgb()` numbers mean sRGB to a browser, so a
+    // P3 picker showing P3 channels in this field gave a string that renders as
+    // a different colour than the swatch beside it.
+    rgb: formatRgb(current),
     oklch: emitValue(current, gamut),
     alpha: alphaModel(current, gamut),
     withAlpha: parts.alpha,
@@ -492,9 +604,7 @@ export function pickerModel(current: Oklch, options: PickerOptions = {}): Picker
     reachable,
     axes,
     charts: withCharts
-      ? chartAxes(layout).map((axis) =>
-          chartSlot(current, axis, gamut, [...offeredReferences, gamut]),
-        )
+      ? chartAxes(layout).map((axis) => chartSlot(current, axis, gamut, scaleGamuts))
       : [],
     spans: axes.map((a) => outOfGamutSpans(current, a.key, a.max, gamut)),
     gradients: axes.map((a) => trackGradient(current, a.key, a.max, gamut)),

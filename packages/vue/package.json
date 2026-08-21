@@ -1,8 +1,31 @@
 {
   "name": "@oklch-picker/vue",
-  "version": "1.1.1",
-  "description": "An OKLCH colour picker for Vue, with gamut-aware sliders. Works with v-model.",
-  "keywords": ["oklch", "colour", "color-picker", "vue", "gamut"],
+  "version": "1.2.0",
+  "description": "An OKLCH color picker for Vue 3. Gamut-aware sliders, wide-gamut P3 and Rec. 2020, works with v-model.",
+  "keywords": [
+    "oklch",
+    "oklch-picker",
+    "oklch-color-picker",
+    "oklch-colour-picker",
+    "color-picker",
+    "colour-picker",
+    "color",
+    "colour",
+    "picker",
+    "gamut",
+    "wide-gamut",
+    "p3",
+    "display-p3",
+    "rec2020",
+    "srgb",
+    "color-space",
+    "colour-space",
+    "vue",
+    "vue3",
+    "vue-component",
+    "vue-color-picker",
+    "vue-colour-picker"
+  ],
   "license": "MIT",
   "author": "Nick Bevers <hello@nickbevers.dev>",
   "homepage": "https://nord-forge.github.io/oklch-picker/",
@@ -29,7 +52,7 @@
     "build": "tsdown"
   },
   "dependencies": {
-    "@oklch-picker/core": "1.1.1"
+    "@oklch-picker/core": "1.2.0"
   },
   "peerDependencies": {
     "vue": ">=3.3"

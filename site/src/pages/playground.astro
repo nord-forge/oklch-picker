@@ -205,7 +205,11 @@ const PARTS = [
       .map(([k, v]) => `${k}: ${v}`)
       .join(", ")} }`;
 
-    if (framework === "no-framework") {
+    // Astro renders the element as markup, so its output is the no-framework
+    // tag plus the frontmatter fence that imports the stylesheet. Listed
+    // separately from `no-framework` because that is what an Astro page looks
+    // like, not because the element behaves differently there.
+    if (framework === "astro" || framework === "no-framework") {
       const attrs = [
         `value="oklch(0.7 0.15 255)"`,
         state.layout !== "chart" ? `layout="${state.layout}"` : "",
@@ -214,8 +218,17 @@ const PARTS = [
       ].filter(Boolean);
 
       const tag = `<oklch-picker\n  ${attrs.join("\n  ")}\n></oklch-picker>`;
-      if (!wide) return tag;
-      return `${tag}\n\n<script type="module">\n  import { ${gamutName} } from "@oklch-picker/core/gamuts";\n  document.querySelector("oklch-picker").gamut = ${gamutName};\n<\/script>`;
+      // The element upgrades itself, so an Astro page needs the stylesheet and
+      // the register import and no hydration directive.
+      const head =
+        framework === "astro"
+          ? `---\nimport "@oklch-picker/core/styles.css";\n---\n\n`
+          : "";
+      const register =
+        framework === "astro" ? `\n\n<script>\n  import "oklch-picker/register";\n<\/script>` : "";
+      if (!wide) return `${head}${tag}${register}`;
+      const gamutScript = `<script${framework === "astro" ? "" : ` type="module"`}>\n  ${framework === "astro" ? `import "oklch-picker/register";\n  ` : ""}import { ${gamutName} } from "@oklch-picker/core/gamuts";\n  document.querySelector("oklch-picker").gamut = ${gamutName};\n<\/script>`;
+      return `${head}${tag}\n\n${gamutScript}`;
     }
 
     const imports = wide ? `import { ${gamutName} } from "@oklch-picker/core/gamuts";\n\n` : "";
@@ -240,6 +253,32 @@ const PARTS = [
         wide ? `gamut={${gamutName}}` : "",
       ].filter(Boolean);
       return `${imports}<ColourPicker\n  ${attrs.join("\n  ")}\n/>`;
+    }
+
+    if (framework === "angular") {
+      const attrs = [
+        `[value]="colour()"`,
+        `(valueChange)="colour.set($event)"`,
+        state.layout !== "chart" ? `layout="${state.layout}"` : "",
+        state.presets ? `[presets]="presets"` : "",
+        hasParts ? `[parts]="${partsLiteral}"` : "",
+        wide ? `[gamut]="gamut"` : "",
+      ].filter(Boolean);
+      return `${imports}<oklch-colour-picker\n  ${attrs.join("\n  ")}\n/>`;
+    }
+
+    if (framework === "qwik") {
+      const attrs = [
+        `value={colour.value}`,
+        `onChange$={$((c: string) => (colour.value = c))}`,
+        state.layout !== "chart" ? `layout="${state.layout}"` : "",
+        state.presets ? `presets={presets}` : "",
+        hasParts ? `parts={${partsLiteral}}` : "",
+        // Qwik takes gamut ids, not `Gamut` objects: it serialises props.
+        wide ? `gamut="${state.gamut}"` : "",
+      ].filter(Boolean);
+      // No gamut import here: the id is a string, so nothing has to be pulled in.
+      return `<ColourPicker\n  ${attrs.join("\n  ")}\n/>`;
     }
 
     // React and Solid share a shape; only the value expression differs.

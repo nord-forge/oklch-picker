@@ -18,6 +18,7 @@ import {
   colourName,
   emitValue,
   gamutChartModel,
+  gamutsKey,
   labelTransform,
   pickerModel,
   recentValue,
@@ -34,6 +35,7 @@ import {
   createUniqueId,
   onCleanup,
   onMount,
+  untrack,
 } from "solid-js";
 
 interface GamutChartProps {
@@ -72,16 +74,43 @@ interface GamutChartProps {
 function GamutChart(props: GamutChartProps) {
   // The boundaries ride along in this memo rather than taking their own: they
   // come from the same sweep, so a second memo would walk the axis twice.
-  const curve = createMemo(() =>
-    gamutChartModel(
-      chartBase(props.curveKey, props.axis),
-      props.axis,
-      props.resolution ?? 64,
-      props.references,
-      props.gamut,
-      props.scaleGamuts,
-    ),
+  // Keyed on the gamuts' ids rather than the arrays. `pickerModel` hands back a
+  // stable instance now, but a memo that reads the array still re-runs whenever
+  // the parent's model object is replaced, which is every render. Depending on
+  // a string means the curve is rebuilt only when the spaces really differ.
+  const curveInputs = createMemo(
+    () => ({
+      base: chartBase(props.curveKey, props.axis),
+      axis: props.axis,
+      resolution: props.resolution ?? 64,
+      key: `${gamutsKey(props.references ?? [])}|${props.gamut?.id ?? ""}|${gamutsKey(
+        props.scaleGamuts ?? [],
+      )}`,
+    }),
+    undefined,
+    {
+      equals: (a, b) =>
+        a.key === b.key &&
+        a.axis === b.axis &&
+        a.resolution === b.resolution &&
+        a.base[a.axis] === b.base[b.axis],
+    },
   );
+  const curve = createMemo(() => {
+    const i = curveInputs();
+    // Untracked: the ids are already in `curveInputs`, so reading the arrays
+    // here as well would re-subscribe to the identity this is avoiding.
+    return untrack(() =>
+      gamutChartModel(
+        i.base,
+        i.axis,
+        i.resolution,
+        props.references,
+        props.gamut,
+        props.scaleGamuts,
+      ),
+    );
+  });
   const gradId = () => `${props.classPrefix}-gamut-${props.uid}-${props.axis}`;
   const crossY = () => CHART_H - Math.min(1, Math.max(0, props.y)) * CHART_H;
 
@@ -324,6 +353,7 @@ export function ColourPicker(props: ColourPickerProps) {
 
       <Show when={model().parts.recents && recents().length > 0}>
         <div class={`${prefix()}__recents`}>
+          <p class={`${prefix()}__swatch-label`}>{model().labels.recents}</p>
           <For each={recents()}>
             {(colour) => {
               const selected = () => colour === model().canonical;
@@ -430,6 +460,7 @@ export function ColourPicker(props: ColourPickerProps) {
                     step={a().step}
                     value={a().value}
                     aria-label={model().labels[a().key]}
+                    aria-valuetext={a().valuetext}
                     onInput={(e) =>
                       dial({ ...model().current, [a().key]: Number(e.currentTarget.value) })
                     }
@@ -474,6 +505,7 @@ export function ColourPicker(props: ColourPickerProps) {
                 step={model().alpha.step}
                 value={model().alpha.value}
                 aria-label="Alpha"
+                aria-valuetext={model().alpha.valuetext}
                 onInput={(e) => {
                   const a = Number(e.currentTarget.value);
                   // Opaque drops the key rather than storing `a: 1`, so one
@@ -569,8 +601,16 @@ export function ColourPicker(props: ColourPickerProps) {
         </div>
       </Show>
 
-      <Show when={model().parts.notice && model().clipped}>
-        <p class={`${prefix()}__notice`}>{model().notice}</p>
+      {/* Always rendered, empty until something is clipped: a live region only
+          announces if it was in the DOM before the text arrived. */}
+      <Show when={model().parts.notice}>
+        {/* biome-ignore lint/a11y/useSemanticElements: <output> is a form control's
+           calculated result, and this file already uses it for the axis
+           readouts. This is an advisory about the colour, so role="status" on a
+           paragraph is the honest mapping. */}
+        <p class={`${prefix()}__notice`} role="status">
+          {model().clipped ? model().notice : ""}
+        </p>
       </Show>
     </div>
   );

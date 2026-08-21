@@ -14,15 +14,15 @@
     "build": "npm run build --workspace=packages --if-present",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p packages/solid && svelte-check --threshold error",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p packages/solid && tsc --noEmit -p packages/qwik && npm run build --workspace=@oklch-picker/angular && svelte-check --threshold error",
     "logo": "node .demo/logo.mjs",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "changeset": "changeset",
     "version-packages": "changeset version && npm install --package-lock-only",
     "release": "npm run build && changeset publish",
-    "examples:install": "npm run build && npm --prefix examples/react install && npm --prefix examples/vue install && npm --prefix examples/svelte install && npm --prefix examples/solid install && npm --prefix examples/astro install",
-    "dev": "npm run build && concurrently -k -n vanilla,astro,react,vue,svelte,solid -c cyan,yellow,red,green,magenta,blue \"npm:dev:vanilla\" \"npm:dev:astro\" \"npm:dev:react\" \"npm:dev:vue\" \"npm:dev:svelte\" \"npm:dev:solid\"",
+    "examples:install": "npm run build && npm --prefix examples/react install && npm --prefix examples/vue install && npm --prefix examples/svelte install && npm --prefix examples/solid install && npm --prefix examples/angular install && npm --prefix examples/qwik install && npm --prefix examples/astro install",
+    "dev": "npm run build && concurrently -k -n vanilla,astro,react,vue,svelte,solid,angular,qwik -c cyan,yellow,red,green,magenta,blue,white,gray \"npm:dev:vanilla\" \"npm:dev:astro\" \"npm:dev:react\" \"npm:dev:vue\" \"npm:dev:svelte\" \"npm:dev:solid\" \"npm:dev:angular\" \"npm:dev:qwik\"",
     "dev:vanilla": "npx --yes http-server . -p 5272 -c-1 -o /examples/vanilla/",
     "dev:astro": "npm --prefix examples/astro run dev -- --port 5277",
     "dev:react": "npm --prefix examples/react run dev -- --port 5273 --strictPort",
@@ -32,34 +32,56 @@
     "examples:build": "npm run build && npm --prefix examples/react run build && npm --prefix examples/vue run build && npm --prefix examples/svelte run build && npm --prefix examples/solid run build && npm --prefix examples/astro run build",
     "site:dev": "npm run build && npm run dev --workspace=@oklch-picker/site",
     "site:build": "npm run build && npm run build --workspace=@oklch-picker/site",
-    "site:check": "npm run check --workspace=@oklch-picker/site"
+    "site:check": "npm run check --workspace=@oklch-picker/site",
+    "dev:angular": "npm --prefix examples/angular run dev -- --port 5278 --strictPort",
+    "dev:qwik": "npm --prefix examples/qwik run dev -- --port 5279 --strictPort"
   },
   "devDependencies": {
+    "@angular/common": "^21.2.21",
+    "@angular/compiler": "^21.2.21",
+    "@angular/compiler-cli": "^21.2.21",
+    "@angular/core": "^21.2.21",
+    "@angular/platform-browser": "^21.2.21",
+    "@angular/platform-browser-dynamic": "^21.2.21",
+    "@angular/platform-server": "^21.2.21",
     "@biomejs/biome": "^1.9.4",
+    "@builder.io/qwik": "^1.20.0",
     "@changesets/cli": "^2.27.0",
     "@solidjs/testing-library": "^0.8.10",
     "@sveltejs/vite-plugin-svelte": "^7.3.0",
     "@testing-library/preact": "^3.2.4",
     "@testing-library/svelte": "^5.4.2",
+    "@types/alpinejs": "^3.13.11",
     "@types/react": "^19.0.0",
     "@vitejs/plugin-vue": "^6.0.8",
     "@vue/test-utils": "^2.4.11",
+    "alpinejs": "^3.16.2",
     "concurrently": "^10.0.5",
     "happy-dom": "^20.11.2",
     "lightningcss": "^1.33.0",
+    "lit": "^3.3.3",
     "preact": "^10.24.0",
+    "preact-render-to-string": "^6.7.0",
     "solid-js": "^1.9.15",
     "svelte": "^5.56.9",
     "svelte-check": "^4.7.6",
     "tsdown": "^0.22.14",
     "typescript": "^5.6.0",
     "unrun": "^0.3.1",
+    "vite": "^8.2.2",
     "vite-plugin-solid": "^2.11.14",
     "vitest": "^4.1.10",
-    "vue": "^3.5.41"
+    "vue": "^3.5.41",
+    "zone.js": "^0.16.2"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/nord-forge/oklch-picker.git"
-  }
+  },
+  "overrides": {
+    "@builder.io/qwik": {
+      "vite": "$vite"
+    }
+  },
+  "//overrides": "Qwik 1.20 caps its vite peer at <8 and this repo runs vite 8, which Astro 7 and the Svelte plugin both require. The optimizer runs fine on 8: it compiles the $() boundaries and the adapter's tests pass. The range is conservative metadata rather than a real incompatibility, so it is pinned to the repo's own vite instead of everyone passing --legacy-peer-deps. Revisit when Qwik 2 is stable; it accepts vite 8 but wants vitest <4 and this repo is on 4."
 }

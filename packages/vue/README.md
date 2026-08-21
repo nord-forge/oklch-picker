@@ -39,7 +39,7 @@ const colour = ref("oklch(0.7 0.15 255)");
 </template>
 ```
 
-`v-model` receives a canonical, gamut-clamped `oklch(L C H)` string; a `change` event is emitted alongside it.
+`v-model` receives a canonical, gamut-clamped `oklch(L C H)` string; a `change` event is emitted alongside it. `v-model` writes the new colour back for you, which the picker needs: it keeps no colour of its own, so binding `:value` and listening to `@change` without assigning would leave the sliders stuck.
 
 ## The family
 
@@ -50,6 +50,8 @@ const colour = ref("oklch(0.7 0.15 255)");
 | Vue | [`@oklch-picker/vue`](https://www.npmjs.com/package/@oklch-picker/vue) |
 | Svelte 5 | [`@oklch-picker/svelte`](https://www.npmjs.com/package/@oklch-picker/svelte) |
 | Solid | [`@oklch-picker/solid`](https://www.npmjs.com/package/@oklch-picker/solid) |
+| Angular 17+ | [`@oklch-picker/angular`](https://www.npmjs.com/package/@oklch-picker/angular) |
+| Qwik | [`@oklch-picker/qwik`](https://www.npmjs.com/package/@oklch-picker/qwik) |
 | The maths and headless model alone | [`@oklch-picker/core`](https://www.npmjs.com/package/@oklch-picker/core) |
 
 Full documentation lives in the [repository README](https://github.com/nord-forge/oklch-picker#readme).

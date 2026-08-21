@@ -3,6 +3,7 @@ import CodeTabs from "../../components/CodeTabs.astro";
 import Pager from "../../components/Pager.astro";
 import Picker from "../../components/Picker.astro";
 import Page from "../../layouts/Page.astro";
+import { url } from "../../lib/url";
 ---
 
 <Page
@@ -35,6 +36,29 @@ import Page from "../../layouts/Page.astro";
         label: "Solid",
         lang: "tsx",
         code: `<ColourPicker value={colour()} onChange={setColour} parts={{ charts: false }} />`,
+      },
+      {
+        label: "Angular",
+        lang: "html",
+        code: `<oklch-colour-picker
+  [value]="colour()"
+  (valueChange)="colour.set($event)"
+  [parts]="{ rgbInput: true, hexInput: true }"
+/>`,
+      },
+      {
+        label: "Qwik",
+        lang: "tsx",
+        code: `<ColourPicker
+  value={colour.value}
+  onChange$={$((c: string) => (colour.value = c))}
+  parts={{ rgbInput: true, hexInput: true }}
+/>`,
+      },
+      {
+        label: "Astro",
+        lang: "astro",
+        code: `<oklch-picker\n  parts='{"rgbInput": true, "hexInput": true}'\n></oklch-picker>`,
       },
       {
         label: "No framework",
@@ -92,6 +116,12 @@ import Page from "../../layouts/Page.astro";
       poor default for a picker whose point is the gamut. Pass
       <code>parts=&lbrace;&lbrace; hexInput: true &rbrace;&rbrace;</code> to
       keep it.
+    </p>
+    <p>
+      The <code>rgb()</code> field has the same limit, and is off for the same
+      reason. In a wider output space both show the nearest sRGB colour, not the
+      one the picker holds, while the <code>oklch()</code> field shows the value
+      as stored. See <a href={url("/docs/gamuts")}>Wider gamuts</a>.
     </p>
   </div>
 

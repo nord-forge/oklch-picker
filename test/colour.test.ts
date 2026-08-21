@@ -1,10 +1,13 @@
 import { describe, expect, test } from "vitest";
 import {
   CHART_MAX_CHROMA,
+  MAX_CHART_COLUMNS,
   SRGB,
   alphaOf,
   clampToGamut,
   colourName,
+  formatHsl,
+  formatHwb,
   formatOklch,
   formatRgb,
   gamutCurve,
@@ -15,10 +18,13 @@ import {
   maxChroma,
   oklchToHex,
   oklchToRgb255,
+  parseHsl,
+  parseHwb,
   parseOklch,
   parseRgb,
   toOklch,
 } from "../packages/core/src/colour.js";
+import type { Oklch } from "../packages/core/src/colour.js";
 import { P3, REC2020 } from "../packages/core/src/gamuts.js";
 import {
   DEFAULT_LABELS,
@@ -182,12 +188,17 @@ describe("gamut", () => {
   // Regression: these two disagreed near black. maxChroma returned 0 while
   // inGamut still said true, so the picker drew a crosshair above the curve and
   // showed no out-of-gamut notice for a colour it could not display.
+  // Every hue, not a sample of six. This test was written for exactly the bug
+  // it then missed: rounding inside `inGamut` made membership flicker, the
+  // bisection converged in a dead zone, and `maxChroma` reported less than
+  // `inGamut` accepted. It failed at h=221 and h=222 alone, and neither was
+  // among the six hues it checked.
   test("inGamut and maxChroma agree everywhere, near black included", () => {
-    for (const h of [0, 60, 145, 200, 263, 320]) {
+    for (let h = 0; h < 360; h++) {
       for (let l = 0; l <= 1.0001; l += 0.02) {
         const limit = maxChroma(l, h);
         // Anything past the reported limit must be reported as out of gamut.
-        expect(inGamut({ l, c: limit + 0.01, h })).toBe(false);
+        expect(inGamut({ l, c: limit + 0.01, h }), `h=${h} l=${l.toFixed(2)}`).toBe(false);
         if (limit > 0) expect(inGamut({ l, c: limit, h })).toBe(true);
       }
     }
@@ -209,6 +220,48 @@ describe("gamut", () => {
 
   test("out-of-gamut colours still produce valid hex", () => {
     expect(oklchToHex({ l: 0.75, c: 0.35, h: 145 })).toMatch(/^#[0-9a-f]{6}$/);
+  });
+
+  // Regression: the clamp landed just inside the boundary and `formatOklch`
+  // rounded chroma half up, back out of it. The object was in gamut and the
+  // string it formatted to was not, so a picker fed its own emitted value
+  // showed the out-of-gamut notice.
+  test("a clamped colour survives formatting and parsing back", () => {
+    const emitted = formatOklch(clampToGamut({ l: 0, c: 0.425, h: 220 }));
+    expect(inGamut(parseOklch(emitted) as Oklch)).toBe(true);
+  });
+
+  // Every gamut, because the near-white failure this caught was Rec2020's
+  // alone: its in-gamut island there is thinner than the four decimals the
+  // string keeps.
+  test.each([
+    ["sRGB", SRGB],
+    ["P3", P3],
+    ["Rec2020", REC2020],
+  ])("nothing out of gamut is emitted for %s, over a dense sweep", (_name, gamut) => {
+    let escaped = 0;
+    for (let l = 0; l <= 1.0001; l += 0.05) {
+      for (let h = 0; h < 360; h += 15) {
+        for (const c of [0.05, 0.15, 0.25, 0.35, 0.5]) {
+          const clamped = clampToGamut({ l, c, h }, gamut);
+          const parsed = parseOklch(formatOklch(clamped)) as Oklch;
+          if (!inGamut(clamped, gamut) || !inGamut(parsed, gamut)) escaped++;
+        }
+      }
+    }
+    expect(escaped).toBe(0);
+  });
+
+  // The clamp's chroma must not change when it goes through the string, or
+  // `resolveCurrent` stops recognising its own draft.
+  test("clamping is idempotent through the emitted string", () => {
+    for (let l = 0; l <= 1.0001; l += 0.1) {
+      for (let h = 0; h < 360; h += 30) {
+        const once = formatOklch(clampToGamut({ l, c: 0.5, h }));
+        const twice = formatOklch(clampToGamut(parseOklch(once) as Oklch));
+        expect(twice).toBe(once);
+      }
+    }
   });
 });
 
@@ -754,5 +807,297 @@ describe("clicking the chart lands where the pointer is", () => {
       const back = pickerModel(picked, { gamut, references }).charts[0]?.y;
       expect(back).toBeCloseTo(0.8, 5);
     }
+  });
+});
+
+// Regression: `pickerModel` built these with `filter` and spread, so every call
+// returned a new array holding the same spaces. Six of the seven adapters put
+// those arrays in the chart's memo, so the identity check missed on every
+// render and the curve plus its ~65 gradient stops were rebuilt on every
+// pointer move, which is exactly what the memo exists to avoid.
+describe("the model's gamut lists keep their identity", () => {
+  test.each([
+    ["the sRGB default", {}],
+    ["a wider output with references", { gamut: P3, references: [SRGB] }],
+    ["an explicit set of choices", { gamut: P3, gamutChoices: [SRGB, P3, REC2020] }],
+  ])("%s", (_name, options) => {
+    const current = { l: 0.7, c: 0.1, h: 200 };
+    const a = pickerModel(current, options);
+    const b = pickerModel(current, options);
+    expect(a.references).toBe(b.references);
+    expect(a.scaleGamuts).toBe(b.scaleGamuts);
+    expect(a.gamutChoices).toBe(b.gamutChoices);
+  });
+
+  // The lists are keyed by their gamuts' ids, so a caller with its own space
+  // sharing a built-in id must still get its own objects back rather than ours.
+  test("a custom space reusing a built-in id is not swapped for the cached one", () => {
+    const mine = { ...P3, label: "Mine" };
+    const model = pickerModel({ l: 0.7, c: 0.1, h: 200 }, { gamut: REC2020, references: [mine] });
+    expect(model.references[0]).toBe(mine);
+  });
+});
+
+// Regression: the lightness-vertical plane scans for its ceiling per column, so
+// its cost is quadratic in the resolution a caller passes. Every adapter
+// exposes that as a prop, and a large one froze the drag in a browser and
+// blocked the event loop under SSR.
+describe("chart resolution is bounded", () => {
+  test("past the cap the curve stops changing", () => {
+    const base = { l: 0.7, c: 0.1, h: 200 };
+    for (const axis of ["l", "c", "h"] as const) {
+      const capped = gamutCurve(base, axis, MAX_CHART_COLUMNS);
+      const absurd = gamutCurve(base, axis, MAX_CHART_COLUMNS * 40);
+      expect(absurd).toHaveLength(capped.length);
+      expect(absurd).toEqual(capped);
+    }
+  });
+
+  test("a nonsensical resolution still draws a curve", () => {
+    const base = { l: 0.7, c: 0.1, h: 200 };
+    for (const bad of [0, -10, Number.NaN, 0.4]) {
+      const cols = gamutCurve(base, "c", bad);
+      expect(cols.length).toBeGreaterThan(0);
+      expect(cols.every((c) => Number.isFinite(c.c))).toBe(true);
+    }
+  });
+});
+
+describe("hsl and hwb", () => {
+  // Both describe an sRGB colour rather than a space of their own, so each is
+  // checked against the hex CSS says it means.
+  test.each([
+    ["hsl(0 100% 50%)", "#ff0000"],
+    ["hsl(120 100% 50%)", "#00ff00"],
+    ["hsl(240 100% 50%)", "#0000ff"],
+    ["hsl(60 100% 50%)", "#ffff00"],
+    ["hsl(180 100% 50%)", "#00ffff"],
+    ["hsl(300 100% 50%)", "#ff00ff"],
+    ["hsl(0 0% 100%)", "#ffffff"],
+    ["hsl(0 0% 0%)", "#000000"],
+    ["hsl(0 0% 50%)", "#808080"],
+    ["hsl(210 50% 40%)", "#336699"],
+  ])("%s is %s", (css, hex) => {
+    expect(oklchToHex(parseHsl(css) as Oklch)).toBe(hex);
+  });
+
+  test.each([
+    ["hwb(0 0% 0%)", "#ff0000"],
+    ["hwb(120 0% 0%)", "#00ff00"],
+    ["hwb(0 100% 0%)", "#ffffff"],
+    ["hwb(0 0% 100%)", "#000000"],
+    ["hwb(0 50% 50%)", "#808080"],
+    ["hwb(180 20% 20%)", "#33cccc"],
+  ])("%s is %s", (css, hex) => {
+    expect(oklchToHex(parseHwb(css) as Oklch)).toBe(hex);
+  });
+
+  test("an sRGB colour survives a trip through either form", () => {
+    for (const hex of [
+      "#ff0000",
+      "#00ff00",
+      "#0000ff",
+      "#ffffff",
+      "#000000",
+      "#808080",
+      "#336699",
+      "#7f3fbf",
+      "#123456",
+      "#fedcba",
+      "#abcdef",
+      "#010203",
+    ]) {
+      const colour = hexToOklch(hex) as Oklch;
+      expect(oklchToHex(parseHsl(formatHsl(colour)) as Oklch), `${hex} via hsl`).toBe(hex);
+      expect(oklchToHex(parseHwb(formatHwb(colour)) as Oklch), `${hex} via hwb`).toBe(hex);
+    }
+  });
+
+  test("hue wraps and accepts deg, like every other hue in CSS", () => {
+    expect(oklchToHex(parseHsl("hsl(360 100% 50%)") as Oklch)).toBe("#ff0000");
+    expect(oklchToHex(parseHsl("hsl(-360 100% 50%)") as Oklch)).toBe("#ff0000");
+    expect(oklchToHex(parseHsl("hsl(210deg 50% 40%)") as Oklch)).toBe("#336699");
+  });
+
+  // Whiteness and blackness past 100% together is not an error: CSS says the
+  // colour is the grey their ratio describes, with no hue left to show.
+  test("hwb normalises whiteness and blackness that sum past 100%", () => {
+    expect(oklchToHex(parseHwb("hwb(180 60% 60%)") as Oklch)).toBe("#808080");
+    expect(oklchToHex(parseHwb("hwb(0 100% 100%)") as Oklch)).toBe("#808080");
+    expect(oklchToHex(parseHwb("hwb(90 80% 40%)") as Oklch)).toBe("#aaaaaa");
+  });
+
+  test("components out of range clamp rather than fail", () => {
+    expect(oklchToHex(parseHsl("hsl(210 150% 40%)") as Oklch)).toBe("#0066cc");
+    expect(oklchToHex(parseHsl("hsl(210 -50% 40%)") as Oklch)).toBe("#666666");
+    expect(oklchToHex(parseHsl("hsl(210 50% 200%)") as Oklch)).toBe("#ffffff");
+    expect(oklchToHex(parseHsl("hsl(210 50% -20%)") as Oklch)).toBe("#000000");
+  });
+
+  test("alpha reaches both forms, as a fraction or a percentage", () => {
+    expect(alphaOf(parseHsl("hsl(210 50% 40% / 0.5)") as Oklch)).toBe(0.5);
+    expect(alphaOf(parseHsl("hsl(210 50% 40% / 50%)") as Oklch)).toBe(0.5);
+    expect(alphaOf(parseHwb("hwb(180 20% 20% / 0.5)") as Oklch)).toBe(0.5);
+    expect(alphaOf(parseHsl("hsla(210, 50%, 40%, 0.5)") as Oklch)).toBe(0.5);
+    // Opaque drops the key, so one shape means opaque everywhere.
+    expect(hasAlpha(parseHsl("hsl(210 50% 40% / 1)") as Oklch)).toBe(false);
+    expect(formatHsl({ l: 0.7, c: 0.15, h: 255, a: 0.5 })).toMatch(/^hsl\(.+ \/ 0\.5\)$/);
+    expect(formatHwb({ l: 0.7, c: 0.15, h: 255, a: 0.5 })).toMatch(/^hwb\(.+ \/ 0\.5\)$/);
+  });
+
+  test("rejects what is not that form", () => {
+    for (const bad of ["hsl(a b c)", "hsl(210 50%)", "hwb()", "", "rgb(1 2 3)", "nonsense", null]) {
+      expect(parseHsl(bad), `hsl accepted ${bad}`).toBeNull();
+      expect(parseHwb(bad), `hwb accepted ${bad}`).toBeNull();
+    }
+  });
+
+  test("toOklch accepts both alongside the forms it already took", () => {
+    expect(toOklch("hsl(210 50% 40%)")).not.toBeNull();
+    expect(toOklch("hwb(180 20% 20%)")).not.toBeNull();
+    expect(oklchToHex(toOklch("hsl(210 50% 40%)") as Oklch)).toBe("#336699");
+    expect(oklchToHex(toOklch("hwb(180 20% 20%)") as Oklch)).toBe("#33cccc");
+  });
+
+  // Neither form can carry a wide-gamut colour, so both clamp on the way out.
+  test("a wider colour is clamped before it is written", () => {
+    const wide = { l: 0.75, c: 0.35, h: 145 };
+    for (const css of [formatHsl(wide), formatHwb(wide)]) {
+      const back = toOklch(css) as Oklch;
+      expect(inGamut(back)).toBe(true);
+    }
+  });
+});
+
+// Regression: these three formats are sRGB notations, but each took a `gamut`
+// and the picker passed its output space in. A P3 picker's `rgb()` field then
+// read `rgb(0 253 63)`, which a browser renders as #00fd3f, while the hex field
+// beside it said #01fb48. Two fields, one colour, two answers.
+describe("the sRGB formats stay sRGB", () => {
+  const wide = { l: 0.86, c: 0.28, h: 145 };
+
+  test("a wide colour is outside sRGB and inside P3, so it is worth testing", () => {
+    expect(inGamut(wide, SRGB)).toBe(false);
+    expect(inGamut(wide, P3)).toBe(true);
+  });
+
+  test("every sRGB format renders as the colour it claims", () => {
+    for (const [name, css] of [
+      ["rgb", formatRgb(wide)],
+      ["hsl", formatHsl(wide)],
+      ["hwb", formatHwb(wide)],
+      ["hex", oklchToHex(wide)],
+    ] as const) {
+      const back = toOklch(css) as Oklch;
+      expect(back, `${name} did not parse back`).not.toBeNull();
+      expect(inGamut(back, SRGB), `${name} wrote a colour sRGB cannot show`).toBe(true);
+      // And every one agrees on the colour, since they all describe the same
+      // sRGB result.
+      expect(oklchToHex(back), `${name} disagrees with hex`).toBe(oklchToHex(wide));
+    }
+  });
+
+  test("the picker's rgb field agrees with its hex field in a wider space", () => {
+    const model = pickerModel(wide, { gamut: P3 });
+    expect(oklchToHex(toOklch(model.rgb) as Oklch)).toBe(model.hex);
+  });
+});
+
+// The contract this suite is really protecting: a colour written in any format
+// can be read back, and only `oklch()` survives a wider gamut. Anything else is
+// an sRGB notation, so it is clamped and says so in the docs.
+describe("every format round-trips, in every gamut", () => {
+  const CASES = [
+    ["an sRGB colour", { l: 0.75, c: 0.16, h: 145 }],
+    ["a P3 colour sRGB cannot show", { l: 0.86, c: 0.28, h: 145 }],
+    ["a Rec. 2020 colour P3 cannot show", { l: 0.87, c: 0.34, h: 145 }],
+  ] as const;
+
+  test.each(CASES)("%s parses back from every format", (_name, colour) => {
+    const nearest = oklchToHex(colour);
+    for (const [name, css] of [
+      ["oklch", formatOklch(colour)],
+      ["rgb", formatRgb(colour)],
+      ["hsl", formatHsl(colour)],
+      ["hwb", formatHwb(colour)],
+      ["hex", oklchToHex(colour)],
+    ] as const) {
+      const back = toOklch(css) as Oklch;
+      expect(back, `${name} did not parse back`).not.toBeNull();
+      // Every sRGB notation lands on the same colour: the nearest sRGB one.
+      expect(oklchToHex(back), `${name} disagrees`).toBe(nearest);
+    }
+  });
+
+  test.each(CASES)("%s survives oklch() exactly", (_name, colour) => {
+    expect(formatOklch(toOklch(formatOklch(colour)) as Oklch)).toBe(formatOklch(colour));
+  });
+
+  // The three wider colours differ from each other in OKLCH and collapse onto
+  // sRGB, which is the loss the docs describe. Without this, the test above
+  // would pass just as well if every format returned the same thing always.
+  test("the wider colours are genuinely outside the narrower spaces", () => {
+    const [, srgb] = CASES[0];
+    const [, p3] = CASES[1];
+    const [, rec] = CASES[2];
+    expect(inGamut(srgb, SRGB)).toBe(true);
+    expect(inGamut(p3, SRGB)).toBe(false);
+    expect(inGamut(p3, P3)).toBe(true);
+    expect(inGamut(rec, P3)).toBe(false);
+    expect(inGamut(rec, REC2020)).toBe(true);
+    // And oklch() keeps them apart where the sRGB formats cannot.
+    expect(formatOklch(p3)).not.toBe(formatOklch(rec));
+  });
+});
+
+// Regression: `chartColour` spread the whole base, so a colour carrying alpha
+// produced 8-digit gradient stops while `chartKey` saw the same number either
+// way. Nothing hit it, because every adapter routes through `chartBase`, which
+// rebuilds `{l, c, h}`. That made the memo correct by accident of a second
+// function rather than by the key being complete.
+describe("alpha stays out of the chart", () => {
+  test("a base carrying alpha draws the same curve as one without", () => {
+    const opaque = { l: 0.7, c: 0.15, h: 200 };
+    const faded = { ...opaque, a: 0.3 };
+    for (const axis of ["l", "c", "h"] as const) {
+      const a = gamutChartModel(faded, axis, 16);
+      const b = gamutChartModel(opaque, axis, 16);
+      expect(a.path, `${axis} path`).toBe(b.path);
+      expect(
+        a.stops.map((s) => s.hex),
+        `${axis} stops`,
+      ).toEqual(b.stops.map((s) => s.hex));
+    }
+  });
+
+  test("no gradient stop carries an alpha pair", () => {
+    const stops = gamutChartModel({ l: 0.7, c: 0.15, h: 200, a: 0.3 }, "h", 16).stops;
+    for (const s of stops) expect(s.hex, s.hex).toMatch(/^#[0-9a-f]{6}$/);
+  });
+});
+
+// Regression: the default reference list was `gamut === SRGB ? [] : [SRGB]`,
+// so a Rec. 2020 picker drew the sRGB line and left P3 unmarked, and the gap
+// between the two read as one undifferentiated region. A gamut names the
+// narrower spaces worth outlining, because `model.ts` cannot import P3 to say
+// so without shipping its matrices to every app.
+describe("a wider gamut outlines the spaces inside it", () => {
+  test("Rec. 2020 draws both sRGB and P3 without being asked", () => {
+    const m = pickerModel({ l: 0.7, c: 0.15, h: 0 }, { gamut: REC2020 });
+    expect(m.references.map((g) => g.id)).toEqual(["srgb", "p3"]);
+  });
+
+  test("P3 draws sRGB alone, since nothing else sits inside it", () => {
+    const m = pickerModel({ l: 0.7, c: 0.15, h: 0 }, { gamut: P3 });
+    expect(m.references.map((g) => g.id)).toEqual(["srgb"]);
+  });
+
+  test("sRGB draws nothing: a line on its own boundary says nothing", () => {
+    expect(pickerModel({ l: 0.7, c: 0.15, h: 0 }, { gamut: SRGB }).references).toEqual([]);
+  });
+
+  test("an explicit list still wins over the gamut's own", () => {
+    const m = pickerModel({ l: 0.7, c: 0.15, h: 0 }, { gamut: REC2020, references: [SRGB] });
+    expect(m.references.map((g) => g.id)).toEqual(["srgb"]);
   });
 });

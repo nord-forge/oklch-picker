@@ -298,6 +298,21 @@ kbd {
 
 .content {
   min-width: 0;
+  /* No max-width here. Capping the whole column made every wide child either
+     overflow it or get clipped, which showed up worst on the API table but
+     applied site-wide. The measure belongs on the prose that wants it, below,
+     so tables and code blocks can use the column they are given. */
+}
+
+/* Prose keeps the comfortable measure. Anything wide is exempt, because a
+   table or a code block reads worse squeezed than it does wide. */
+.content > p,
+.content > ul,
+.content > ol,
+.content > h1,
+.content > h2,
+.content > h3,
+.content > .lede {
   max-width: var(--site-measure);
 }
 
@@ -343,6 +358,31 @@ kbd {
   border: 1px solid var(--site-line);
   border-radius: 0.75rem;
   background: var(--site-surface);
+}
+
+/* Space reserved for a picker that has not upgraded yet.
+   `<oklch-picker>` is an unknown element until its module runs, so it is an
+   empty inline box with no height, and the page reflowed around it on upgrade.
+   That is a layout shift on every docs page, and it was enough to push CLS
+   past 0.1 on the busiest of them.
+
+   The values are the measured heights of each layout at the width the demos
+   render at, so the reserved box is the same size as what replaces it. They
+   are a floor rather than a fixed height: a picker with presets or recents is
+   taller, and growing downward from the right starting point shifts nothing
+   above it. */
+.demo__frame oklch-picker {
+  display: block;
+  min-height: 479px;
+}
+.demo__frame oklch-picker[layout="side-by-side"] {
+  min-height: 394px;
+}
+.demo__frame oklch-picker[layout="stacked"] {
+  min-height: 379px;
+}
+.demo__frame oklch-picker[layout="compact"] {
+  min-height: 176px;
 }
 
 /* --- Code tabs ------------------------------------------------------------ */
@@ -533,13 +573,46 @@ kbd {
   }
 }
 
+/* Wide tables scroll inside their own box rather than pushing the page
+   sideways. The wrapper scrolls, so the table itself can stay a table and size
+   its columns to the container. `display: block` on the table did the scrolling
+   but broke that, leaving a notes column a few characters wide and rows six
+   lines tall. */
+.content .table-scroll {
+  overflow-x: auto;
+  margin: 1rem 0 1.5rem;
+}
+
 .content table {
   width: 100%;
   margin: 1rem 0 1.5rem;
   border-collapse: collapse;
   font-size: 0.9rem;
-  display: block;
-  overflow-x: auto;
+}
+
+/* The notes column carries the prose, so it takes whatever the other three do
+   not. Without this the browser shares the width evenly and the prose wraps
+   every few words, leaving rows six lines tall.
+
+   Global rather than scoped to the page: Astro's scoped styles do not reach
+   `<col>`, so the rule was dropped from the build entirely. */
+.content table.props col:nth-child(1) {
+  width: 12rem;
+}
+
+.content table.props col:nth-child(2) {
+  width: 17rem;
+}
+
+.content table.props col:nth-child(3) {
+  width: 6rem;
+}
+
+.content .table-scroll table {
+  margin: 0;
+  /* Narrow enough to fit the column on a normal screen, wide enough that the
+     notes column still reads. The wrapper scrolls only below this. */
+  min-width: 38rem;
 }
 
 .content th,

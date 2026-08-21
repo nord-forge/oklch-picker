@@ -88,6 +88,21 @@ import Page from "../../layouts/Page.astro";
         lang: "tsx",
         code: `<ColourPicker value={colour()} onChange={setColour} layout="compact" />`,
       },
+      {
+        label: "Angular",
+        lang: "html",
+        code: `<oklch-colour-picker [value]="colour()" (valueChange)="colour.set($event)" layout="compact" />`,
+      },
+      {
+        label: "Qwik",
+        lang: "tsx",
+        code: `<ColourPicker value={colour.value} onChange$={$((c: string) => (colour.value = c))} layout="compact" />`,
+      },
+      {
+        label: "Astro",
+        lang: "astro",
+        code: `<oklch-picker layout="compact"></oklch-picker>`,
+      },
       { label: "No framework", lang: "html", code: `<oklch-picker layout="compact"></oklch-picker>` },
     ]}
   />

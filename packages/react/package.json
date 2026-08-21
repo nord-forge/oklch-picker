@@ -1,8 +1,31 @@
 {
   "name": "@oklch-picker/react",
-  "version": "1.1.1",
-  "description": "An OKLCH colour picker for React and Preact, with gamut-aware sliders.",
-  "keywords": ["oklch", "colour", "color-picker", "react", "preact", "gamut"],
+  "version": "1.2.0",
+  "description": "An OKLCH color picker for React and Preact. Gamut-aware sliders, wide-gamut P3 and Rec. 2020, no dependencies.",
+  "keywords": [
+    "oklch",
+    "oklch-picker",
+    "oklch-color-picker",
+    "oklch-colour-picker",
+    "color-picker",
+    "colour-picker",
+    "color",
+    "colour",
+    "picker",
+    "gamut",
+    "wide-gamut",
+    "p3",
+    "display-p3",
+    "rec2020",
+    "srgb",
+    "color-space",
+    "colour-space",
+    "react",
+    "preact",
+    "react-component",
+    "react-color-picker",
+    "react-colour-picker"
+  ],
   "license": "MIT",
   "author": "Nick Bevers <hello@nickbevers.dev>",
   "homepage": "https://nord-forge.github.io/oklch-picker/",
@@ -29,7 +52,7 @@
     "build": "tsdown"
   },
   "dependencies": {
-    "@oklch-picker/core": "1.1.1"
+    "@oklch-picker/core": "1.2.0"
   },
   "peerDependencies": {
     "preact": ">=10",

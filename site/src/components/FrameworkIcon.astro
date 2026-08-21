@@ -49,20 +49,26 @@ const PAD: Record<string, number> = {
   vue: 2.5,
   svelte: 1.5,
   solid: 1.5,
+  // A thin shield outline over a wide span, so it reads light already.
+  angular: 0,
+  // Its shell leaves a margin inside its own artboard, so the box is pulled in
+  // to make the glyph match the others' weight rather than sit smaller.
+  qwik: -2.5,
   noframework: 0,
   html: 0,
-  // Overridden by BOX below, since its artwork is not square. Listed here
-  // because this map is what decides whether an icon exists at all.
-  astro: 0,
+  // Tall and narrow, and the transform centres it horizontally, so a negative
+  // pad lets it reach the same height as the square marks beside it.
+  astro: -1.5,
 };
 
 /** Icons whose artwork is not square need their own box rather than even
- * padding. Astro's mark is tall and narrow, so padding it evenly to fit the
- * height would leave it visibly smaller than the rest. Widening the box
- * instead centres it at a matching height. */
-const BOX: Record<string, string> = {
-  astro: "-4 1 32 22",
-};
+ * padding.
+ *
+ * Empty now that Solid, Qwik and Astro carry their official geometry: each of
+ * those is fitted and centred by the transform on its own group, so the box
+ * they are drawn into is the plain 24x24 one. Kept because the next mark that
+ * is not square will want it. */
+const BOX: Record<string, string> = {};
 
 const pad = PAD[id];
 const has = pad !== undefined;
@@ -126,23 +132,49 @@ const box = BOX[id] ?? (has ? `${-pad} ${-pad} ${24 + pad * 2} ${24 + pad * 2}` 
   }
 
   {
-    id === "solid" && (
+    id === "qwik" && (
+      /* The official mark, from QwikDev/qwik. The shell is two shapes and the
+         bolt is a third laid over them. In colour the bolt is white against
+         blue and purple; here the shell carries the weight and the bolt stays
+         at full strength, so it still reads as the bolt rather than filling in
+         as one blob. */
+      <g transform="translate(0.142 0) scale(0.047431)" fill="currentColor">
+        <path d="m250 449.707 181.102 55.804-88.065-81.859-213.863-198.793 50.004-49.999-23.021-158.743L8.348 193.702a62.314 62.314 0 0 0 0 62.314l93.843 162.535a62.314 62.314 0 0 0 53.965 31.156H250Z" opacity="0.35" />
+        <path d="M343.843 0H156.157a62.312 62.312 0 0 0-53.965 31.157L8.348 193.702 156.157 16.117l214.669 208.742-39.998 40.001 12.209 158.792 88.065 81.859c5.078 1.564 9.533-3.756 7.102-8.48l-40.395-78.48 93.842-162.535a62.313 62.313 0 0 0 .001-62.314L397.808 31.157A62.312 62.312 0 0 0 343.843 0Z" opacity="0.35" />
+        <path d="M370.826 224.859 156.157 16.117l23.021 158.743-50.004 49.999 213.863 198.793-12.209-158.792 39.998-40.001Z" />
+      </g>
+    )
+  }
+
+  {
+    id === "angular" && (
       <>
         <path
-          d="M12 3c-4 0-6.5 1.6-7.5 4.2 1.6-1.6 3.4-2.2 5.5-1.8 1.2.2 2 1 3 1.9 1.6 1.5 3.5 3.2 7.5 2.4C21 6.4 18.5 3 12 3Z"
-          fill="currentColor"
+          d="M12 1.5 2.4 4.9l1.5 12.7L12 22.5l8.1-4.9 1.5-12.7L12 1.5Z"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.4"
+          stroke-linejoin="round"
         />
         <path
-          d="M4.5 7.2C3.4 10 3.9 12 5.4 13.2c1.4 1.1 3.4 1 5.1.4 2-.7 3.6-1.4 6-.6 1.2.4 2.2 1.1 3 2 .7-1.6 1-3.3.5-4.6-4 .8-5.9-.9-7.5-2.4-1-.9-1.8-1.7-3-1.9-2.1-.4-3.9.2-5 1.1Z"
+          d="M12 5.4 6.6 17.4h2l1.1-2.7h4.6l1.1 2.7h2L12 5.4Zm-1.6 7.7L12 9.3l1.6 3.8h-3.2Z"
           fill="currentColor"
-          opacity="0.65"
-        />
-        <path
-          d="M3.5 13.5C2.8 16.8 5.6 21 11.5 21c4.4 0 7-1.9 8-4.6-.8-.9-1.8-1.6-3-2-2.4-.8-4 0-6 .6-1.7.6-3.7.7-5.1-.4a4 4 0 0 1-1.9-1.1Z"
-          fill="currentColor"
-          opacity="0.4"
         />
       </>
+    )
+  }
+
+  {
+    id === "solid" && (
+      /* The official mark, from solidjs/solid-site. Its four ribbons ship with
+         a blue gradient each; here they step in opacity instead, because the
+         shapes overlap and a single flat fill collapses them into one blob. */
+      <g transform="translate(0 0.773) scale(0.144578)" fill="currentColor">
+        <path d="M163 35S110-4 69 5l-3 1c-6 2-11 5-14 9l-2 3-15 26 26 5c11 7 25 10 38 7l46 9 18-30z" opacity="0.45" />
+        <path d="M52 35l-4 1c-17 5-22 21-13 35 10 13 31 20 48 15l62-21S92 26 52 35z" opacity="0.65" />
+        <path d="M134 80a45 45 0 00-48-15L24 85 4 120l112 19 20-36c4-7 3-15-2-23z" opacity="0.85" />
+        <path d="M114 115a45 45 0 00-48-15L4 120s53 40 94 30l3-1c17-5 23-21 13-34z" />
+      </g>
     )
   }
 
@@ -161,15 +193,12 @@ const box = BOX[id] ?? (has ? `${-pad} ${-pad} ${24 + pad * 2} ${24 + pad * 2}` 
 
   {
     id === "astro" && (
-      <>
-        {/* The two rays, plus the arc beneath them. Taller than it is wide, so
-            unlike the others it is padded horizontally rather than evenly. */}
-        <path d="M9.4 2.5h5.2l3.3 19-6-3.4-6 3.4 3.5-19Z" fill="currentColor" opacity="0.55" />
-        <path
-          d="M8.4 15.4c-.9.9-1.2 2.2-.7 3.4.3.8 1 1.5 1.9 1.9-.2-.7-.1-1.4.3-2 .5-.7 1.4-1.1 2.6-1.3 1.3-.2 2-.5 2.4-1 .1.9-.1 1.7-.6 2.5 1.2-.6 2-1.6 2.2-2.8.1-.6 0-1.3-.3-2-.5.6-1.2 1-2.2 1.2-1.7.3-2.9.1-3.7-.4-.6-.4-1.1-1-1.4-1.8-.2.9-.3 1.7-.5 2.3Z"
-          fill="currentColor"
-        />
-      </>
+      /* The official icon, from withastro/astro.build. The arc and the two
+         rays; taller than it is wide, hence the horizontal centring. */
+      <g transform="translate(2.467 0) scale(0.224299)" fill="currentColor">
+        <path d="M27.5893 91.1365C22.7555 86.7178 21.3443 77.4335 23.3583 70.7072C26.8503 74.948 31.6888 76.2914 36.7005 77.0497C44.4374 78.2199 52.0358 77.7822 59.2231 74.2459C60.0453 73.841 60.8052 73.3027 61.7036 72.7574C62.378 74.714 62.5535 76.6892 62.3179 78.6996C61.7452 83.5957 59.3086 87.3778 55.4332 90.2448C53.8835 91.3916 52.2437 92.4167 50.6432 93.4979C45.7262 96.8213 44.3959 100.718 46.2435 106.386C46.2874 106.525 46.3267 106.663 46.426 107C43.9155 105.876 42.0817 104.24 40.6844 102.089C39.2086 99.8193 38.5065 97.3081 38.4696 94.5909C38.4511 93.2686 38.4511 91.9345 38.2733 90.6309C37.8391 87.4527 36.3471 86.0297 33.5364 85.9478C30.6518 85.8636 28.37 87.6469 27.7649 90.4554C27.7187 90.6707 27.6517 90.8837 27.5847 91.1341L27.5893 91.1365Z" />
+        <path d="M0 69.5866C0 69.5866 14.3139 62.6137 28.6678 62.6137L39.4901 29.1204C39.8953 27.5007 41.0783 26.3999 42.4139 26.3999C43.7495 26.3999 44.9325 27.5007 45.3377 29.1204L56.1601 62.6137C73.1601 62.6137 84.8278 69.5866 84.8278 69.5866C84.8278 69.5866 60.5145 3.35233 60.467 3.21944C59.7692 1.2612 58.5911 0 57.0029 0H27.8274C26.2392 0 25.1087 1.2612 24.3634 3.21944C24.3108 3.34983 0 69.5866 0 69.5866Z" />
+      </g>
     )
   }
     </svg>

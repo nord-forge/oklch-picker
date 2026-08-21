@@ -36,7 +36,7 @@ npm install @oklch-picker/svelte
 <ColourPicker bind:value={colour} />
 ```
 
-`value` is bindable, and an `onchange` callback is available for handling it explicitly. Ships uncompiled `.svelte` source, so your own tooling compiles it.
+`value` is bindable, and an `onchange` callback is available for handling it explicitly. `bind:value` writes the new colour back for you, which the picker needs: it keeps no colour of its own, so a plain `value={colour}` with only `onchange` would leave the sliders stuck. Ships uncompiled `.svelte` source, so your own tooling compiles it.
 
 ## The family
 
@@ -47,6 +47,8 @@ npm install @oklch-picker/svelte
 | Vue | [`@oklch-picker/vue`](https://www.npmjs.com/package/@oklch-picker/vue) |
 | Svelte 5 | [`@oklch-picker/svelte`](https://www.npmjs.com/package/@oklch-picker/svelte) |
 | Solid | [`@oklch-picker/solid`](https://www.npmjs.com/package/@oklch-picker/solid) |
+| Angular 17+ | [`@oklch-picker/angular`](https://www.npmjs.com/package/@oklch-picker/angular) |
+| Qwik | [`@oklch-picker/qwik`](https://www.npmjs.com/package/@oklch-picker/qwik) |
 | The maths and headless model alone | [`@oklch-picker/core`](https://www.npmjs.com/package/@oklch-picker/core) |
 
 Full documentation lives in the [repository README](https://github.com/nord-forge/oklch-picker#readme).

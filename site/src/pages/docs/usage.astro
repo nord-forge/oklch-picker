@@ -58,6 +58,60 @@ export function Example() {
 }`,
   },
   {
+    label: "Angular",
+    lang: "ts" as const,
+    code: `import { Component, signal } from "@angular/core";
+import { ColourPickerComponent } from "@oklch-picker/angular";
+import "@oklch-picker/core/styles.css";
+
+@Component({
+  selector: "app-example",
+  standalone: true,
+  imports: [ColourPickerComponent],
+  template: \`
+    <oklch-colour-picker
+      [value]="colour()"
+      (valueChange)="colour.set($event)"
+    />
+  \`,
+})
+export class Example {
+  readonly colour = signal("oklch(0.7 0.15 255)");
+}`,
+  },
+  {
+    label: "Qwik",
+    lang: "tsx" as const,
+    code: `import { $, component$, useSignal } from "@builder.io/qwik";
+import { ColourPicker } from "@oklch-picker/qwik";
+import "@oklch-picker/core/styles.css";
+
+export const Example = component$(() => {
+  const colour = useSignal("oklch(0.7 0.15 255)");
+  return (
+    <ColourPicker
+      value={colour.value}
+      onChange$={$((c: string) => (colour.value = c))}
+    />
+  );
+});`,
+  },
+  {
+    label: "Astro",
+    lang: "astro" as const,
+    // The fence is built rather than written literally: this const lives in the
+    // frontmatter, where a line of three dashes would close it.
+    code: `${"---"}
+import "@oklch-picker/core/styles.css";
+${"---"}
+
+<oklch-picker value="oklch(0.7 0.15 255)"></oklch-picker>
+
+<script>
+  import "oklch-picker/register";
+<\/script>`,
+  },
+  {
     label: "No framework",
     lang: "html" as const,
     code: `<link rel="stylesheet" href="https://esm.sh/@oklch-picker/core/styles.min.css" />
@@ -77,19 +131,36 @@ export function Example() {
 
 <Page
   title="Usage · oklch-picker"
-  description="Binding the picker in React, Vue, Svelte, Solid, or with no framework at all. The emitted value is always a canonical, gamut-clamped oklch() string."
+  description="Binding the OKLCH picker in React, Vue, Svelte, Solid, Angular, Qwik, Astro or no framework. It always emits a gamut-clamped oklch() string."
 >
   <h1>Usage</h1>
 
   <p class="lede">
     The value semantics follow each framework's idiom, and the emitted value is
     always a canonical, gamut-clamped <code>oklch(L C H)</code> string. What you
-    pass in accepts either that or hex.
+    pass in is more forgiving: <code>oklch()</code>, <code>rgb()</code>,
+    <code>hsl()</code>, <code>hwb()</code> or hex, with or without alpha.
   </p>
 
   <Picker caption="Drag anything. The field in the footer shows what reaches your onChange." />
 
   <CodeTabs name="usage" snippets={BASIC} />
+
+  <div class="note">
+    <p>
+      <strong>The adapters are controlled.</strong> A picker keeps no colour of
+      its own: it renders whatever <code>value</code> you pass, so the value it
+      hands back has to come back in. <code>v-model</code> and
+      <code>bind:value</code> do that for you. React, Solid, Angular and Qwik
+      want the pair wired explicitly, and wiring only the callback leaves the
+      sliders stuck while the picker emits against a colour that never changes.
+    </p>
+    <p>
+      The <code>&lt;oklch-picker&gt;</code> element is the exception. It holds
+      its own colour and updates its own <code>value</code> attribute, so it
+      works with no listener at all.
+    </p>
+  </div>
 
   <h2>No framework</h2>
 
@@ -101,8 +172,8 @@ export function Example() {
   </p>
 
   <p>
-    <code>styles.min.css</code> is the same stylesheet at 2.0 kB gzipped instead
-    of 5.0 kB, worth using whenever nothing in front of it will minify. With a
+    <code>styles.min.css</code> is the same stylesheet at 2.1 kB gzipped instead
+    of 6.1 kB, worth using whenever nothing in front of it will minify. With a
     bundler, import plain <code>styles.css</code>: your build minifies it
     anyway, and the readable file is where the <code>--okp-*</code> variables
     are documented.
@@ -235,6 +306,48 @@ import "@oklch-picker/core/styles.css";
   onChange={setColour}
   presets={["oklch(0.75 0.16 145)", "oklch(0.7 0.15 255)"]}
 />`,
+      },
+      {
+        label: "Vue",
+        lang: "vue",
+        code: `<ColourPicker v-model="colour" :presets='["oklch(0.75 0.16 145)", "oklch(0.7 0.15 255)"]' />`,
+      },
+      {
+        label: "Svelte",
+        lang: "svelte",
+        code: `<ColourPicker bind:value={colour} presets={["oklch(0.75 0.16 145)", "oklch(0.7 0.15 255)"]} />`,
+      },
+      {
+        label: "Solid",
+        lang: "tsx",
+        code: `<ColourPicker
+  value={colour()}
+  onChange={setColour}
+  presets={["oklch(0.75 0.16 145)", "oklch(0.7 0.15 255)"]}
+/>`,
+      },
+      {
+        label: "Angular",
+        lang: "html",
+        code: `<oklch-colour-picker
+  [value]="colour()"
+  (valueChange)="colour.set($event)"
+  [presets]="presets"
+/>`,
+      },
+      {
+        label: "Qwik",
+        lang: "tsx",
+        code: `<ColourPicker
+  value={colour.value}
+  onChange$={$((c: string) => (colour.value = c))}
+  presets={["oklch(0.75 0.16 145)", "oklch(0.7 0.15 255)"]}
+/>`,
+      },
+      {
+        label: "Astro",
+        lang: "astro",
+        code: `<oklch-picker\n  presets='["oklch(0.75 0.16 145)", "oklch(0.7 0.15 255)"]'\n></oklch-picker>`,
       },
       {
         label: "No framework",

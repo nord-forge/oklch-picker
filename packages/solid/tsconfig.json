@@ -5,5 +5,13 @@
     "jsxImportSource": "solid-js",
     "noEmit": true
   },
-  "include": ["src/**/*.tsx", "src/**/*.ts", "../../test/solid.test.tsx"]
+  "include": [
+    "src/**/*.tsx",
+    "src/**/*.ts",
+    "../../test/solid.test.tsx",
+    "../../test/ssr-solid.test.tsx",
+    "../../test/ssr-solid-fixture.test.tsx",
+    "../../test/hydrate-solid.test.tsx",
+    "../../test/contract/solid.contract.test.tsx"
+  ]
 }

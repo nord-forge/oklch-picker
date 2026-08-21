@@ -2,6 +2,7 @@
 import CodeTabs from "../../components/CodeTabs.astro";
 import Pager from "../../components/Pager.astro";
 import Page from "../../layouts/Page.astro";
+import { url } from "../../lib/url";
 ---
 
 <Page
@@ -45,6 +46,18 @@ clampToGamut({ l: 0.75, c: 0.35, h: 145 });  // chroma reduced until it fits`,
       <tr>
         <td><code>hexToOklch</code>, <code>oklchToHex</code></td>
         <td>Convert, exact round-trip within sRGB</td>
+      </tr>
+      <tr>
+        <td><code>parseRgb</code>, <code>formatRgb</code>, <code>oklchToRgb255</code></td>
+        <td>The same for <code>rgb()</code> and <code>rgba()</code></td>
+      </tr>
+      <tr>
+        <td><code>parseHsl</code>, <code>formatHsl</code></td>
+        <td>The same for <code>hsl()</code> and <code>hsla()</code></td>
+      </tr>
+      <tr>
+        <td><code>parseHwb</code>, <code>formatHwb</code></td>
+        <td>The same for <code>hwb()</code></td>
       </tr>
       <tr>
         <td><code>inGamut</code>, <code>clampToGamut</code>, <code>maxChroma</code></td>
@@ -96,19 +109,82 @@ clampToGamut({ l: 0.7, c: 0.35, h: 145 }, P3);`,
     ]}
   />
 
+  <h3>Which space each format writes</h3>
+
+  <p>
+    Only <code>oklch()</code> can express a colour wider than sRGB. The other
+    formats are sRGB notations, so each takes a colour and no gamut: there is
+    nothing a space argument could change, since a browser reads their numbers
+    as sRGB either way.
+  </p>
+
+  <table>
+    <thead>
+      <tr><th>Writes</th><th>Space</th><th>A P3 or Rec. 2020 colour</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>formatOklch</code></td>
+        <td>any</td>
+        <td>kept exactly</td>
+      </tr>
+      <tr>
+        <td><code>formatRgb</code></td>
+        <td>sRGB</td>
+        <td>clamped to the nearest sRGB colour</td>
+      </tr>
+      <tr>
+        <td><code>formatHsl</code></td>
+        <td>sRGB</td>
+        <td>clamped to the nearest sRGB colour</td>
+      </tr>
+      <tr>
+        <td><code>formatHwb</code></td>
+        <td>sRGB</td>
+        <td>clamped to the nearest sRGB colour</td>
+      </tr>
+      <tr>
+        <td><code>oklchToHex</code></td>
+        <td>sRGB</td>
+        <td>clamped to the nearest sRGB colour</td>
+      </tr>
+      <tr>
+        <td><code>oklchToRgb255</code></td>
+        <td>the gamut you pass</td>
+        <td>that space's own channels, for boundary maths rather than CSS</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p>
+    Reading is symmetric: <code>toOklch</code> accepts all five, so a value can
+    arrive in any of them. What a clamped format cannot do is give the wider
+    colour back, which is why <code>value</code> stores <code>oklch()</code>.
+    See <a href={url("/docs/gamuts")}>Wider gamuts</a>.
+  </p>
+
+  <div class="note">
+    <p>
+      <code>oklchToRgb255</code> is the one exception, and it is not a CSS
+      format. It returns a space's own 0..255 channels, which is what the chart
+      boundaries need. Those numbers are not valid in an <code>rgb()</code>
+      string unless the space is sRGB.
+    </p>
+  </div>
+
   <h2>The headless model</h2>
 
   <p>
     <code>pickerModel()</code> returns everything a picker needs for one
     render: axis ranges, track gradients, chart geometry, and the draft/emit
-    resolution. It is what the five adapters are built on, and it is exported
+    resolution. It is what every adapter is built on, and it is exported
     for anyone building a sixth.
   </p>
 
   <div class="note">
     <p>
       Behaviour lives in the model rather than in any adapter, so a change there
-      reaches all five at once. If you are wiring up your own UI, that is the
+      reaches them all at once. If you are wiring up your own UI, that is the
       layer to build against.
     </p>
   </div>

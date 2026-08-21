@@ -1,0 +1,68 @@
+{
+  "name": "@oklch-picker/angular",
+  "version": "1.2.0",
+  "description": "An OKLCH color picker for Angular 17+. Standalone, signal-based, with gamut-aware sliders and wide-gamut P3 and Rec. 2020.",
+  "keywords": [
+    "oklch",
+    "oklch-picker",
+    "oklch-color-picker",
+    "oklch-colour-picker",
+    "color-picker",
+    "colour-picker",
+    "color",
+    "colour",
+    "picker",
+    "gamut",
+    "wide-gamut",
+    "p3",
+    "display-p3",
+    "rec2020",
+    "srgb",
+    "color-space",
+    "colour-space",
+    "angular",
+    "angular-component",
+    "angular-color-picker",
+    "angular-colour-picker",
+    "signals",
+    "standalone"
+  ],
+  "license": "MIT",
+  "author": "Nick Bevers <hello@nickbevers.dev>",
+  "homepage": "https://nord-forge.github.io/oklch-picker/",
+  "bugs": {
+    "url": "https://github.com/nord-forge/oklch-picker/issues"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": ["dist", "README.md", "LICENSE"],
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "ngc -p tsconfig.build.json"
+  },
+  "dependencies": {
+    "@oklch-picker/core": "1.2.0"
+  },
+  "//": "Angular 17 is the floor: standalone components and signals are both stable there. Anyone below it can use the `oklch-picker` custom element, which needs no framework at all.",
+  "peerDependencies": {
+    "@angular/common": ">=17",
+    "@angular/core": ">=17"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nord-forge/oklch-picker.git",
+    "directory": "packages/angular"
+  }
+}
