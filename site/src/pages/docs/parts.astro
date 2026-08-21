@@ -38,6 +38,24 @@ import { url } from "../../lib/url";
         code: `<ColourPicker value={colour()} onChange={setColour} parts={{ charts: false }} />`,
       },
       {
+        label: "Angular",
+        lang: "html",
+        code: `<oklch-colour-picker
+  [value]="colour()"
+  (valueChange)="colour.set($event)"
+  [parts]="{ rgbInput: true, hexInput: true }"
+/>`,
+      },
+      {
+        label: "Qwik",
+        lang: "tsx",
+        code: `<ColourPicker
+  value={colour.value}
+  onChange$={$((c: string) => (colour.value = c))}
+  parts={{ rgbInput: true, hexInput: true }}
+/>`,
+      },
+      {
         label: "No framework",
         lang: "html",
         code: `<oklch-picker parts='{"charts": false}'></oklch-picker>`,

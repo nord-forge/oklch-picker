@@ -84,6 +84,26 @@ import Page from "../../layouts/Page.astro";
 />`,
       },
       {
+        label: "Angular",
+        lang: "html",
+        code: `<oklch-colour-picker
+  [value]="colour()"
+  (valueChange)="colour.set($event)"
+  [recents]="recents()"
+  (recentsChange)="recents.set($event)"
+/>`,
+      },
+      {
+        label: "Qwik",
+        lang: "tsx",
+        code: `<ColourPicker
+  value={colour.value}
+  onChange$={$((c: string) => (colour.value = c))}
+  recents={recents.value}
+  onRecentsChange$={$((r: string[]) => (recents.value = r))}
+/>`,
+      },
+      {
         label: "No framework",
         lang: "js",
         code: `const picker = document.querySelector("oklch-picker");

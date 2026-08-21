@@ -58,6 +58,45 @@ export function Example() {
 }`,
   },
   {
+    label: "Angular",
+    lang: "ts" as const,
+    code: `import { Component, signal } from "@angular/core";
+import { ColourPickerComponent } from "@oklch-picker/angular";
+import "@oklch-picker/core/styles.css";
+
+@Component({
+  selector: "app-example",
+  standalone: true,
+  imports: [ColourPickerComponent],
+  template: \`
+    <oklch-colour-picker
+      [value]="colour()"
+      (valueChange)="colour.set($event)"
+    />
+  \`,
+})
+export class Example {
+  readonly colour = signal("oklch(0.7 0.15 255)");
+}`,
+  },
+  {
+    label: "Qwik",
+    lang: "tsx" as const,
+    code: `import { $, component$, useSignal } from "@builder.io/qwik";
+import { ColourPicker } from "@oklch-picker/qwik";
+import "@oklch-picker/core/styles.css";
+
+export const Example = component$(() => {
+  const colour = useSignal("oklch(0.7 0.15 255)");
+  return (
+    <ColourPicker
+      value={colour.value}
+      onChange$={$((c: string) => (colour.value = c))}
+    />
+  );
+});`,
+  },
+  {
     label: "No framework",
     lang: "html" as const,
     code: `<link rel="stylesheet" href="https://esm.sh/@oklch-picker/core/styles.min.css" />
@@ -250,6 +289,43 @@ import "@oklch-picker/core/styles.css";
         code: `<ColourPicker
   value={colour}
   onChange={setColour}
+  presets={["oklch(0.75 0.16 145)", "oklch(0.7 0.15 255)"]}
+/>`,
+      },
+      {
+        label: "Vue",
+        lang: "vue",
+        code: `<ColourPicker v-model="colour" :presets='["oklch(0.75 0.16 145)", "oklch(0.7 0.15 255)"]' />`,
+      },
+      {
+        label: "Svelte",
+        lang: "svelte",
+        code: `<ColourPicker bind:value={colour} presets={["oklch(0.75 0.16 145)", "oklch(0.7 0.15 255)"]} />`,
+      },
+      {
+        label: "Solid",
+        lang: "tsx",
+        code: `<ColourPicker
+  value={colour()}
+  onChange={setColour}
+  presets={["oklch(0.75 0.16 145)", "oklch(0.7 0.15 255)"]}
+/>`,
+      },
+      {
+        label: "Angular",
+        lang: "html",
+        code: `<oklch-colour-picker
+  [value]="colour()"
+  (valueChange)="colour.set($event)"
+  [presets]="presets"
+/>`,
+      },
+      {
+        label: "Qwik",
+        lang: "tsx",
+        code: `<ColourPicker
+  value={colour.value}
+  onChange$={$((c: string) => (colour.value = c))}
   presets={["oklch(0.75 0.16 145)", "oklch(0.7 0.15 255)"]}
 />`,
       },
