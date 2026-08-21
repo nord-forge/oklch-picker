@@ -11,7 +11,8 @@
     "node": "^22.18.0 || >=24.11.0"
   },
   "scripts": {
-    "build": "npm run build --workspace=packages --if-present",
+    "//build": "Core first, explicitly. `--workspace=packages` runs them in alphabetical order, not dependency order, so `angular` built before `core` and `ngc` could not resolve `@oklch-picker/core`. It only ever passed locally because a previous build had left core's dist in place; a clean checkout failed, which is what CI does every time. Core is built twice now, which costs under a second and is worth not depending on the order npm happens to pick.",
+    "build": "npm run build --workspace=@oklch-picker/core && npm run build --workspace=packages --if-present",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit && tsc --noEmit -p packages/solid && tsc --noEmit -p packages/qwik && npm run build --workspace=@oklch-picker/angular && svelte-check --threshold error",

@@ -30,7 +30,7 @@ Node 22.18+ is required to build (tsdown's floor); the published packages run
 on Node 20.
 
 ```sh
-npm run build       # all packages, in dependency order
+npm run build       # core first, then all packages
 npm test            # 568 tests across 25 vitest projects
 npm run typecheck   # tsc, then Solid, Qwik, Angular's ngc, svelte-check
 npm run lint        # biome; lint:fix to write
