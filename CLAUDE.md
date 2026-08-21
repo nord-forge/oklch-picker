@@ -31,7 +31,7 @@ on Node 20.
 
 ```sh
 npm run build       # all packages, in dependency order
-npm test            # 384 tests across 24 vitest projects
+npm test            # 525 tests across 25 vitest projects
 npm run typecheck   # tsc, then Solid, Qwik, Angular's ngc, svelte-check
 npm run lint        # biome; lint:fix to write
 npm run dev         # every example at once, from port 5272 up
@@ -57,14 +57,15 @@ headless model. It covers axis ranges, track gradients, chart geometry, the
 draft/emit resolution, and the chart memo key. `pickerModel()` returns
 everything a picker needs for one render.
 
-An adapter therefore contains only markup and state wiring, ~250 lines each.
+An adapter therefore contains only markup and state wiring, 420 to 510 lines
+of code each (550 to 690 with comments, which this repo uses heavily).
 **When you change behaviour, change `model.ts`** so all seven adapters get it;
 if you find yourself editing the same logic in two adapters, it belongs in the
 core instead.
 
-The exception is `vanilla` (~600 lines, the largest): with no virtual DOM it
-builds nodes once and mutates them in place, because rebuilding the tree on
-every input would drop focus from the slider mid-drag.
+The exception is `vanilla` (~815 lines of code, the largest): with no virtual
+DOM it builds nodes once and mutates them in place, because rebuilding the
+tree on every input would drop focus from the slider mid-drag.
 
 ### Invariants worth preserving
 

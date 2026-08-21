@@ -19,6 +19,14 @@ function layOut(el: Element): void {
 
 adapterContract({
   name: "Solid",
+  /** Solid's JSX types model neither `focusable` nor an `attr:` escape that
+   * typechecks, so the chart cannot carry it. Nothing is lost: it is an IE11
+   * attribute, the chart holds no focusable child, and `aria-hidden` already
+   * keeps it out of the accessibility tree. */
+  unsupported: {
+    "the chart carries the legacy focusable opt-out":
+      "Solid's JSX types have no `focusable` attribute and no `attr:` escape that typechecks",
+  },
   cleanup,
   mount(props: PickerProps): Mounted {
     const emitted: string[] = [];

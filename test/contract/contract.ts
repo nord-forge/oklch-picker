@@ -107,6 +107,28 @@ export function adapterContract(driver: Driver): void {
       { value: "oklch(0.2 0.3 145)" },
     );
 
+    // The chart is pointer-only and the sliders are the accessible path, so it
+    // stays out of the accessibility tree. This is the part that matters, and
+    // every adapter owes it.
+    it("the chart is hidden from assistive technology", (m) => {
+      const chart = m.root.querySelector(".oklch-picker__chart");
+      expect(chart, "no chart rendered").not.toBeNull();
+      expect(chart?.getAttribute("aria-hidden")).toBe("true");
+      // And nothing inside it can be reached by keyboard. Loose null check:
+      // Qwik's test DOM returns undefined where the others return null.
+      expect(chart?.querySelector("[tabindex], a, button, input") ?? null).toBeNull();
+    });
+
+    // `focusable="false"` is the legacy half, for IE11, where an SVG root was
+    // in the tab order. No chart has a focusable child and no supported browser
+    // reads the attribute, so this is consistency rather than a fix. Solid
+    // declares it unsupported: its JSX types model neither the attribute nor an
+    // `attr:` escape that typechecks, and the six others all set it.
+    it("the chart carries the legacy focusable opt-out", (m) => {
+      const chart = m.root.querySelector(".oklch-picker__chart");
+      expect(chart?.getAttribute("focusable")).toBe("false");
+    });
+
     it("no layout means the chart layout", (m) => {
       expect(m.root.querySelector(".oklch-picker--chart")).not.toBeNull();
     });
