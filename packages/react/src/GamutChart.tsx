@@ -79,6 +79,8 @@ export function GamutChart(props: GamutChartProps) {
       stops: m.stops.map((s) => <stop key={s.offset} offset={`${s.offset}%`} stopColor={s.hex} />),
       boundaries: m.boundaries,
     };
+    // The gamut arrays are compared by identity, which holds because
+    // `pickerModel` returns the same instance while the spaces are unchanged.
   }, [axis, curveInput, resolution, references, gamut, scaleGamuts]);
   const gradId = `${props.classPrefix}-gamut-${props.id}`;
   const crossY = CHART_H - Math.min(1, Math.max(0, props.y)) * CHART_H;

@@ -46,6 +46,7 @@ export {
   chartSlot,
   defaultOutOfGamutNotice,
   gamutNoticeKey,
+  gamutsKey,
   DEFAULT_LABELS,
   DEFAULT_LAYOUT,
   DEFAULT_MAX_RECENTS,

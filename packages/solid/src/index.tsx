@@ -18,6 +18,7 @@ import {
   colourName,
   emitValue,
   gamutChartModel,
+  gamutsKey,
   labelTransform,
   pickerModel,
   recentValue,
@@ -34,6 +35,7 @@ import {
   createUniqueId,
   onCleanup,
   onMount,
+  untrack,
 } from "solid-js";
 
 interface GamutChartProps {
@@ -72,16 +74,43 @@ interface GamutChartProps {
 function GamutChart(props: GamutChartProps) {
   // The boundaries ride along in this memo rather than taking their own: they
   // come from the same sweep, so a second memo would walk the axis twice.
-  const curve = createMemo(() =>
-    gamutChartModel(
-      chartBase(props.curveKey, props.axis),
-      props.axis,
-      props.resolution ?? 64,
-      props.references,
-      props.gamut,
-      props.scaleGamuts,
-    ),
+  // Keyed on the gamuts' ids rather than the arrays. `pickerModel` hands back a
+  // stable instance now, but a memo that reads the array still re-runs whenever
+  // the parent's model object is replaced, which is every render. Depending on
+  // a string means the curve is rebuilt only when the spaces really differ.
+  const curveInputs = createMemo(
+    () => ({
+      base: chartBase(props.curveKey, props.axis),
+      axis: props.axis,
+      resolution: props.resolution ?? 64,
+      key: `${gamutsKey(props.references ?? [])}|${props.gamut?.id ?? ""}|${gamutsKey(
+        props.scaleGamuts ?? [],
+      )}`,
+    }),
+    undefined,
+    {
+      equals: (a, b) =>
+        a.key === b.key &&
+        a.axis === b.axis &&
+        a.resolution === b.resolution &&
+        a.base[a.axis] === b.base[b.axis],
+    },
   );
+  const curve = createMemo(() => {
+    const i = curveInputs();
+    // Untracked: the ids are already in `curveInputs`, so reading the arrays
+    // here as well would re-subscribe to the identity this is avoiding.
+    return untrack(() =>
+      gamutChartModel(
+        i.base,
+        i.axis,
+        i.resolution,
+        props.references,
+        props.gamut,
+        props.scaleGamuts,
+      ),
+    );
+  });
   const gradId = () => `${props.classPrefix}-gamut-${props.uid}-${props.axis}`;
   const crossY = () => CHART_H - Math.min(1, Math.max(0, props.y)) * CHART_H;
 

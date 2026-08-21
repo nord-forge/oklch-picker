@@ -4,7 +4,15 @@
  * memoises the curve, so dragging an axis that does not feed it reuses the path
  * and its ~65 gradient stops. */
 import type { Axis, Gamut } from "@oklch-picker/core";
-import { CHART_H, CHART_W, chartBase, gamutChartModel, labelTransform } from "@oklch-picker/core";
+import {
+  CHART_H,
+  CHART_W,
+  chartBase,
+  gamutChartModel,
+  gamutsKey,
+  labelTransform,
+} from "@oklch-picker/core";
+import { untrack } from "svelte";
 
 interface Props {
   /** The axis held fixed; the chart sweeps the other two. */
@@ -52,9 +60,34 @@ const {
 
 // The boundaries ride along in this memo rather than taking their own: they
 // come from the same sweep, so a second `$derived` would walk the axis twice.
-const curve = $derived(
-  gamutChartModel(chartBase(curveKey, axis), axis, resolution, references, gamut, scaleGamuts),
+//
+// Keyed on the gamuts' ids rather than the arrays. `pickerModel` returns a
+// stable instance now, but a `$derived` that reads a prop re-runs whenever that
+// prop's signal fires, and the parent replaces its model object every render.
+// Depending on a string and reading the arrays untracked means the curve is
+// rebuilt only when the spaces really differ.
+// One string holding everything the curve depends on. `$derived` compares its
+// own result by reference, so deriving anything object-shaped here would look
+// changed on every run and rebuild the curve regardless.
+const curveSignature = $derived(
+  `${curveKey}|${axis}|${resolution}|${gamutsKey(references ?? [])}|${gamut?.id ?? ""}|${gamutsKey(
+    scaleGamuts ?? [],
+  )}`,
 );
+
+let lastSignature: string | undefined;
+let lastCurve: ReturnType<typeof gamutChartModel> | undefined;
+const curve = $derived.by(() => {
+  const signature = curveSignature;
+  if (signature === lastSignature && lastCurve) return lastCurve;
+  // Untracked: the signature above already carries every input, so reading the
+  // props here as well would re-subscribe to identities that change per render.
+  lastCurve = untrack(() =>
+    gamutChartModel(chartBase(curveKey, axis), axis, resolution, references, gamut, scaleGamuts),
+  );
+  lastSignature = signature;
+  return lastCurve;
+});
 const gradId = $derived(`${classPrefix}-gamut-${uid}-${axis}`);
 const crossY = $derived(CHART_H - Math.min(1, Math.max(0, y)) * CHART_H);
 

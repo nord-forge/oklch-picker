@@ -804,3 +804,31 @@ describe("clicking the chart lands where the pointer is", () => {
     }
   });
 });
+
+// Regression: `pickerModel` built these with `filter` and spread, so every call
+// returned a new array holding the same spaces. Six of the seven adapters put
+// those arrays in the chart's memo, so the identity check missed on every
+// render and the curve plus its ~65 gradient stops were rebuilt on every
+// pointer move, which is exactly what the memo exists to avoid.
+describe("the model's gamut lists keep their identity", () => {
+  test.each([
+    ["the sRGB default", {}],
+    ["a wider output with references", { gamut: P3, references: [SRGB] }],
+    ["an explicit set of choices", { gamut: P3, gamutChoices: [SRGB, P3, REC2020] }],
+  ])("%s", (_name, options) => {
+    const current = { l: 0.7, c: 0.1, h: 200 };
+    const a = pickerModel(current, options);
+    const b = pickerModel(current, options);
+    expect(a.references).toBe(b.references);
+    expect(a.scaleGamuts).toBe(b.scaleGamuts);
+    expect(a.gamutChoices).toBe(b.gamutChoices);
+  });
+
+  // The lists are keyed by their gamuts' ids, so a caller with its own space
+  // sharing a built-in id must still get its own objects back rather than ours.
+  test("a custom space reusing a built-in id is not swapped for the cached one", () => {
+    const mine = { ...P3, label: "Mine" };
+    const model = pickerModel({ l: 0.7, c: 0.1, h: 200 }, { gamut: REC2020, references: [mine] });
+    expect(model.references[0]).toBe(mine);
+  });
+});

@@ -263,6 +263,54 @@ export function chartKey(base: Oklch, axis: Axis): number {
   return base[axis];
 }
 
+/** A list of gamuts as a stable string, for memo dependencies.
+ *
+ * `pickerModel` derives `references`, `scaleGamuts` and `gamutChoices` with
+ * `filter` and spread, so each call returns a fresh array holding the same
+ * spaces. A memo comparing those by reference therefore missed every time, and
+ * the curve plus its ~65 gradient stops were rebuilt on every pointer move in
+ * six of the seven adapters. A gamut is identified by its `id`, so the joined
+ * ids say everything a curve depends on and stay equal between renders. */
+export function gamutsKey(gamuts: Gamut[]): string {
+  return gamuts.map((g) => g.id).join(",");
+}
+
+/** Every gamut list this module has handed out, by its ids.
+ *
+ * `pickerModel` is called per render and derives its lists with `filter`, so
+ * without this it returns a new array of the same spaces every time. Handing
+ * back the previous instance when the ids match makes the result stable, which
+ * is what lets a chart memo hold across a drag. The set of gamut combinations
+ * an app uses is tiny and fixed at build time, so this cannot grow unbounded. */
+const gamutListCache = new Map<string, Gamut[]>();
+
+/** One shared empty list, for the parts a picker has turned off. A fresh `[]`
+ * per call is a new identity, which is the same memo-busting problem in a
+ * cheaper disguise.
+ *
+ * Not frozen: `PickerModel` types these lists as mutable, and freezing would
+ * make the shared instance throw where a caller's own array would not. Nothing
+ * in the model writes to it. */
+const NO_GAMUTS: Gamut[] = [];
+
+/** The same array instance for the same gamuts, so identity comparisons hold.
+ *
+ * The ids are only the lookup. The cached list is returned only when it holds
+ * the very same `Gamut` objects, so a caller passing a custom space that reuses
+ * a built-in id gets its own object back rather than ours.
+ *
+ * `role` keeps the three lists in separate slots. Without it they share a key
+ * whenever they hold the same spaces, which is the common case: on the default
+ * sRGB picker both `scaleGamuts` and `gamutChoices` are `["srgb"]`, so each
+ * call evicted the other's entry and neither was ever stable. */
+function stableGamuts(role: string, gamuts: Gamut[]): Gamut[] {
+  const key = `${role}:${gamutsKey(gamuts)}`;
+  const seen = gamutListCache.get(key);
+  if (seen && seen.length === gamuts.length && seen.every((g, i) => g === gamuts[i])) return seen;
+  gamutListCache.set(key, gamuts);
+  return gamuts;
+}
+
 /** The base colour a chart's curve is computed from, given its key. The two
  * swept axes are supplied per column, so only the fixed one matters here. */
 export function chartBase(key: number, axis: Axis): Oklch {
@@ -452,9 +500,14 @@ export function pickerModel(current: Oklch, options: PickerOptions = {}): Picker
   const offeredReferences = inView;
   // `gamutLines` removes the drawn lines only. The spaces stay in view for the
   // scale, so turning the lines off does not resize the chart under the reader.
-  const references = parts.gamutLines
-    ? offeredReferences.filter((g) => g.id !== gamut.id && g.chartMaxChroma < gamut.chartMaxChroma)
-    : [];
+  const references = stableGamuts(
+    "references",
+    parts.gamutLines
+      ? offeredReferences.filter(
+          (g) => g.id !== gamut.id && g.chartMaxChroma < gamut.chartMaxChroma,
+        )
+      : [],
+  );
 
   const notice = clipped
     ? (labels[gamutNoticeKey(gamut)] ?? defaultOutOfGamutNotice(gamut, labels.outOfGamut))
@@ -468,16 +521,23 @@ export function pickerModel(current: Oklch, options: PickerOptions = {}): Picker
   // sRGB to P3 would be impossible if the choices came from them.
   const offered = options.gamutChoices ?? [...offeredReferences, gamut];
   const seen = new Set<string>();
-  const gamutChoices = offered.filter((g) => !seen.has(g.id) && seen.add(g.id));
+  const gamutChoices = stableGamuts(
+    "choices",
+    offered.filter((g) => !seen.has(g.id) && seen.add(g.id)),
+  );
   // One option is not a choice, so the control needs at least two.
   const withGamutSwitch = parts.gamutSwitch && gamutChoices.length > 1;
+  // One instance, shared by the returned model and every chart slot: the charts
+  // are positioned on this same scale, and a second copy would be a second
+  // identity for a memo to miss on.
+  const scaleGamuts = stableGamuts("scale", [...offeredReferences, gamut]);
 
   return {
     current,
     gamut,
     references,
-    scaleGamuts: [...offeredReferences, gamut],
-    gamutChoices: withGamutSwitch ? gamutChoices : [],
+    scaleGamuts,
+    gamutChoices: withGamutSwitch ? gamutChoices : NO_GAMUTS,
     withGamutSwitch,
     hex: oklchToHex(current),
     rgb: formatRgb(current, gamut),
@@ -492,9 +552,7 @@ export function pickerModel(current: Oklch, options: PickerOptions = {}): Picker
     reachable,
     axes,
     charts: withCharts
-      ? chartAxes(layout).map((axis) =>
-          chartSlot(current, axis, gamut, [...offeredReferences, gamut]),
-        )
+      ? chartAxes(layout).map((axis) => chartSlot(current, axis, gamut, scaleGamuts))
       : [],
     spans: axes.map((a) => outOfGamutSpans(current, a.key, a.max, gamut)),
     gradients: axes.map((a) => trackGradient(current, a.key, a.max, gamut)),
