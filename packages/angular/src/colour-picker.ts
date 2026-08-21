@@ -1,6 +1,16 @@
 /** An OKLCH colour picker: one slider per axis, each over a gamut cross-section. */
 import { NgFor, NgIf } from "@angular/common";
-import { ChangeDetectionStrategy, Component, computed, input, output, signal } from "@angular/core";
+import {
+  APP_ID,
+  ChangeDetectionStrategy,
+  Component,
+  EnvironmentInjector,
+  computed,
+  inject,
+  input,
+  output,
+  signal,
+} from "@angular/core";
 import type { Axis, Gamut, LabelKey, Oklch, PickerLayout, PickerParts } from "@oklch-picker/core";
 import {
   addRecent,
@@ -15,10 +25,33 @@ import {
 } from "@oklch-picker/core";
 import { GamutChartComponent } from "./gamut-chart.js";
 
-/** Counts per module rather than per app, so two pickers stay distinct however
- * they are mounted. Angular has no `useId`, and the id only has to be unique
- * within the document. */
-let instances = 0;
+/** Counts per application, not per module.
+ *
+ * Angular has no `useId`, so this used to be a bare module counter. That is
+ * safe in a browser, where the module is loaded once per document, and wrong
+ * on a server: the counter lives as long as the process, so request 1 renders
+ * `a0` and request 500 renders `a500`, while the browser bootstrapping that
+ * page starts from `a0` again. The uid feeds the SVG gradient id, so the
+ * server's markup pointed at `url(#a500-h)` and the client rebuilt
+ * `url(#a0-h)`, and the chart's fill broke on hydration.
+ *
+ * Keyed on the root injector rather than on `APP_ID`, which defaults to `"ng"`
+ * for every app and so would share one counter across every request on the
+ * server. Each server render gets its own injector, so each starts from 1 and
+ * agrees with the client that resumes it. A `WeakMap` lets a finished request's
+ * injector be collected with its count. `APP_ID` still goes in the id itself,
+ * to keep two apps on one page apart. */
+const instancesByApp = new WeakMap<object, { n: number }>();
+
+function nextUid(scope: object, appId: string): string {
+  let count = instancesByApp.get(scope);
+  if (!count) {
+    count = { n: 0 };
+    instancesByApp.set(scope, count);
+  }
+  count.n += 1;
+  return `${appId}-${count.n}`;
+}
 
 @Component({
   selector: "oklch-colour-picker",
@@ -277,7 +310,7 @@ export class ColourPickerComponent {
   // SVG ids share one document-wide namespace, so two pickers on a page both
   // emitting `oklch-picker-gamut-h` made the second chart fill from the first
   // one's gradient.
-  readonly uid = `a${instances++}`;
+  readonly uid = nextUid(inject(EnvironmentInjector), inject(APP_ID));
 
   /** What was dialled, not what was emitted: dragging through an out-of-gamut
    * region must not destroy the other axes. */

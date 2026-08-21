@@ -72,3 +72,22 @@ test("two renders of the same colour agree", async () => {
   const values = (html: string) => html.match(/value="[^"]*"/g);
   expect(values(await render())).toEqual(values(await render()));
 });
+
+// Regression: the uid was a bare module counter, which lives as long as the
+// server process rather than as long as a request. Request 1 rendered `a0` and
+// request 500 rendered `a500`, while the browser bootstrapping that page
+// counted from `a0` again. The uid feeds the SVG gradient id, so the markup
+// referenced a gradient the client never built and the chart's fill broke on
+// hydration.
+test("two server renders agree on their ids", async () => {
+  const ids = (markup: string) =>
+    [...markup.matchAll(/id="([^"]*-[lch])"/g)].map((m) => m[1]).sort();
+
+  const first = ids(await render());
+  const second = ids(await render());
+
+  expect(first.length).toBeGreaterThan(0);
+  // Each request starts its own count, so the second render is not offset from
+  // the first. A client counting from scratch matches either.
+  expect(second).toEqual(first);
+});
