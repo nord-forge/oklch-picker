@@ -31,7 +31,7 @@ on Node 20.
 
 ```sh
 npm run build       # all packages, in dependency order
-npm test            # 525 tests across 25 vitest projects
+npm test            # 568 tests across 25 vitest projects
 npm run typecheck   # tsc, then Solid, Qwik, Angular's ngc, svelte-check
 npm run lint        # biome; lint:fix to write
 npm run dev         # every example at once, from port 5272 up

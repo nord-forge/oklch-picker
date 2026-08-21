@@ -1049,3 +1049,29 @@ describe("every format round-trips, in every gamut", () => {
     expect(formatOklch(p3)).not.toBe(formatOklch(rec));
   });
 });
+
+// Regression: `chartColour` spread the whole base, so a colour carrying alpha
+// produced 8-digit gradient stops while `chartKey` saw the same number either
+// way. Nothing hit it, because every adapter routes through `chartBase`, which
+// rebuilds `{l, c, h}`. That made the memo correct by accident of a second
+// function rather than by the key being complete.
+describe("alpha stays out of the chart", () => {
+  test("a base carrying alpha draws the same curve as one without", () => {
+    const opaque = { l: 0.7, c: 0.15, h: 200 };
+    const faded = { ...opaque, a: 0.3 };
+    for (const axis of ["l", "c", "h"] as const) {
+      const a = gamutChartModel(faded, axis, 16);
+      const b = gamutChartModel(opaque, axis, 16);
+      expect(a.path, `${axis} path`).toBe(b.path);
+      expect(
+        a.stops.map((s) => s.hex),
+        `${axis} stops`,
+      ).toEqual(b.stops.map((s) => s.hex));
+    }
+  });
+
+  test("no gradient stop carries an alpha pair", () => {
+    const stops = gamutChartModel({ l: 0.7, c: 0.15, h: 200, a: 0.3 }, "h", 16).stops;
+    for (const s of stops) expect(s.hex, s.hex).toMatch(/^#[0-9a-f]{6}$/);
+  });
+});

@@ -537,8 +537,20 @@ export function chartColour(
   gamut: Gamut = SRGB,
 ): Oklch {
   const { x: xAxis, y: yAxis } = CHART_PLANES[fixed];
+  // Alpha is dropped rather than carried. A chart is a cross-section of the
+  // gamut, and transparency moves a colour neither in nor out of one, which is
+  // the rule `Axis` states by excluding it.
+  //
+  // It mattered because it reached the gradient stops without reaching
+  // `chartKey`: a base carrying `a` produced 8-digit hex, while the memo key
+  // saw the same number either way. Nothing hit it, because every adapter goes
+  // through `chartBase`, which rebuilds `{l, c, h}` and loses `a` on the way.
+  // That made the memo correct by accident of a second function rather than by
+  // this one being right, and the next caller passing a base straight through
+  // would have found a stale curve.
+  const { a: _drop, ...rest } = base;
   return {
-    ...base,
+    ...rest,
     [xAxis]: x * axisMax(xAxis, gamut),
     [yAxis]: y * axisMax(yAxis, gamut),
   } as Oklch;
