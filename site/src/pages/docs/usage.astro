@@ -97,6 +97,21 @@ export const Example = component$(() => {
 });`,
   },
   {
+    label: "Astro",
+    lang: "astro" as const,
+    // The fence is built rather than written literally: this const lives in the
+    // frontmatter, where a line of three dashes would close it.
+    code: `${"---"}
+import "@oklch-picker/core/styles.css";
+${"---"}
+
+<oklch-picker value="oklch(0.7 0.15 255)"></oklch-picker>
+
+<script>
+  import "oklch-picker/register";
+<\/script>`,
+  },
+  {
     label: "No framework",
     lang: "html" as const,
     code: `<link rel="stylesheet" href="https://esm.sh/@oklch-picker/core/styles.min.css" />
@@ -328,6 +343,11 @@ import "@oklch-picker/core/styles.css";
   onChange$={$((c: string) => (colour.value = c))}
   presets={["oklch(0.75 0.16 145)", "oklch(0.7 0.15 255)"]}
 />`,
+      },
+      {
+        label: "Astro",
+        lang: "astro",
+        code: `<oklch-picker\n  presets='["oklch(0.75 0.16 145)", "oklch(0.7 0.15 255)"]'\n></oklch-picker>`,
       },
       {
         label: "No framework",

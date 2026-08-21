@@ -104,6 +104,11 @@ import Page from "../../layouts/Page.astro";
 />`,
       },
       {
+        label: "Astro",
+        lang: "astro",
+        code: `---\nimport "@oklch-picker/core/styles.css";\n---\n\n<oklch-picker value="oklch(0.7 0.15 255)"></oklch-picker>\n\n<script>\n  import "oklch-picker/register";\n\n  const picker = document.querySelector("oklch-picker");\n  picker.addEventListener("recentschange", (event) => {\n    localStorage.setItem("recents", JSON.stringify(event.detail.recents));\n  });\n<\\/script>`,
+      },
+      {
         label: "No framework",
         lang: "js",
         code: `const picker = document.querySelector("oklch-picker");

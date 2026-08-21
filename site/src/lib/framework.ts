@@ -13,6 +13,11 @@ export const FRAMEWORKS = [
   "Solid",
   "Angular",
   "Qwik",
+  // Astro has no adapter: it renders the custom element, exactly as any
+  // server-rendered page does. It is listed anyway because someone reaching
+  // for an Astro colour picker looks for Astro, not for "no framework", and a
+  // tab that says so is quicker than a paragraph explaining the equivalence.
+  "Astro",
   "No framework",
 ] as const;
 

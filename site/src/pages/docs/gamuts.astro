@@ -55,14 +55,6 @@ import { P3 } from "@oklch-picker/core/gamuts";
 <ColourPicker value={colour()} onChange={setColour} gamut={P3} />`,
       },
       {
-        label: "No framework",
-        lang: "js",
-        code: `import { P3 } from "@oklch-picker/core/gamuts";
-
-// A gamut is an object, so it is a property rather than an attribute.
-document.querySelector("oklch-picker").gamut = P3;`,
-      },
-      {
         label: "Angular",
         lang: "ts",
         code: `import { P3 } from "@oklch-picker/core/gamuts";
@@ -81,6 +73,19 @@ document.querySelector("oklch-picker").gamut = P3;`,
 // component, and a gamut carries a function, so the id crosses
 // the boundary where the object cannot.
 <ColourPicker value={colour.value} gamut="p3" onChange$={(c) => (colour.value = c)} />`,
+      },
+      {
+        label: "Astro",
+        lang: "astro",
+        code: `---\nimport "@oklch-picker/core/styles.css";\n---\n\n<oklch-picker value="oklch(0.7 0.15 255)"></oklch-picker>\n\n<script>\n  import "oklch-picker/register";\n  import { P3 } from "@oklch-picker/core/gamuts";\n\n  // A property, not an attribute: a Gamut is an object.\n  document.querySelector("oklch-picker").gamut = P3;\n<\\/script>`,
+      },
+      {
+        label: "No framework",
+        lang: "js",
+        code: `import { P3 } from "@oklch-picker/core/gamuts";
+
+// A gamut is an object, so it is a property rather than an attribute.
+document.querySelector("oklch-picker").gamut = P3;`,
       },
     ]}
   />
@@ -246,6 +251,11 @@ document.querySelector("oklch-picker").gamut = P3;`,
 />`,
       },
       {
+        label: "Astro",
+        lang: "astro",
+        code: `---\nimport "@oklch-picker/core/styles.css";\n---\n\n<oklch-picker parts='{"gamutSwitch": true}'></oklch-picker>\n\n<script>\n  import "oklch-picker/register";\n  import { SRGB } from "@oklch-picker/core";\n  import { P3, REC2020 } from "@oklch-picker/core/gamuts";\n\n  const picker = document.querySelector("oklch-picker");\n  picker.gamutChoices = [SRGB, P3, REC2020];\n\n  picker.addEventListener("gamutchange", (event) => {\n    console.log(event.detail.gamut.label);\n  });\n<\\/script>`,
+      },
+      {
         label: "No framework",
         lang: "js",
         code: `import { SRGB } from "@oklch-picker/core";
@@ -366,6 +376,11 @@ picker.addEventListener("gamutchange", (event) => {
     "outOf:p3": "Needs a wide-gamut screen.",
   }}
 />`,
+      },
+      {
+        label: "Astro",
+        lang: "astro",
+        code: `<oklch-picker\n  labels='{"outOfGamut": "Not displayable.", "outOf:p3": "Needs a wide-gamut screen."}'\n></oklch-picker>`,
       },
       {
         label: "No framework",

@@ -79,6 +79,11 @@ import { url } from "../lib/url";
       { label: "Solid", lang: "sh", code: "npm install @oklch-picker/solid" },
       { label: "Angular", lang: "sh", code: "npm install @oklch-picker/angular" },
       { label: "Qwik", lang: "sh", code: "npm install @oklch-picker/qwik" },
+      {
+        label: "Astro",
+        lang: "sh",
+        code: `npm install oklch-picker`,
+      },
       { label: "No framework", lang: "sh", code: "npm install oklch-picker" },
     ]}
   />
@@ -172,6 +177,19 @@ export const Example = component$(() => {
     />
   );
 });`,
+      },
+      {
+        label: "Astro",
+        lang: "astro",
+        code: `---
+import "@oklch-picker/core/styles.css";
+---
+
+<oklch-picker value="oklch(0.7 0.15 255)"></oklch-picker>
+
+<script>
+  import "oklch-picker/register";
+<\/script>`,
       },
       {
         label: "No framework",
