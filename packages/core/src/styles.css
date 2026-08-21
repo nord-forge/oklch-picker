@@ -383,14 +383,31 @@
 }
 
 /* ---- Footer ---- */
+/* Two rows: the colour's name, then the swatch and the value beside it.
+   The name leads because it is the label for what follows, and reading it
+   above the pair beats finding it trailing off the end of the row.
+
+   A grid rather than a wrapping flex row, so the name occupies a row of its
+   own and the value's box can size to its content. The columns are the swatch
+   at its own width and the value at `max-content`, capped so a long string
+   scrolls inside the field instead of stretching the picker. `start` keeps
+   that pair packed to the left rather than filling the width. */
 .oklch-picker__footer {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, max-content);
   align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
+  justify-content: start;
+  gap: 6px 8px;
   /* Last, after the swatch rows. It reads out the current value, so it belongs
      at the end rather than between the sliders and the palette. */
   order: 3;
+}
+/* The name spans both columns on the first row. `order` rather than markup:
+   every adapter renders preview, then fields, then name, and moving it would
+   mean the same edit in seven places. */
+.oklch-picker__footer > .oklch-picker__name {
+  order: -1;
+  grid-column: 1 / -1;
 }
 /* The value fields. `oklch` is the wide one because it is the primary format
    and its string is the longest; the others size to their content. */
@@ -405,15 +422,18 @@
   font-size: 11.5px;
   min-width: 0;
 }
-.oklch-picker__field--oklch {
-  flex: 1 1 11rem;
-  max-width: 15rem;
-}
-.oklch-picker__field--rgb {
-  flex: 0 1 9rem;
-}
-.oklch-picker__field--hex {
-  flex: 0 0 92px;
+/* Sized to the value it holds rather than to a fixed width, so the box tracks
+   the string as it is edited.
+
+   `field-sizing` does that natively. Where it is missing, Firefox and Safari
+   fall back to the input's default width, which is close enough to the longest
+   value these fields hold and never smaller than the `ch` floor below. The cap
+   stops a long paste stretching the picker; the value scrolls inside instead. */
+.oklch-picker__field {
+  field-sizing: content;
+  width: auto;
+  min-width: 8ch;
+  max-width: 100%;
 }
 .oklch-picker__field:focus-visible {
   outline: 2px solid var(--okp-focus);
@@ -518,12 +538,21 @@
   align-self: start;
 }
 /* The readout becomes a column in the rail: preview, hex, then name. */
+/* One column in the rail, which has no room for the swatch and the value side
+   by side. The name still leads, as it does in every other layout. */
 .oklch-picker--side-by-side .oklch-picker__footer {
   grid-area: footer;
   align-self: start;
-  flex-direction: column;
+  grid-template-columns: minmax(0, 1fr);
+  justify-content: stretch;
   align-items: stretch;
   gap: var(--okp-gap);
+}
+/* Full width here rather than sized to the value: the rail is a fixed column,
+   so a field that grew with the string would push past it. */
+.oklch-picker--side-by-side .oklch-picker__field {
+  field-sizing: fixed;
+  width: 100%;
 }
 /* The preview fills the rail's width instead of sitting as a 34px chip beside
    a hex field it no longer shares a row with. */
