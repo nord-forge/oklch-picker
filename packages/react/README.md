@@ -36,7 +36,7 @@ export function Example() {
 }
 ```
 
-`onChange` always receives a canonical, gamut-clamped `oklch(L C H)` string. `value` accepts that or hex.
+`onChange` always receives a canonical, gamut-clamped `oklch(L C H)` string. `value` accepts that, `rgb()`, `hsl()`, `hwb()` or hex.
 
 **The picker is controlled, always.** It keeps no colour of its own: whatever you
 pass as `value` is what it renders, so the value it hands back has to come back

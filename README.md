@@ -233,7 +233,7 @@ The element renders into the light DOM, so the stylesheet and `--okp-*` override
 
 ---
 
-Whatever you use, the emitted value is always a canonical, gamut-clamped `oklch(L C H)` string, and the value you pass in accepts either that or hex.
+Whatever you use, the emitted value is always a canonical, gamut-clamped `oklch(L C H)` string. The value you pass in is more forgiving: `oklch()`, `rgb()`, `hsl()`, `hwb()` or hex.
 
 ### Presets
 

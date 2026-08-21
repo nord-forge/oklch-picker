@@ -2,6 +2,7 @@
 import CodeTabs from "../../components/CodeTabs.astro";
 import Pager from "../../components/Pager.astro";
 import Page from "../../layouts/Page.astro";
+import { url } from "../../lib/url";
 ---
 
 <Page
@@ -107,6 +108,69 @@ clampToGamut({ l: 0.7, c: 0.35, h: 145 }, P3);`,
       },
     ]}
   />
+
+  <h3>Which space each format writes</h3>
+
+  <p>
+    Only <code>oklch()</code> can express a colour wider than sRGB. The other
+    formats are sRGB notations, so each takes a colour and no gamut: there is
+    nothing a space argument could change, since a browser reads their numbers
+    as sRGB either way.
+  </p>
+
+  <table>
+    <thead>
+      <tr><th>Writes</th><th>Space</th><th>A P3 or Rec. 2020 colour</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>formatOklch</code></td>
+        <td>any</td>
+        <td>kept exactly</td>
+      </tr>
+      <tr>
+        <td><code>formatRgb</code></td>
+        <td>sRGB</td>
+        <td>clamped to the nearest sRGB colour</td>
+      </tr>
+      <tr>
+        <td><code>formatHsl</code></td>
+        <td>sRGB</td>
+        <td>clamped to the nearest sRGB colour</td>
+      </tr>
+      <tr>
+        <td><code>formatHwb</code></td>
+        <td>sRGB</td>
+        <td>clamped to the nearest sRGB colour</td>
+      </tr>
+      <tr>
+        <td><code>oklchToHex</code></td>
+        <td>sRGB</td>
+        <td>clamped to the nearest sRGB colour</td>
+      </tr>
+      <tr>
+        <td><code>oklchToRgb255</code></td>
+        <td>the gamut you pass</td>
+        <td>that space's own channels, for boundary maths rather than CSS</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p>
+    Reading is symmetric: <code>toOklch</code> accepts all five, so a value can
+    arrive in any of them. What a clamped format cannot do is give the wider
+    colour back, which is why <code>value</code> stores <code>oklch()</code>.
+    See <a href={url("/docs/gamuts")}>Wider gamuts</a>.
+  </p>
+
+  <div class="note">
+    <p>
+      <code>oklchToRgb255</code> is the one exception, and it is not a CSS
+      format. It returns a space's own 0..255 channels, which is what the chart
+      boundaries need. Those numbers are not valid in an <code>rgb()</code>
+      string unless the space is sRGB.
+    </p>
+  </div>
 
   <h2>The headless model</h2>
 

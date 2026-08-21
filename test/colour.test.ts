@@ -1002,3 +1002,50 @@ describe("the sRGB formats stay sRGB", () => {
     expect(oklchToHex(toOklch(model.rgb) as Oklch)).toBe(model.hex);
   });
 });
+
+// The contract this suite is really protecting: a colour written in any format
+// can be read back, and only `oklch()` survives a wider gamut. Anything else is
+// an sRGB notation, so it is clamped and says so in the docs.
+describe("every format round-trips, in every gamut", () => {
+  const CASES = [
+    ["an sRGB colour", { l: 0.75, c: 0.16, h: 145 }],
+    ["a P3 colour sRGB cannot show", { l: 0.86, c: 0.28, h: 145 }],
+    ["a Rec. 2020 colour P3 cannot show", { l: 0.87, c: 0.34, h: 145 }],
+  ] as const;
+
+  test.each(CASES)("%s parses back from every format", (_name, colour) => {
+    const nearest = oklchToHex(colour);
+    for (const [name, css] of [
+      ["oklch", formatOklch(colour)],
+      ["rgb", formatRgb(colour)],
+      ["hsl", formatHsl(colour)],
+      ["hwb", formatHwb(colour)],
+      ["hex", oklchToHex(colour)],
+    ] as const) {
+      const back = toOklch(css) as Oklch;
+      expect(back, `${name} did not parse back`).not.toBeNull();
+      // Every sRGB notation lands on the same colour: the nearest sRGB one.
+      expect(oklchToHex(back), `${name} disagrees`).toBe(nearest);
+    }
+  });
+
+  test.each(CASES)("%s survives oklch() exactly", (_name, colour) => {
+    expect(formatOklch(toOklch(formatOklch(colour)) as Oklch)).toBe(formatOklch(colour));
+  });
+
+  // The three wider colours differ from each other in OKLCH and collapse onto
+  // sRGB, which is the loss the docs describe. Without this, the test above
+  // would pass just as well if every format returned the same thing always.
+  test("the wider colours are genuinely outside the narrower spaces", () => {
+    const [, srgb] = CASES[0];
+    const [, p3] = CASES[1];
+    const [, rec] = CASES[2];
+    expect(inGamut(srgb, SRGB)).toBe(true);
+    expect(inGamut(p3, SRGB)).toBe(false);
+    expect(inGamut(p3, P3)).toBe(true);
+    expect(inGamut(rec, P3)).toBe(false);
+    expect(inGamut(rec, REC2020)).toBe(true);
+    // And oklch() keeps them apart where the sRGB formats cannot.
+    expect(formatOklch(p3)).not.toBe(formatOklch(rec));
+  });
+});

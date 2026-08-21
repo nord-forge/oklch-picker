@@ -84,7 +84,8 @@ export function Example() {
   <p class="lede">
     The value semantics follow each framework's idiom, and the emitted value is
     always a canonical, gamut-clamped <code>oklch(L C H)</code> string. What you
-    pass in accepts either that or hex.
+    pass in is more forgiving: <code>oklch()</code>, <code>rgb()</code>,
+    <code>hsl()</code>, <code>hwb()</code> or hex, with or without alpha.
   </p>
 
   <Picker caption="Drag anything. The field in the footer shows what reaches your onChange." />
