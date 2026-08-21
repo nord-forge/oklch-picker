@@ -43,3 +43,8 @@ Qwik's `gamut` prop falls back to sRGB for any unrecognised id, including
 inherited property names like `constructor`, which used to throw. Angular's
 generated ids no longer drift between server renders, which broke the chart
 gradient on hydration.
+
+Chart `resolution` is capped, so a large value can no longer freeze a drag or
+block the server's event loop, and `clampToGamut` no longer carries a negative
+chroma through. `alphaModel`, `alphaTrack`, the `AlphaModel` type and
+`oklchToLms` are exported, having been unreachable from the entry point.
