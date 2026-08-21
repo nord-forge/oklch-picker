@@ -20,6 +20,41 @@ const { title, description, wide = false } = Astro.props;
 // Canonical URLs need the deployed origin, which `site` in the config supplies.
 const canonical = new URL(Astro.url.pathname, Astro.site).href;
 const pathname = Astro.url.pathname;
+
+// Absolute, because every crawler that reads these resolves them against its
+// own origin rather than the page's. A root-relative path here shows a blank
+// card on every platform that matters.
+const ogImage = new URL(url("/og.png"), Astro.site).href;
+
+// One entry, describing the library rather than the page. Google reads this to
+// build the result card, and `SoftwareSourceCode` is what a package is.
+const structuredData = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareSourceCode",
+  name: "oklch-picker",
+  description:
+    "An OKLCH colour picker for React, Preact, Vue, Svelte, Solid, Angular, Qwik and no framework at all. Every axis is a slider over a gamut cross-section.",
+  url: new URL(url("/"), Astro.site).href,
+  codeRepository: "https://github.com/nord-forge/oklch-picker",
+  programmingLanguage: "TypeScript",
+  license: "https://opensource.org/licenses/MIT",
+  keywords: [
+    "oklch",
+    "colour picker",
+    "color picker",
+    "gamut",
+    "Display P3",
+    "Rec. 2020",
+    "React",
+    "Vue",
+    "Svelte",
+    "Solid",
+    "Angular",
+    "Qwik",
+    "Astro",
+    "web component",
+  ],
+};
 ---
 
 <!doctype html>
@@ -31,11 +66,37 @@ const pathname = Astro.url.pathname;
     <meta name="description" content={description} />
     <link rel="canonical" href={canonical} />
 
+    {/* The mark doubles as the favicon. An SVG scales to whatever the browser
+        asks for, and every browser that supports `oklch()` supports it. */}
+    <link rel="icon" href={url("/mark-light.svg")} type="image/svg+xml" />
+    <link rel="apple-touch-icon" href={url("/og.png")} />
+
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:type" content="website" />
     <meta property="og:url" content={canonical} />
+    <meta property="og:site_name" content="oklch-picker" />
+    <meta property="og:locale" content="en_GB" />
+    {/* PNG, not the SVG it is rendered from: no major platform previews SVG,
+        so a card pointing at one is a blank card. 1200x630 is the size they
+        all crop to. */}
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="oklch-picker: an OKLCH colour picker that takes the gamut seriously"
+    />
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImage} />
+
+    <script
+      type="application/ld+json"
+      set:html={JSON.stringify(structuredData)}
+      is:inline
+    />
 
     {/* Pin the stored theme before first paint. Doing this in the body would
         show a flash of the system scheme first. */}

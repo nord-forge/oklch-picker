@@ -360,6 +360,31 @@ kbd {
   background: var(--site-surface);
 }
 
+/* Space reserved for a picker that has not upgraded yet.
+   `<oklch-picker>` is an unknown element until its module runs, so it is an
+   empty inline box with no height, and the page reflowed around it on upgrade.
+   That is a layout shift on every docs page, and it was enough to push CLS
+   past 0.1 on the busiest of them.
+
+   The values are the measured heights of each layout at the width the demos
+   render at, so the reserved box is the same size as what replaces it. They
+   are a floor rather than a fixed height: a picker with presets or recents is
+   taller, and growing downward from the right starting point shifts nothing
+   above it. */
+.demo__frame oklch-picker {
+  display: block;
+  min-height: 479px;
+}
+.demo__frame oklch-picker[layout="side-by-side"] {
+  min-height: 394px;
+}
+.demo__frame oklch-picker[layout="stacked"] {
+  min-height: 379px;
+}
+.demo__frame oklch-picker[layout="compact"] {
+  min-height: 176px;
+}
+
 /* --- Code tabs ------------------------------------------------------------ */
 
 .tabs {

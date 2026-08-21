@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630" role="img" aria-label="oklch-picker: an OKLCH colour picker that takes the gamut seriously">
+  <defs>
+    <!-- The same sweep the mark uses, so a shared link and the favicon beside
+         it read as one thing. -->
+    <linearGradient id="sweep" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#70a100" />
+      <stop offset="8.33%" stop-color="#43aa00" />
+      <stop offset="16.67%" stop-color="#00ac46" />
+      <stop offset="25%" stop-color="#00aa6b" />
+      <stop offset="33.33%" stop-color="#00a881" />
+      <stop offset="41.67%" stop-color="#00a690" />
+      <stop offset="50%" stop-color="#00a59d" />
+      <stop offset="58.33%" stop-color="#00a3a9" />
+      <stop offset="66.67%" stop-color="#00a1b4" />
+      <stop offset="75%" stop-color="#009fc0" />
+      <stop offset="83.33%" stop-color="#009dce" />
+      <stop offset="91.67%" stop-color="#0099e0" />
+      <stop offset="100%" stop-color="#0092f9" />
+    </linearGradient>
+    <clipPath id="card">
+      <rect width="1200" height="630" />
+    </clipPath>
+  </defs>
+
+  <rect width="1200" height="630" fill="#0d1117" />
+
+  <!-- The gamut silhouette, the thing the picker is actually about: the filled
+       region is what sRGB can show, and it rises and falls with hue. -->
+  <g clip-path="url(#card)" opacity="0.9">
+    <path
+      d="M0 545c40-10 80-38 120-66 40-28 80-56 120-62 40-6 80 14 120 44 40 30 80 70 120 96 40 26 80 38 120 36 40-2 80-18 120-46 40-28 80-68 120-114 40-46 80-98 120-134 40-36 80-56 120-62V630H0Z"
+      fill="url(#sweep)"
+    />
+    <!-- The crosshair, as it appears on the chart. -->
+    <path
+      d="M0 520H1200M880 0V630"
+      fill="none"
+      stroke="#ffffff"
+      stroke-width="3"
+      stroke-dasharray="6 12"
+      stroke-linecap="round"
+      opacity="0.55"
+    />
+    <circle cx="880" cy="520" r="18" fill="none" stroke="#ffffff" stroke-width="5" opacity="0.9" />
+  </g>
+
+  <!-- A system stack, because this renders wherever the crawler renders it and
+       a webfont would simply not be there. -->
+  <g
+    font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif"
+    fill="#ffffff"
+  >
+    <text x="80" y="150" font-size="64" font-weight="700" letter-spacing="-1">oklch-picker</text>
+    <text x="80" y="226" font-size="34" font-weight="500" opacity="0.92">
+      An OKLCH colour picker that takes the gamut seriously
+    </text>
+    <text x="80" y="292" font-size="27" opacity="0.66">
+      React · Vue · Svelte · Solid · Angular · Qwik · Astro · no framework
+    </text>
+    <text
+      x="80"
+      y="352"
+      font-size="24"
+      opacity="0.66"
+      font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+    >
+      Zero runtime dependencies · ~6.5 kB gzipped
+    </text>
+  </g>
+</svg>
