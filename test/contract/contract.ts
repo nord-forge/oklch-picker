@@ -331,6 +331,38 @@ export function adapterContract(driver: Driver): void {
       { gamutChoices: [SRGB, P3, REC2020], parts: { gamutSwitch: true } },
     );
 
+    // The press reports and does nothing else, in the six controlled adapters.
+    // `gamut` is a prop there, so the app owns it: an adapter that switched its
+    // own output would be driving state its consumer thinks it holds, and the
+    // next render would put it back.
+    //
+    // This is the half the test above could not see. It asserted only that a
+    // press was *reported*, so an adapter that also re-clamped and emitted a
+    // second value passed it just as well as one that did nothing.
+    //
+    // `vanilla` declares this one `unsupported` and asserts the opposite in its
+    // own file, for the same reason the READMEs single it out: the element
+    // holds its own colour, so switching gamut is its business rather than the
+    // app's. That declaration prints as a skip carrying the reason, so the
+    // divergence is stated rather than invisible.
+    it(
+      "pressing a gamut reports it without emitting a colour",
+      async (m) => {
+        const before = m.emitted.length;
+        const choices = m.root.querySelectorAll(".oklch-picker__gamut-choice");
+        await m.click(choices[1] as Element);
+        expect(m.gamuts.at(-1)?.id).toBe("p3");
+        // The output space is the app's to change, so nothing is emitted
+        // until it passes the new `gamut` back in.
+        expect(m.emitted.length, "the switcher emitted a colour of its own").toBe(before);
+      },
+      {
+        value: "oklch(0.75 0.2 145)",
+        gamutChoices: [SRGB, P3, REC2020],
+        parts: { gamutSwitch: true },
+      },
+    );
+
     it(
       "one option is not a choice, so sRGB alone renders no switcher",
       (m) => {

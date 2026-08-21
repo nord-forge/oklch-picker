@@ -1,5 +1,7 @@
 /** The custom element against the shared contract, driven through real DOM. */
 import type { Gamut } from "@oklch-picker/core";
+import { SRGB, inGamut, parseOklch } from "@oklch-picker/core";
+import { P3 } from "@oklch-picker/core/gamuts";
 import { type OklchPickerElement, register } from "oklch-picker";
 import { beforeAll, expect, test } from "vitest";
 import { adapterContract } from "./contract.js";
@@ -11,6 +13,15 @@ const hosts: HTMLElement[] = [];
 
 adapterContract({
   name: "vanilla",
+  /** The element holds its own colour, unlike the six controlled adapters, so
+   * pressing a gamut is its business rather than the app's: it re-clamps and
+   * emits. The READMEs say so, and the test below asserts that behaviour
+   * directly. Declared here so the contract prints a skip carrying the reason
+   * rather than passing over the difference in silence. */
+  unsupported: {
+    "pressing a gamut reports it without emitting a colour":
+      "the element is uncontrolled, so it switches its own output and emits the re-clamped colour",
+  },
   cleanup() {
     for (const h of hosts.splice(0)) h.remove();
   },
@@ -114,5 +125,38 @@ test("the element is not controlled: it holds its own colour", () => {
   hue().dispatchEvent(new Event("input", { bubbles: true }));
   expect(hue().value).toBe("300");
   expect(host.querySelector("oklch-picker")?.getAttribute("value")).toContain("300");
+  host.remove();
+});
+
+// The other side of the `unsupported` entry above. The six adapters report a
+// gamut press and change nothing, because `gamut` is the app's prop. The
+// element owns its colour, so it switches its own output space, re-clamps the
+// colour into it, and emits the result. Asserted rather than assumed: the
+// contract skips this behaviour for vanilla, so without this test the
+// divergence would be documented and unverified.
+test("the element switches its own gamut and emits the re-clamped colour", async () => {
+  const host = document.createElement("div");
+  document.body.append(host);
+  const el = document.createElement("oklch-picker") as OklchPickerElement;
+  // A colour P3 can show and sRGB cannot, so switching down has to move it.
+  el.setAttribute("value", "oklch(0.75 0.25 145)");
+  el.gamut = P3;
+  el.gamutChoices = [SRGB, P3];
+  el.parts = { gamutSwitch: true };
+  host.append(el);
+
+  const emitted: string[] = [];
+  el.addEventListener("change", (e) => emitted.push((e as CustomEvent).detail.colour));
+
+  const choices = el.querySelectorAll<HTMLButtonElement>(".oklch-picker__gamut-choice");
+  expect(choices.length).toBe(2);
+  // Press sRGB, the narrower of the two.
+  choices[0]?.click();
+
+  expect(el.gamut?.id).toBe("srgb");
+  expect(emitted.length).toBeGreaterThan(0);
+  const last = parseOklch(emitted.at(-1) ?? "");
+  expect(last).not.toBeNull();
+  expect(inGamut(last as never, SRGB)).toBe(true);
   host.remove();
 });
