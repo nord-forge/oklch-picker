@@ -274,8 +274,15 @@ export function hexToOklch(hex: string): Oklch | null {
   return a >= 1 ? colour : { ...colour, a };
 }
 
-/** The 0..255 sRGB channels for a colour, gamut-clamped. The shared step
- * behind both the `rgb()` string and the hex one. */
+/** The 0..255 sRGB channels for a colour. The shared step behind both the
+ * `rgb()` string and the hex one.
+ *
+ * `gamut` narrows which colours survive, not which space the channels are in:
+ * the conversion is always sRGB. Passing a wider space therefore yields
+ * channels that no `rgb()` string can carry, since CSS reads those numbers as
+ * sRGB. `formatRgb`, `formatHsl`, `formatHwb` and `oklchToHex` all clamp to
+ * sRGB for that reason; this stays configurable because the boundary maths
+ * needs a space's own channels. */
 export function oklchToRgb255(colour: Oklch, gamut: Gamut = SRGB): [number, number, number] {
   const [r, g, b] = oklchToLinearRgb(clampToGamut(colour, gamut));
   const to255 = (v: number) => clamp(Math.round(linearToSrgb(v) * 255), 0, 255);
@@ -286,9 +293,15 @@ export function oklchToRgb255(colour: Oklch, gamut: Gamut = SRGB): [number, numb
  *
  * The space-separated CSS Color 4 form rather than legacy `rgba(...)` commas.
  * Both are valid CSS and every target browser parses this one, since a browser
- * without it would not support `oklch()` either. */
-export function formatRgb(colour: Oklch, gamut: Gamut = SRGB): string {
-  const [r, g, b] = oklchToRgb255(colour, gamut);
+ * without it would not support `oklch()` either.
+ *
+ * Always sRGB, whatever the picker's output space. `rgb()` numbers mean sRGB to
+ * a browser, so writing P3 channels into one produces a different colour than
+ * intended, silently: a P3 green read back as `rgb()` rendered `#00fd3f` while
+ * the same picker's hex field said `#01fb48`. A wide-gamut colour has to stay
+ * in `oklch()` to stay itself. */
+export function formatRgb(colour: Oklch): string {
+  const [r, g, b] = oklchToRgb255(colour, SRGB);
   const base = `${r} ${g} ${b}`;
   return hasAlpha(colour) ? `rgb(${base} / ${round(colour.a, 4)})` : `rgb(${base})`;
 }
@@ -362,11 +375,11 @@ function rgbToHsl(r: number, g: number, b: number): [number, number, number] {
 
 /** Format as `hsl(H S% L%)`, or `hsl(H S% L% / A)` when not opaque.
  *
- * Clamped into `gamut` first, like every other output: HSL describes sRGB, so a
- * wider colour has to land somewhere reachable before it can be written at all.
- * A colour outside sRGB is therefore lossy here in a way `oklch()` is not. */
-export function formatHsl(colour: Oklch, gamut: Gamut = SRGB): string {
-  const [r, g, b] = oklchToRgb255(colour, gamut);
+ * Always sRGB, for the reason `formatRgb` gives: HSL is a way of describing an
+ * sRGB colour, so a wider one is clamped to the nearest sRGB colour before it
+ * can be written at all. Lossy here in a way `oklch()` is not. */
+export function formatHsl(colour: Oklch): string {
+  const [r, g, b] = oklchToRgb255(colour, SRGB);
   const [h, s, l] = rgbToHsl(r / 255, g / 255, b / 255);
   const base = `${round(h, 2)} ${round(s * 100, 2)}% ${round(l * 100, 2)}%`;
   return hasAlpha(colour) ? `hsl(${base} / ${round(colour.a, 4)})` : `hsl(${base})`;
@@ -375,9 +388,9 @@ export function formatHsl(colour: Oklch, gamut: Gamut = SRGB): string {
 /** Format as `hwb(H W% B%)`, or `hwb(H W% B% / A)` when not opaque.
  *
  * Whiteness and blackness are the smallest and largest sRGB channels, so this
- * shares `gamut` clamping with `formatHsl` for the same reason. */
-export function formatHwb(colour: Oklch, gamut: Gamut = SRGB): string {
-  const [r255, g255, b255] = oklchToRgb255(colour, gamut);
+ * is sRGB-only for the same reason `formatHsl` is. */
+export function formatHwb(colour: Oklch): string {
+  const [r255, g255, b255] = oklchToRgb255(colour, SRGB);
   const [r, g, b] = [r255 / 255, g255 / 255, b255 / 255] as [number, number, number];
   const [h] = rgbToHsl(r, g, b);
   const w = Math.min(r, g, b);

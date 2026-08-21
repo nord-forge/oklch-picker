@@ -968,3 +968,37 @@ describe("hsl and hwb", () => {
     }
   });
 });
+
+// Regression: these three formats are sRGB notations, but each took a `gamut`
+// and the picker passed its output space in. A P3 picker's `rgb()` field then
+// read `rgb(0 253 63)`, which a browser renders as #00fd3f, while the hex field
+// beside it said #01fb48. Two fields, one colour, two answers.
+describe("the sRGB formats stay sRGB", () => {
+  const wide = { l: 0.86, c: 0.28, h: 145 };
+
+  test("a wide colour is outside sRGB and inside P3, so it is worth testing", () => {
+    expect(inGamut(wide, SRGB)).toBe(false);
+    expect(inGamut(wide, P3)).toBe(true);
+  });
+
+  test("every sRGB format renders as the colour it claims", () => {
+    for (const [name, css] of [
+      ["rgb", formatRgb(wide)],
+      ["hsl", formatHsl(wide)],
+      ["hwb", formatHwb(wide)],
+      ["hex", oklchToHex(wide)],
+    ] as const) {
+      const back = toOklch(css) as Oklch;
+      expect(back, `${name} did not parse back`).not.toBeNull();
+      expect(inGamut(back, SRGB), `${name} wrote a colour sRGB cannot show`).toBe(true);
+      // And every one agrees on the colour, since they all describe the same
+      // sRGB result.
+      expect(oklchToHex(back), `${name} disagrees with hex`).toBe(oklchToHex(wide));
+    }
+  });
+
+  test("the picker's rgb field agrees with its hex field in a wider space", () => {
+    const model = pickerModel(wide, { gamut: P3 });
+    expect(oklchToHex(toOklch(model.rgb) as Oklch)).toBe(model.hex);
+  });
+});

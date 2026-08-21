@@ -298,6 +298,30 @@ the safe region stays visible. Override with `references` to draw others, or
 `P3` and `REC2020` live behind their own entry point on purpose. An app that
 never imports them never ships the matrices. The bundler drops the module
 statically, so there is no dynamic import and nothing async in the render path.
+
+**Only `oklch()` carries a wide-gamut colour.** `rgb()`, `hsl()`, `hwb()` and
+hex all describe an sRGB colour, so a P3 or Rec. 2020 value written in any of
+them is the nearest sRGB colour instead. Nothing warns you: the string is
+valid, displayable, and a different colour. That is why the hex and `rgb()`
+fields are off by default, and why `value` stores `oklch()`. Convert at the
+edges, where a legacy format is actually required.
+
+```js
+import { formatOklch, formatHsl, oklchToHex, inGamut, SRGB } from "@oklch-picker/core";
+
+const green = { l: 0.86, c: 0.28, h: 145 };  // P3 reaches this, sRGB does not
+
+formatOklch(green);  // "oklch(0.86 0.28 145)"       the colour, intact
+oklchToHex(green);   // "#01fb48"                    nearest sRGB
+formatHsl(green);    // "hsl(137.04 99.21% 49.41%)"  nearest sRGB
+
+// Ask first, if a silent shift would matter.
+if (!inGamut(green, SRGB)) keepAsOklch(green);
+```
+
+None of the sRGB formatters takes a `gamut`, deliberately. A browser reads
+their numbers as sRGB, so passing a wider space would write channels that
+render as some other colour entirely.
 Opting in costs a few hundred bytes.
 
 ### Letting the user switch

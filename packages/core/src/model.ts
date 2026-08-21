@@ -575,7 +575,10 @@ export function pickerModel(current: Oklch, options: PickerOptions = {}): Picker
     gamutChoices: withGamutSwitch ? gamutChoices : NO_GAMUTS,
     withGamutSwitch,
     hex: oklchToHex(current),
-    rgb: formatRgb(current, gamut),
+    // sRGB, not the output space: `rgb()` numbers mean sRGB to a browser, so a
+    // P3 picker showing P3 channels in this field gave a string that renders as
+    // a different colour than the swatch beside it.
+    rgb: formatRgb(current),
     oklch: emitValue(current, gamut),
     alpha: alphaModel(current, gamut),
     withAlpha: parts.alpha,
