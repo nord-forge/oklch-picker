@@ -19,6 +19,7 @@ import {
   parseRgb,
   toOklch,
 } from "../packages/core/src/colour.js";
+import type { Oklch } from "../packages/core/src/colour.js";
 import { P3, REC2020 } from "../packages/core/src/gamuts.js";
 import {
   DEFAULT_LABELS,
@@ -182,12 +183,17 @@ describe("gamut", () => {
   // Regression: these two disagreed near black. maxChroma returned 0 while
   // inGamut still said true, so the picker drew a crosshair above the curve and
   // showed no out-of-gamut notice for a colour it could not display.
+  // Every hue, not a sample of six. This test was written for exactly the bug
+  // it then missed: rounding inside `inGamut` made membership flicker, the
+  // bisection converged in a dead zone, and `maxChroma` reported less than
+  // `inGamut` accepted. It failed at h=221 and h=222 alone, and neither was
+  // among the six hues it checked.
   test("inGamut and maxChroma agree everywhere, near black included", () => {
-    for (const h of [0, 60, 145, 200, 263, 320]) {
+    for (let h = 0; h < 360; h++) {
       for (let l = 0; l <= 1.0001; l += 0.02) {
         const limit = maxChroma(l, h);
         // Anything past the reported limit must be reported as out of gamut.
-        expect(inGamut({ l, c: limit + 0.01, h })).toBe(false);
+        expect(inGamut({ l, c: limit + 0.01, h }), `h=${h} l=${l.toFixed(2)}`).toBe(false);
         if (limit > 0) expect(inGamut({ l, c: limit, h })).toBe(true);
       }
     }
@@ -209,6 +215,48 @@ describe("gamut", () => {
 
   test("out-of-gamut colours still produce valid hex", () => {
     expect(oklchToHex({ l: 0.75, c: 0.35, h: 145 })).toMatch(/^#[0-9a-f]{6}$/);
+  });
+
+  // Regression: the clamp landed just inside the boundary and `formatOklch`
+  // rounded chroma half up, back out of it. The object was in gamut and the
+  // string it formatted to was not, so a picker fed its own emitted value
+  // showed the out-of-gamut notice.
+  test("a clamped colour survives formatting and parsing back", () => {
+    const emitted = formatOklch(clampToGamut({ l: 0, c: 0.425, h: 220 }));
+    expect(inGamut(parseOklch(emitted) as Oklch)).toBe(true);
+  });
+
+  // Every gamut, because the near-white failure this caught was Rec2020's
+  // alone: its in-gamut island there is thinner than the four decimals the
+  // string keeps.
+  test.each([
+    ["sRGB", SRGB],
+    ["P3", P3],
+    ["Rec2020", REC2020],
+  ])("nothing out of gamut is emitted for %s, over a dense sweep", (_name, gamut) => {
+    let escaped = 0;
+    for (let l = 0; l <= 1.0001; l += 0.05) {
+      for (let h = 0; h < 360; h += 15) {
+        for (const c of [0.05, 0.15, 0.25, 0.35, 0.5]) {
+          const clamped = clampToGamut({ l, c, h }, gamut);
+          const parsed = parseOklch(formatOklch(clamped)) as Oklch;
+          if (!inGamut(clamped, gamut) || !inGamut(parsed, gamut)) escaped++;
+        }
+      }
+    }
+    expect(escaped).toBe(0);
+  });
+
+  // The clamp's chroma must not change when it goes through the string, or
+  // `resolveCurrent` stops recognising its own draft.
+  test("clamping is idempotent through the emitted string", () => {
+    for (let l = 0; l <= 1.0001; l += 0.1) {
+      for (let h = 0; h < 360; h += 30) {
+        const once = formatOklch(clampToGamut({ l, c: 0.5, h }));
+        const twice = formatOklch(clampToGamut(parseOklch(once) as Oklch));
+        expect(twice).toBe(once);
+      }
+    }
   });
 });
 

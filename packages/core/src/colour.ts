@@ -164,7 +164,17 @@ export const SRGB: Gamut = {
  * still holds chroma that quantises away. At L=0 every chroma below ~0.039 is
  * `#000000`, indistinguishable from the achromatic colour. Requiring a
  * distinguishable channel is what makes the gamut close to a point at black
- * rather than reporting a width that no screen can show. */
+ * rather than reporting a width that no screen can show.
+ *
+ * That separation is measured unrounded, against half a step, rather than by
+ * rounding both sides and comparing. Rounding first is not monotonic in chroma:
+ * two channels land either side of a `.5` boundary and membership flickers
+ * in, out and back in as chroma rises. `bisectChroma` assumes one crossing, so
+ * on a flickering predicate it converged inside a dead zone and reported a
+ * maximum below what `inGamut` itself accepted. The two disagreed at 2 of the
+ * 43,200 (lightness, hue) pairs swept; measuring before the rounding leaves 0,
+ * and it means the same thing: at least one channel differs by enough to
+ * survive quantisation. */
 export function inGamut(colour: Oklch, gamut: Gamut = SRGB): boolean {
   const eps = 0.1 / 255;
   const rgb = gamut.fromLms(oklchToLms(colour));
@@ -172,9 +182,9 @@ export function inGamut(colour: Oklch, gamut: Gamut = SRGB): boolean {
   if (colour.c === 0) return true;
 
   // Distinguishable from grey at the same lightness once quantised to 8 bits?
-  const to255 = (v: number) => Math.round(clamp(linearToSrgb(v), 0, 1) * 255);
+  const to255 = (v: number) => clamp(linearToSrgb(v), 0, 1) * 255;
   const grey = gamut.fromLms(oklchToLms({ ...colour, c: 0 })).map(to255);
-  return rgb.map(to255).some((v, i) => v !== grey[i]);
+  return rgb.map(to255).some((v, i) => Math.abs(v - (grey[i] as number)) >= 0.5);
 }
 
 /** Highest chroma <= hi that fits the gamut at this lightness and hue. Chroma
@@ -190,10 +200,24 @@ function bisectChroma(l: number, h: number, upper: number, gamut: Gamut = SRGB):
   return lo;
 }
 
-/** Reduce chroma until the colour fits the gamut, keeping lightness and hue. */
+/** Reduce chroma until the colour fits the gamut, keeping lightness and hue.
+ *
+ * The bisection resolves ~100x finer than the four decimals `formatOklch`
+ * keeps, so its result lands just inside the boundary and rounding to four
+ * places would round half up and cross back out. Floor to that precision here
+ * instead: what is returned is then the same colour the formatted string
+ * parses back to, and "nothing out-of-gamut is ever emitted" holds for the
+ * string as well as the object. */
 export function clampToGamut(colour: Oklch, gamut: Gamut = SRGB): Oklch {
   if (inGamut(colour, gamut)) return colour;
-  return { ...colour, c: bisectChroma(colour.l, colour.h, colour.c, gamut) };
+  const c = bisectChroma(colour.l, colour.h, colour.c, gamut);
+  const floored = Math.floor(c * 1e4) / 1e4;
+  // Membership is not strictly monotonic in chroma: the 8-bit distinguishability
+  // rule in `inGamut` can leave an island narrower than this grid, and near
+  // white one is thinner than 0.0001. Flooring off such an island would emit a
+  // colour that is out of gamut again, so fall back to the achromatic value,
+  // which every gamut holds at any lightness.
+  return { ...colour, c: inGamut({ ...colour, c: floored }, gamut) ? floored : 0 };
 }
 
 /** OKLCH -> `#rrggbb`. Out-of-gamut colours are clamped first. */
